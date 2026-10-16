@@ -1,0 +1,8 @@
+node_modules
+dist
+test-results
+playwright-report
+*.local
+# dados pessoais NUNCA entram no repositório
+DADOS_PESSOAIS*.json
+*_PRIVADA*.json

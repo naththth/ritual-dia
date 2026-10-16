@@ -1,0 +1,36 @@
+{
+  "name": "ritual",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "e2e": "playwright test"
+  },
+  "dependencies": {
+    "@fontsource-variable/figtree": "5.1.0",
+    "@fontsource-variable/fraunces": "5.1.0",
+    "@supabase/supabase-js": "2.45.4",
+    "dexie": "4.0.8",
+    "dexie-react-hooks": "1.1.7",
+    "lucide-react": "0.441.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-router-dom": "6.26.2",
+    "zustand": "4.5.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "@types/react": "18.3.10",
+    "@types/react-dom": "18.3.0",
+    "@vitejs/plugin-react": "4.3.2",
+    "fake-indexeddb": "6.0.0",
+    "typescript": "5.6.2",
+    "vite": "5.4.8",
+    "vite-plugin-pwa": "0.20.5",
+    "vitest": "2.1.2"
+  }
+}

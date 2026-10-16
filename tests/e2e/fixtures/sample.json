@@ -1,0 +1,26 @@
+{
+  "version": "1.0.0",
+  "tarefas_pontuais": [
+    { "id": "t20", "titulo": "Arrumar máquina de lavar", "categoria": "Projetos", "subcategoria": "Casa", "prioridade_inicial_sugerida": "alta", "observacoes": "Diagnosticar e orçar manutenção." },
+    { "id": "t16", "titulo": "Decidir data da viagem de dezembro", "categoria": "Compromissos", "subcategoria": "Viagens", "prioridade_inicial_sugerida": "alta" },
+    { "id": "t07", "titulo": "Comprar conjunto novo de treino", "categoria": "Materiais", "subcategoria": "Pessoal", "prioridade_inicial_sugerida": "média" },
+    { "id": "t08", "titulo": "Comprar estante vermelha alta", "categoria": "Materiais", "subcategoria": "Casa", "prioridade_inicial_sugerida": "média" }
+  ],
+  "habitos": [
+    { "id": "hab_t29", "titulo": "Meditação", "frequencia_tipo": "diaria", "meta_ocorrencias": 1, "prioridade_inicial_sugerida": "alta" },
+    { "id": "hab_t31", "titulo": "Musculação", "frequencia_tipo": "semanal", "meta_ocorrencias": 3, "prioridade_inicial_sugerida": "alta" }
+  ],
+  "metas": [{ "id": "goal_1", "titulo": "Meta de exemplo", "metrica": "kg", "status": "ativa" }],
+  "catalogo_produtos_pele_para_validacao": [
+    { "id": "produto_ref_01", "marca": "Marca A", "nome": "Gel de limpeza", "categoria": "Limpeza", "area": "rosto" },
+    { "id": "produto_ref_02", "marca": "Marca B", "nome": "Sérum calmante", "categoria": "Sérum e ampola", "area": "rosto" },
+    { "id": "produto_ref_03", "marca": "Marca C", "nome": "Creme hidratante", "categoria": "Hidratação", "area": "rosto" },
+    { "id": "produto_ref_04", "marca": "Marca D", "nome": "Protetor FPS 50", "categoria": "Proteção solar", "area": "rosto" },
+    { "id": "produto_ref_05", "marca": "Marca E", "nome": "Retinol", "categoria": "Tratamento com ativo", "area": "rosto" }
+  ],
+  "catalogo_alimentos_sugeridos": [
+    { "nome": "Frango", "tipo": "Proteína" }, { "nome": "Arroz", "tipo": "Carboidrato" },
+    { "nome": "Feijão", "tipo": "Leguminosas" }, { "nome": "Salada de folhas", "tipo": "Vegetais" }, { "nome": "Ovo", "tipo": "Proteína" }
+  ],
+  "preferencias_opcionais": {}
+}
