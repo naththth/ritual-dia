@@ -19,8 +19,10 @@ self.addEventListener('push', (event) => {
     tag: d.tag,
     icon: 'icons/icon-192.png',
     badge: 'icons/icon-192.png',
-    data: { url: d.url }
-  }));
+    data: { url: d.url },
+    // Alarme de acordar: vibra mais e fica na tela até ser tocado.
+    ...(d.alarm ? { requireInteraction: true, renotify: true, vibrate: [600, 300, 600, 300, 600, 300, 1200] } : { vibrate: [200, 100, 200] })
+  } as NotificationOptions));
 });
 
 self.addEventListener('notificationclick', (event) => {

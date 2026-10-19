@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Droplets, Dumbbell, Moon, Ruler, SquareCheck, Sunrise, Utensils, ListPlus } from 'lucide-react';
+import { Droplets, Dumbbell, Moon, Ruler, SquareCheck, Sunrise, Utensils, ListPlus, Upload } from 'lucide-react';
+import { importFitFiles } from '../domain/fitImport';
 import { useApp, toast } from '../state/store';
 import { useAll, useByRange, useSettings } from '../db/hooks';
 import { Sheet, Chip, afterSheetClose } from '../ui/ui';
@@ -15,13 +16,15 @@ export function RegisterSheet({ open, onClose }: { open: boolean; onClose: () =>
   const date = useApp((s) => s.date);
   const settings = useSettings();
   const [sub, setSub] = useState<null | 'habit' | 'task' | 'measure'>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const go = (path: string) => { onClose(); afterSheetClose(() => nav(path)); };
   const items = [
     { icon: <Sunrise size={22} />, label: 'Pele da manhã', color: 'var(--rose)', on: () => go('/pele?p=am') },
     { icon: <Moon size={22} />, label: 'Pele da noite', color: 'var(--rose)', on: () => go('/pele?p=pm') },
     { icon: <Utensils size={22} />, label: 'Refeição', color: 'var(--honey)', on: () => go('/alimentacao/refeicao') },
     { icon: <Droplets size={22} />, label: `Água +${settings?.waterPresets?.[1] ?? 300} mL`, color: 'var(--honey)', on: () => { addWater(date, settings?.waterPresets?.[1] ?? 300); } },
-    { icon: <Dumbbell size={22} />, label: 'Treino', color: 'var(--blue)', on: () => go('/treino/registrar?novo=1') },
+    { icon: <Upload size={22} />, label: 'Treino do arquivo .FIT', color: 'var(--blue)', on: () => fileRef.current?.click() },
+    { icon: <Dumbbell size={22} />, label: 'Treino sem arquivo', color: 'var(--blue)', on: () => go('/treino/registrar?novo=1') },
     { icon: <SquareCheck size={22} />, label: 'Hábito', color: 'var(--olive)', on: () => setSub('habit') },
     { icon: <ListPlus size={22} />, label: 'Nova tarefa', color: 'var(--wine-ink)', on: () => setSub('task') },
     { icon: <Ruler size={22} />, label: 'Medida de meta', color: 'var(--paper-2)', on: () => setSub('measure') }
@@ -36,6 +39,14 @@ export function RegisterSheet({ open, onClose }: { open: boolean; onClose: () =>
             </button>
           ))}
         </div>
+        <input ref={fileRef} type="file" accept=".fit,.zip,application/octet-stream,application/zip" multiple hidden data-testid="fit-input-quick" onChange={async (e) => {
+          const files = e.target.files ? Array.from(e.target.files) : [];
+          e.target.value = '';
+          if (!files.length) return;
+          onClose();
+          const last = await importFitFiles(files, settings?.ftp);
+          if (last) { useApp.getState().setDate(last); afterSheetClose(() => nav('/treino')); }
+        }} />
       </Sheet>
       <HabitQuick open={open && sub === 'habit'} onClose={() => { setSub(null); onClose(); }} />
       <TaskSheet open={open && sub === 'task'} onClose={() => { setSub(null); onClose(); }} defaults={{ plannedDate: date }} />

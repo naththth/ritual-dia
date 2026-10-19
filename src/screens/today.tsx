@@ -7,13 +7,14 @@ import { planFor, plannedFood, plannedSkin, plannedTraining } from '../domain/ru
 import { mealFromTemplate, saveSkin, workoutFromTemplate, addWater } from '../domain/actions';
 import { fmt, totals } from '../domain/nutrition';
 import { watts } from '../domain/ai';
-import { todayKey, type DateKey } from '../lib/dates';
+import { addDays, todayKey, type DateKey } from '../lib/dates';
+import { sleepPlan, wakeFor, bedFor, hoursLabel } from '../domain/sleep';
 import type { MealItem } from '../db/types';
 
 export const DEFAULT_MEAL_TIMES: Record<string, string> = { cafe: '07:30', almoco: '12:30', lanche: '16:00', jantar: '20:00', ceia: '22:00' };
 export const DEFAULT_SKIN_TIMES = { am: '07:00', pm: '21:30' };
 
-type Mod = 'skin' | 'food' | 'training' | 'journal';
+type Mod = 'skin' | 'food' | 'training' | 'journal' | 'sleep';
 export interface TLItem {
   key: string;
   time?: string;
@@ -23,6 +24,8 @@ export interface TLItem {
   detail?: string;
   done: boolean;
   skipped?: boolean;
+  /** Marco do dia (acordar): aparece na linha do tempo, mas não vira o cartão "Agora". */
+  marker?: boolean;
   action?: { label: string; run: () => Promise<unknown> | void; testId?: string };
   open: string;
 }
@@ -31,7 +34,8 @@ const MOD_STYLE: Record<Mod, { bg: string; ink: string; pill: string }> = {
   skin: { bg: 'var(--rose)', ink: 'var(--rose-ink)', pill: 'pa-rose' },
   food: { bg: 'var(--honey)', ink: 'var(--honey-ink)', pill: 'pa-honey' },
   training: { bg: 'var(--blue)', ink: 'var(--blue-ink)', pill: 'pa-blue' },
-  journal: { bg: 'var(--wine)', ink: 'var(--wine-ink)', pill: 'pa-wine' }
+  journal: { bg: 'var(--wine)', ink: 'var(--wine-ink)', pill: 'pa-wine' },
+  sleep: { bg: 'var(--paper-2)', ink: 'var(--ink)', pill: 'pa-ghost' }
 };
 
 function useNowMinutes() {
@@ -118,7 +122,17 @@ export function useTimeline(date: DateKey): TLItem[] | undefined {
   const j = journal[0];
   items.push({ key: 'journal', time: evening, mod: 'journal', icon: <NotebookPen size={18} />, title: 'Fechar o dia', detail: j ? [j.energy && `energia ${j.energy}`, j.mood && `humor ${j.mood}`, j.tags.join(', ')].filter(Boolean).join(', ') || 'Registrado' : 'Energia, humor e uma linha sobre hoje', done: !!j, open: '/diario' });
 
-  return items.sort((a, b) => (toMin(a.time) ?? 24 * 60 + 1) - (toMin(b.time) ?? 24 * 60 + 1));
+  const sp = sleepPlan(settings.reminders);
+  if (sp) {
+    const wake = wakeFor(sp, date);
+    const bed = bedFor(sp, date);
+    items.push({ key: 'wake', time: wake, mod: 'sleep', icon: <Sunrise size={18} />, title: 'Acordar', detail: `Meta de ${hoursLabel(sp.hours)} de sono`, done: false, marker: true, open: '/ajustes' });
+    items.push({ key: 'bed', time: bed, mod: 'sleep', icon: <Moon size={18} />, title: 'Deitar', detail: `Luz apagada para dormir ${hoursLabel(sp.hours)} e acordar às ${wakeFor(sp, addDays(date, 1))}`, done: false, open: '/ajustes' });
+  }
+
+  // Dentro do mesmo horário, o marco de acordar vem antes; o de deitar, depois.
+  const order = (i: TLItem) => (toMin(i.time) ?? 24 * 60 + 1) + (i.key === 'wake' ? -0.5 : i.key === 'bed' ? 0.5 : 0);
+  return items.sort((a, b) => order(a) - order(b));
 }
 
 function workoutLine(w: any, _mods: any[]) {
@@ -133,7 +147,7 @@ export function NowAndTimeline({ date }: { date: DateKey }) {
   const now = useNowMinutes();
   if (!items) return null;
   const isToday = date === todayKey();
-  const pending = items.filter((i) => !i.done && !i.skipped);
+  const pending = items.filter((i) => !i.done && !i.skipped && !i.marker);
   const next = isToday
     ? pending.find((i) => (toMin(i.time) ?? 9999) >= now - 60) ?? pending.find((i) => !i.time) ?? pending[0]
     : undefined;
@@ -214,20 +228,3 @@ export function TodayStats({ date }: { date: DateKey }) {
   );
 }
 
-/** Passos, sono e recuperação vindos do Garmin (via intervals.icu), quando conectados. */
-export function WellnessStrip({ date }: { date: DateKey }) {
-  const w = useByDate('wellness', date)?.[0];
-  if (!w) return null;
-  const items: [string, string][] = [];
-  if (w.steps != null) items.push(['passos', w.steps.toLocaleString('pt-BR')]);
-  if (w.sleepH != null) items.push(['de sono', `${w.sleepH.toLocaleString('pt-BR')} h`]);
-  if (w.restingHR != null) items.push(['FC repouso', `${w.restingHR}`]);
-  if (w.hrv != null) items.push(['VFC', `${Math.round(w.hrv)}`]);
-  if (w.ctl != null && w.atl != null) items.push(['forma', `${Math.round(w.ctl - w.atl)}`]);
-  if (!items.length) return null;
-  return (
-    <div className="wellness-strip" data-testid="wellness">
-      {items.map(([l, v]) => <span key={l}><b className="num">{v}</b> {l}</span>)}
-    </div>
-  );
-}

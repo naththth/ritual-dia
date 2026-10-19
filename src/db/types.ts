@@ -292,9 +292,12 @@ export interface DayBrief extends Base {
   tarefas: { id: string; motivo: string; primeiro_passo: string }[];
 }
 
+/** Sono: hora de acordar, horas desejadas, minutos para adormecer; alarme e lembrete de deitar. */
+export interface SleepPlan { wake: string; weekendWake?: string; hours: number; latency: number; alarm: boolean; bed: boolean }
 export interface Reminders {
   enabled: boolean; meals: boolean; skin: boolean; classes: boolean; water: boolean;
   morning?: string; evening?: string;
+  sleep?: SleepPlan;
   custom: { id: string; label: string; time: string; days: number[]; note?: string }[];
 }
 export interface Wellness extends Base {

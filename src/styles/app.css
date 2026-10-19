@@ -436,3 +436,5 @@ a.link { color: var(--ink); }
 .stars { display: inline-flex; gap: 2px; }
 .stars button { min-width: 34px; min-height: 34px; font-size: 20px; color: var(--honey-2); }
 .pa-wine { background: var(--wine-ink); color: var(--wine); }
+.sleep-result { display: flex; flex-direction: column; gap: 2px; margin: 14px 0 6px; padding: 14px 16px; border-radius: 18px; background: var(--ink); color: var(--paper); }
+.sleep-result .big-num { color: var(--paper); font-size: 40px; line-height: 1.05; }

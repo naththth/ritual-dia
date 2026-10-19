@@ -1,5 +1,6 @@
 // Ponte com o assistente (função privada no Supabase). O app manda só o contexto necessário.
 import { supabase, useSync } from '../sync/sync';
+import { trainingLoad } from './load';
 import { all, byDateRange, create, get, upsert } from '../db/db';
 import type { Plan, Product, WorkoutStep } from '../db/types';
 import { addDays, isoWeekday, type DateKey } from '../lib/dates';
@@ -135,9 +136,9 @@ export async function aiFoodPlan(dietText: string) {
 
 /* ---------- Orientação do dia ---------- */
 export async function aiDayBrief(date: DateKey) {
-  const [tasks, plans, products, tmpls, mods, skinLogs, settings, wellness, journals] = await Promise.all([
+  const [tasks, plans, products, tmpls, mods, skinLogs, settings, workouts, journals] = await Promise.all([
     all('task'), all('plan'), all('product'), all('wtemplate'), all('modality'), byDateRange('skin', addDays(date, -7), date), get<'settings'>('settings'),
-    byDateRange('wellness', addDays(date, -3), date), byDateRange('journal', addDays(date, -3), date)
+    byDateRange('workout', addDays(date, -120), date), byDateRange('journal', addDays(date, -3), date)
   ]);
   const pending = tasks.filter((t) => t.status === 'pendente');
   const skinPlan = planFor(plans, 'skin', date);
@@ -152,7 +153,8 @@ export async function aiDayBrief(date: DateKey) {
     pele_plano_manha: plannedSkin(skinPlan, date, 'am', products).map(name),
     pele_plano_noite: plannedSkin(skinPlan, date, 'pm', products).map(name),
     pele_registros_7_dias: skinLogs.map((l) => ({ data: l.date, periodo: l.period, condicao: l.condition, sinais: Object.keys(l.signals ?? {}) })),
-    garmin_ultimos_dias: wellness.map((w) => ({ data: w.date, passos: w.steps, sono_h: w.sleepH, fc_repouso: w.restingHR, vfc: w.hrv, forma: w.ctl != null && w.atl != null ? Math.round(w.ctl - w.atl) : undefined })),
+    carga_de_treino: (() => { const l = trainingLoad(workouts, addDays(date, -120), date).slice(-1)[0]; return l ? { fitness: Math.round(l.ctl), fadiga: Math.round(l.atl), forma: Math.round(l.tsb) } : null; })(),
+    treinos_ultimos_3_dias: workouts.filter((w) => w.date >= addDays(date, -3)).map((w) => ({ data: w.date, modalidade: mods.find((m) => m.id === w.modalityId)?.name, minutos: w.duration, tss: w.metrics?.tss, fc_media: w.metrics?.avgHr })),
     diario_ultimos_dias: journals.map((j) => ({ data: j.date, energia: j.energy, humor: j.mood, sono: j.sleep, estresse: j.stress, tags: j.tags })),
     treino_planejado: tr.map((t) => ({ nome: t!.name, modalidade: mods.find((m) => m.id === t!.modalityId)?.name, minutos: t!.duration }))
   };
@@ -174,9 +176,9 @@ export function watts(pct: number, ftp?: number) {
 /* ---------- Revisão da semana ---------- */
 export async function aiWeekReview(weekStartKey: DateKey) {
   const end = addDays(weekStartKey, 6);
-  const [habits, hlogs, workouts, meals, foods, skin, journals, wellness, tasks, readlogs, water, settings] = await Promise.all([
+  const [habits, hlogs, workouts, meals, foods, skin, journals, tasks, readlogs, water, settings] = await Promise.all([
     all('habit'), byDateRange('hlog', weekStartKey, end), byDateRange('workout', weekStartKey, end), byDateRange('meal', weekStartKey, end), all('food'),
-    byDateRange('skin', weekStartKey, end), byDateRange('journal', weekStartKey, end), byDateRange('wellness', weekStartKey, end), all('task'),
+    byDateRange('skin', weekStartKey, end), byDateRange('journal', weekStartKey, end), all('task'),
     byDateRange('readlog', weekStartKey, end), byDateRange('water', weekStartKey, end), get<'settings'>('settings')
   ]);
   const { totals } = await import('./nutrition');
@@ -189,7 +191,6 @@ export async function aiWeekReview(weekStartKey: DateKey) {
     alimentacao_por_dia: days.map((d) => { const its = meals.filter((m) => m.date === d).flatMap((m) => m.items); const t = totals(its, foods).n; return { data: d, refeicoes: meals.filter((m) => m.date === d && m.items.length).length, kcal: Math.round(t.kcal), proteina_g: Math.round(t.p), agua_ml: water.filter((w) => w.date === d).reduce((a, w) => a + w.ml, 0) }; }),
     pele: skin.map((s) => ({ data: s.date, periodo: s.period, condicao: s.condition, sinais: Object.keys(s.signals ?? {}), recuperacao: s.recovery })),
     diario: journals.map((j) => ({ data: j.date, energia: j.energy, humor: j.mood, sono: j.sleep, estresse: j.stress, tags: j.tags, texto: j.text?.slice(0, 280) })),
-    garmin: wellness.map((w) => ({ data: w.date, passos: w.steps, sono_h: w.sleepH, fc_repouso: w.restingHR, vfc: w.hrv })),
     tarefas_concluidas: tasks.filter((t) => t.completedDate && t.completedDate >= weekStartKey && t.completedDate <= end).map((t) => t.title),
     tarefas_pendentes_alta: tasks.filter((t) => t.status === 'pendente' && t.priority === 'alta').map((t) => t.title).slice(0, 15),
     paginas_lidas: readlogs.reduce((a, r) => a + r.pages, 0)

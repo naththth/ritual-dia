@@ -83,7 +83,7 @@ test('segunda-feira completa: todos os módulos na mesma data', async ({ page })
 
   // 5) treino: musculação 45 min moderada atualiza o hábito uma única vez
   await page.getByTestId('fab').click();
-  await page.getByRole('button', { name: 'Treino' }).click();
+  await page.getByRole('button', { name: 'Treino sem arquivo' }).click();
   await expect(page.getByTestId('workout-form')).toBeVisible();
   await page.getByTestId('workout-form').getByRole('button', { name: 'Musculação' }).click();
   await page.getByTestId('workout-form').getByRole('button', { name: '45 min' }).click();
@@ -263,4 +263,32 @@ test('fechar o dia no diário e criar nota', async ({ page }) => {
   await page.goto('./#/notas');
   await page.getByLabel('Buscar nas notas').fill('espuma');
   await expect(page.getByTestId('note-row')).toHaveCount(1);
+});
+
+test('subir .FIT pelo botão + e ver a carga de treino', async ({ page }) => {
+  await onboard(page);
+  await page.getByTestId('fab').click();
+  await page.getByTestId('fit-input-quick').setInputFiles(path.resolve('tests/e2e/fixtures/pedal.fit'));
+  await expect(page.getByTestId('training-tab')).toBeVisible();
+  await expect(page.getByTestId('workout-card')).toContainText('Ciclismo');
+  await page.goto('./#/treino');
+  await page.getByRole('button', { name: 'Próxima semana' }).isVisible();
+});
+
+test('sono: acordar 6h calcula deitar e organiza o dia', async ({ page }) => {
+  await onboard(page);
+  await page.goto('./#/ajustes');
+  await page.getByTestId('sleep-start').click();
+  await expect(page.getByTestId('sleep-bed')).toContainText('21:45');
+  await page.getByRole('button', { name: '8 h 30' }).click();
+  await expect(page.getByTestId('sleep-bed')).toContainText('21:15');
+  await page.getByRole('button', { name: '8 h', exact: true }).click();
+  await page.getByTestId('sleep-organize').click();
+  await expect(page.getByLabel('Horário: Pele da manhã')).toHaveValue('06:20');
+  await expect(page.getByLabel('Horário: Pele da noite')).toHaveValue('21:15');
+  await page.screenshot({ path: 'test-results/shots/sono.png', fullPage: true });
+  await page.goto('./#/');
+  await expect(page.getByTestId('tl-wake')).toContainText('06:00');
+  await expect(page.getByTestId('tl-bed')).toContainText('21:45');
+  await expect(page.getByTestId('now-card')).not.toContainText('Acordar');
 });

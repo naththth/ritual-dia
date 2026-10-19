@@ -13,7 +13,7 @@ import { logSuggestion, planTask, toggleHabit } from '../domain/actions';
 import type { Habit, Task } from '../db/types';
 import { toast } from '../state/store';
 import { DayBriefBlock } from './ai-ui';
-import { NowAndTimeline, TodayStats, WellnessStrip } from './today';
+import { NowAndTimeline, TodayStats } from './today';
 
 export function DayScreen() {
   const date = useApp((s) => s.date);
@@ -23,7 +23,6 @@ export function DayScreen() {
       <TopBar />
       <DateHeader />
       <TodayStats date={date} />
-      <WellnessStrip date={date} />
       <DayBriefBlock date={date} />
       <NowAndTimeline date={date} />
       <HabitsBlock date={date} />

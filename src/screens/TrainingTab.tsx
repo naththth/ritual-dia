@@ -8,8 +8,10 @@ import { planFor, plannedTraining } from '../domain/rules';
 import { addDays, isoWeekday, shortLabel, todayKey, weekStart, WEEKDAY_LETTER, dayNum, type DateKey } from '../lib/dates';
 import { workoutFromTemplate, skipPlanned, deleteRecord, savePlan } from '../domain/actions';
 import { StepsView } from './ai-ui';
-import { readFitFile, POWER_ZONES, intensityFrom } from '../domain/fit';
-import { db, upsert } from '../db/db';
+import { POWER_ZONES } from '../domain/fit';
+import { importFitFiles } from '../domain/fitImport';
+import { trainingLoad, workoutLoad, formLabel } from '../domain/load';
+import { db } from '../db/db';
 import type { Workout, WorkoutTemplate } from '../db/types';
 import { aiAvailable, askAI, applyTrainingResult } from '../domain/ai';
 import { fmt } from '../domain/nutrition';
@@ -22,7 +24,7 @@ export function TrainingTab() {
   const we = addDays(ws, 6);
   const workouts = useByRange('workout', ws, we);
   const skips = useByRange('skip', ws, we);
-  const wellness = useByRange('wellness', addDays(ws, -7), we);
+  const history = useByRange('workout', addDays(todayKey(), -120), todayKey());
   const plans = useAll('plan');
   const tmpls = useAll('wtemplate');
   const mods = useAll('modality');
@@ -46,27 +48,8 @@ export function TrainingTab() {
   const importFit = async (files: FileList | null) => {
     if (!files?.length) return;
     setBusy(true);
-    let last: string | undefined;
-    try {
-      for (const f of Array.from(files)) {
-        const a = await readFitFile(f, settings?.ftp);
-        const id = `workout:fit:${a.startIso}`;
-        const exists = await db.records.get(id);
-        const allPlans = await db.records.where('kind').equals('plan').toArray();
-        const planned = plannedTraining(planFor(allPlans.filter((p: any) => !p.deleted) as any, 'training', a.date), a.date)
-          .map((tid) => tmpls.find((t) => t.id === tid)).find((t) => t?.modalityId === a.modalityId);
-        await upsert('workout', id, {
-          date: a.date, modalityId: a.modalityId, duration: a.minutes, intensity: intensityFrom(a.metrics),
-          distanceKm: a.metrics.distanceKm, metrics: a.metrics, startTime: a.startIso, fileName: f.name,
-          templateId: planned?.id, fromPlan: !!planned
-        });
-        last = a.date;
-        toast(exists ? `Treino de ${shortLabel(a.date)} atualizado` : `Treino de ${shortLabel(a.date)} importado`);
-      }
-      if (last) setDate(last);
-    } catch (e: any) {
-      toast(e?.message ?? 'Não consegui ler o arquivo.', undefined, 'error');
-    } finally { setBusy(false); if (fileRef.current) fileRef.current.value = ''; }
+    try { const last = await importFitFiles(files, settings?.ftp); if (last) setDate(last); }
+    finally { setBusy(false); if (fileRef.current) fileRef.current.value = ''; }
   };
 
   const runReview = async () => {
@@ -78,7 +61,8 @@ export function TrainingTab() {
         ftp: settings?.ftp ?? null,
         observacoes_dela: settings?.aiContext ?? '',
         plano_atual: days.map((d) => ({ dia: ['', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'][isoWeekday(d)], treinos: plannedOf(d).map((t) => ({ nome: t.name, minutos: t.duration, intensidade: t.intensity, blocos: t.steps, horario: t.time })) })),
-        garmin_28_dias: (await db.records.where('[kind+date]').between(['wellness', addDays(todayKey(), -28)], ['wellness', todayKey()], true, true).toArray()).filter((r: any) => !r.deleted).map((w: any) => ({ data: w.date, sono_h: w.sleepH, fc_repouso: w.restingHR, vfc: w.hrv, ctl: w.ctl, atl: w.atl })),
+        carga_atual: (() => { const l = trainingLoad(history ?? [], addDays(todayKey(), -120), todayKey()).slice(-1)[0]; return l ? { fitness_ctl: Math.round(l.ctl), fadiga_atl: Math.round(l.atl), forma_tsb: Math.round(l.tsb) } : null; })(),
+        diario_14_dias: (await db.records.where('[kind+date]').between(['journal', addDays(todayKey(), -14)], ['journal', todayKey()], true, true).toArray()).filter((r: any) => !r.deleted).map((j: any) => ({ data: j.date, energia: j.energy, sono: j.sleep, estresse: j.stress })),
         treinos_feitos_28_dias: recent.map((w) => ({ data: w.date, modalidade: modName(w.modalityId), minutos: w.duration, do_plano: !!w.fromPlan, metricas: w.metrics ? { ...w.metrics, laps: undefined } : undefined }))
       });
       setReview({ analise: String(r.analise ?? ''), proposta: r.templates?.length ? r : undefined });
@@ -145,7 +129,7 @@ export function TrainingTab() {
         <button className="btn btn-soft" onClick={() => nav('/treino/registrar')}><Plus size={18} />Registrar</button>
       </div>
       <input ref={fileRef} type="file" accept=".fit,.zip,application/octet-stream,application/zip" multiple hidden onChange={(e) => importFit(e.target.files)} data-testid="fit-input" />
-      <p className="tiny muted">Garmin Connect: atividade, menu ⋯, Exportar original. MyWhoosh: histórico de atividades, baixar .FIT.</p>
+      <p className="tiny muted">Pode escolher vários arquivos de uma vez (.fit ou .zip). Garmin: no site connect.garmin.com, abra a atividade, menu ⚙, Exportar original. MyWhoosh: na atividade, exportar ou baixar o .FIT.</p>
 
       <section className="block b-paper" style={{ marginTop: 14 }} data-testid="training-week">
         <div className="bh"><h2 style={{ fontSize: 20 }}>Semana</h2></div>
@@ -158,24 +142,20 @@ export function TrainingTab() {
         </div>
       </section>
 
-      {wellness && wellness.length > 0 && (() => {
-        const sorted = [...wellness].sort((x, y) => (x.date < y.date ? 1 : -1));
-        const last = sorted.find((x) => x.ctl != null);
-        const wk = wellness.filter((x) => x.date >= ws && x.date <= we);
-        const avg = (k: 'sleepH' | 'steps' | 'restingHR' | 'hrv') => { const v = wk.map((x) => x[k]).filter((x): x is number => x != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : undefined; };
-        const sleep = avg('sleepH'); const steps = avg('steps'); const rhr = avg('restingHR'); const hrv = avg('hrv');
+      {history && history.length > 0 && (() => {
+        const load = trainingLoad(history, addDays(todayKey(), -120), todayKey());
+        const now = load[load.length - 1];
+        const weekAgo = load[load.length - 8];
+        const est = history.filter((w) => w.date >= addDays(todayKey(), -42)).some((w) => workoutLoad(w).estimated);
         return (
           <section className="block b-paper" data-testid="recovery">
-            <div className="bh"><h2 style={{ fontSize: 20 }}>Recuperação</h2><span className="tiny muted">Garmin via intervals.icu</span></div>
+            <div className="bh"><h2 style={{ fontSize: 20 }}>Carga de treino</h2><span className="tiny muted">hoje</span></div>
             <div className="row wrap" style={{ gap: '12px 22px' }}>
-              {last?.ctl != null && <div><div className="big-num num">{Math.round(last.ctl)}</div><div className="small">fitness (CTL)</div></div>}
-              {last?.atl != null && <div><div className="big-num num">{Math.round(last.atl)}</div><div className="small">fadiga (ATL)</div></div>}
-              {last?.ctl != null && last?.atl != null && <div><div className="big-num num">{Math.round(last.ctl - last.atl)}</div><div className="small">forma</div></div>}
-              {sleep != null && <div><div className="big-num num">{sleep.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} h</div><div className="small">sono médio</div></div>}
-              {steps != null && <div><div className="big-num num">{Math.round(steps).toLocaleString('pt-BR')}</div><div className="small">passos por dia</div></div>}
-              {rhr != null && <div><div className="big-num num">{Math.round(rhr)}</div><div className="small">FC de repouso</div></div>}
-              {hrv != null && <div><div className="big-num num">{Math.round(hrv)}</div><div className="small">VFC</div></div>}
+              <div><div className="big-num num">{Math.round(now.ctl)}</div><div className="small">fitness{weekAgo ? ` (${now.ctl >= weekAgo.ctl ? '+' : ''}${Math.round(now.ctl - weekAgo.ctl)} na semana)` : ''}</div></div>
+              <div><div className="big-num num">{Math.round(now.atl)}</div><div className="small">fadiga</div></div>
+              <div><div className="big-num num">{Math.round(now.tsb)}</div><div className="small">forma: {formLabel(now.tsb)}</div></div>
             </div>
+            <p className="tiny muted" style={{ marginBottom: 0 }}>Calculada pelo TSS dos arquivos .FIT{est ? '; treinos sem potência (musculação, aulas) entram por estimativa de duração e intensidade' : ''}. Fica mais precisa depois de algumas semanas de registros.</p>
           </section>
         );
       })()}

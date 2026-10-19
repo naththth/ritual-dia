@@ -3,8 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import webpush from "npm:web-push@3.6.7";
 
 // Serviços do Ritual que precisam rodar no servidor:
-//  - cron: a cada 5 min envia lembretes; a cada hora sincroniza o intervals.icu
-//  - intervals_sync: sincronização sob demanda (usuária logada)
+//  - cron: a cada 5 min envia lembretes (inclui alarme de acordar e aviso de deitar)
 //  - push_test: notificação de teste (usuária logada)
 //  - vapid: chave pública para assinar notificações
 
@@ -44,7 +43,7 @@ function planFor(plans: any[], domain: string, date: string) {
 }
 
 /* ---------------- Lembretes ---------------- */
-interface Due { key: string; title: string; body: string; url: string }
+interface Due { key: string; title: string; body: string; url: string; alarm?: boolean }
 
 async function dueReminders(userId: string, now: ReturnType<typeof nowParts>): Promise<Due[]> {
   const recs = await userRecords(userId, ['settings', 'plan', 'mtemplate', 'wtemplate', 'food', 'water', 'meal', 'skin']);
@@ -58,6 +57,22 @@ async function dueReminders(userId: string, now: ReturnType<typeof nowParts>): P
   const today = recs.filter((x) => x.date === now.date);
   const foodName = (id: string) => recs.find((x) => x.kind === 'food' && x.id === id)?.name ?? '';
 
+  // Sono: mesma conta de src/domain/sleep.ts
+  if (r.sleep) {
+    const sp = { wake: '06:00', hours: 8, latency: 15, alarm: true, bed: true, ...r.sleep };
+    const wdOf = (k: string) => { const d = new Date(k + 'T12:00:00Z').getUTCDay(); return d === 0 ? 7 : d; };
+    const wakeFor = (k: string) => (wdOf(k) >= 6 && sp.weekendWake ? sp.weekendWake : sp.wake);
+    const hrs = `${Math.floor(sp.hours)} h${sp.hours % 1 ? ` ${Math.round((sp.hours % 1) * 60)}` : ''}`;
+    const wake = wakeFor(now.date);
+    const bedMin = (((toMin(wakeFor(addDays(now.date, 1)))! - sp.hours * 60 - sp.latency) % 1440) + 1440) % 1440;
+    const bed = `${String(Math.floor(bedMin / 60)).padStart(2, '0')}:${String(bedMin % 60).padStart(2, '0')}`;
+    if (sp.alarm) {
+      const ids: string[] = planFor(plans, 'training', now.date)?.training?.[String(now.weekday)] ?? [];
+      const tr = ids.map((id) => recs.find((x) => x.kind === 'wtemplate' && x.id === id)).filter(Boolean).map((t: any) => t.time ? `${t.name} às ${t.time}` : t.name);
+      out.push({ key: 'wake', at: toMin(wake)!, alarm: true, title: `Bom dia. São ${wake}.`, body: tr.length ? `Hoje: ${tr.join(', ')}. Café às ${mealTimes.cafe}.` : `Café às ${mealTimes.cafe}.`, url: '#/' });
+    }
+    if (sp.bed) out.push({ key: 'bed', at: bedMin - 15, title: `Deitar às ${bed}`, body: `Faltam 15 min. Tela longe e luz baixa para dormir ${hrs} e acordar às ${wakeFor(addDays(now.date, 1))}.`, url: '#/' });
+  }
   if (r.morning) out.push({ key: 'morning', at: toMin(r.morning)!, title: 'Seu dia', body: 'Toque para ver o que vem pela frente.', url: '#/' });
   if (r.evening) out.push({ key: 'evening', at: toMin(r.evening)!, title: 'Fechar o dia', body: 'Como foi hoje? Leva 30 segundos.', url: '#/diario' });
   if (r.meals) {
@@ -119,7 +134,7 @@ async function sendReminders() {
       if (error) continue; // já enviado hoje
       for (const s of list) {
         try {
-          await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, JSON.stringify({ title: d.title, body: d.body, url: APP_URL + d.url, tag: d.key }), { TTL: 1800, urgency: 'normal' });
+          await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, JSON.stringify({ title: d.title, body: d.body, url: APP_URL + d.url, tag: d.key, alarm: !!d.alarm }), { TTL: d.alarm ? 900 : 1800, urgency: d.alarm ? 'high' : 'normal' });
           sent++;
         } catch (e: any) {
           if (e?.statusCode === 404 || e?.statusCode === 410) await admin.from('push_subs').delete().eq('endpoint', s.endpoint);
@@ -128,73 +143,6 @@ async function sendReminders() {
     }
   }
   return { sent };
-}
-
-/* ---------------- intervals.icu ---------------- */
-const SPORT: Record<string, string> = {
-  Ride: 'mod:ciclismo', VirtualRide: 'mod:ciclismo', GravelRide: 'mod:ciclismo', MountainBikeRide: 'mod:ciclismo',
-  Run: 'mod:corrida', VirtualRun: 'mod:corrida', TrailRun: 'mod:corrida', Walk: 'mod:caminhada', Hike: 'mod:caminhada',
-  Swim: 'mod:natacao', OpenWaterSwim: 'mod:natacao', WeightTraining: 'mod:musculacao', Workout: 'mod:musculacao', Yoga: 'mod:yoga'
-};
-const num = (...v: any[]) => { for (const x of v) if (typeof x === 'number' && !Number.isNaN(x)) return x; return undefined; };
-
-async function syncIntervals(userId: string, days = 14) {
-  const { data: sec } = await admin.from('user_secrets').select('secret, meta').eq('user_id', userId).eq('provider', 'intervals').maybeSingle();
-  if (!sec) return { error: 'Chave do intervals.icu não cadastrada.' };
-  const auth = 'Basic ' + btoa(`API_KEY:${sec.secret}`);
-  const athlete = sec.meta?.athleteId || '0';
-  const today = nowParts().date;
-  const oldest = addDays(today, -days);
-  const get = async (path: string) => {
-    const r = await fetch(`https://intervals.icu/api/v1/athlete/${athlete}/${path}`, { headers: { authorization: auth, accept: 'application/json' } });
-    if (r.status === 401 || r.status === 403) throw new Error('O intervals.icu recusou a chave. Confira a chave e o ID de atleta.');
-    if (!r.ok) throw new Error(`intervals.icu respondeu ${r.status}`);
-    return r.json();
-  };
-  const [wellness, activities] = await Promise.all([get(`wellness?oldest=${oldest}&newest=${today}`), get(`activities?oldest=${oldest}&newest=${today}`)]);
-  const rows: any[] = [];
-  const ts = Date.now();
-  for (const w of wellness ?? []) {
-    const date = String(w.id ?? w.date ?? '').slice(0, 10);
-    if (!date) continue;
-    const sleepSecs = num(w.sleepSecs, w.sleep_secs);
-    rows.push({ id: `wellness:${date}`, user_id: userId, kind: 'wellness', deleted: false, client_updated_at: new Date().toISOString(), data: {
-      date, source: 'intervals', createdAt: ts,
-      steps: num(w.steps), sleepH: sleepSecs ? Math.round((sleepSecs / 3600) * 10) / 10 : num(w.sleepHours),
-      sleepScore: num(w.sleepScore), restingHR: num(w.restingHR, w.resting_hr), hrv: num(w.hrv, w.hrvSDNN), weight: num(w.weight),
-      ctl: num(w.ctl), atl: num(w.atl), readiness: num(w.readiness)
-    } });
-  }
-  const { data: existing } = await admin.from('records').select('id, data').eq('user_id', userId).eq('kind', 'workout').gte('data->>date', oldest);
-  const fitStarts = (existing ?? []).filter((r: any) => r.data?.metrics?.source === 'fit' && r.data?.startTime).map((r: any) => new Date(r.data.startTime).getTime());
-  let acts = 0;
-  for (const a of activities ?? []) {
-    if (!a?.id || !a.start_date_local) continue;
-    const start = new Date(a.start_date ?? a.start_date_local).getTime();
-    if (fitStarts.some((t: number) => Math.abs(t - start) < 5 * 60_000)) continue; // já veio pelo arquivo
-    const moving = num(a.moving_time, a.elapsed_time) ?? 0;
-    const np = num(a.icu_weighted_avg_watts, a.weighted_average_watts);
-    const ftp = num(a.icu_ftp);
-    rows.push({ id: `workout:icu:${a.id}`, user_id: userId, kind: 'workout', deleted: false, client_updated_at: new Date().toISOString(), data: {
-      date: String(a.start_date_local).slice(0, 10), createdAt: ts, startTime: a.start_date ?? a.start_date_local,
-      modalityId: SPORT[a.type] ?? 'mod:musculacao', duration: Math.round(moving / 60),
-      intensity: np && ftp ? (np / ftp < 0.7 ? 'leve' : np / ftp < 0.85 ? 'moderada' : 'intensa') : 'moderada',
-      distanceKm: a.distance ? Math.round(a.distance / 10) / 100 : undefined, name: a.name,
-      metrics: {
-        source: 'intervals', sport: a.type, distanceKm: a.distance ? Math.round(a.distance / 10) / 100 : undefined,
-        kcal: num(a.calories), avgHr: num(a.average_heartrate), maxHr: num(a.max_heartrate),
-        avgPower: num(a.icu_average_watts, a.average_watts), np, if: np && ftp ? Math.round((np / ftp) * 100) / 100 : undefined,
-        tss: num(a.icu_training_load), avgCadence: num(a.average_cadence), ascentM: num(a.total_elevation_gain), ftpUsed: ftp
-      }
-    } });
-    acts++;
-  }
-  for (let i = 0; i < rows.length; i += 200) {
-    const { error } = await admin.from('records').upsert(rows.slice(i, i + 200), { onConflict: 'user_id,id' });
-    if (error) throw new Error(error.message);
-  }
-  await admin.from('user_secrets').update({ meta: { ...(sec.meta ?? {}), lastSync: new Date().toISOString() } }).eq('user_id', userId).eq('provider', 'intervals');
-  return { wellness: (wellness ?? []).length, activities: acts };
 }
 
 async function userFrom(req: Request) {
@@ -215,19 +163,12 @@ Deno.serve(async (req: Request) => {
 
     if (action === 'cron') {
       if (req.headers.get('x-cron-secret') !== (await secret('cron_secret'))) return json({ error: 'forbidden' }, 403);
-      const out: any = { reminders: await sendReminders() };
-      if (nowParts().min % 60 < 5) {
-        const { data: users } = await admin.from('user_secrets').select('user_id').eq('provider', 'intervals');
-        out.intervals = [];
-        for (const u of users ?? []) { try { out.intervals.push(await syncIntervals(u.user_id, 3)); } catch (e) { out.intervals.push({ error: String(e) }); } }
-      }
-      return json(out);
+      return json({ reminders: await sendReminders() });
     }
 
     const user = await userFrom(req);
     if (!user) return json({ error: 'Entre com Google para usar este recurso.' }, 401);
 
-    if (action === 'intervals_sync') return json(await syncIntervals(user.id, Number(body.days) || 30));
     if (action === 'push_test') {
       const pub = await secret('vapid_public'); const priv = await secret('vapid_private');
       webpush.setVapidDetails('mailto:ritual@users.noreply.github.com', pub!, priv!);
