@@ -1,7 +1,7 @@
 // O dia como linha do tempo: "Agora" no topo e o resto em ordem de horário.
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check as CheckIcon, Droplets, Dumbbell, Flame, Moon, Sunrise, Utensils } from 'lucide-react';
+import { Check as CheckIcon, Droplets, Dumbbell, Flame, Moon, NotebookPen, Sunrise, Utensils } from 'lucide-react';
 import { useAll, useByDate, useSettings } from '../db/hooks';
 import { planFor, plannedFood, plannedSkin, plannedTraining } from '../domain/rules';
 import { mealFromTemplate, saveSkin, workoutFromTemplate, addWater } from '../domain/actions';
@@ -13,7 +13,7 @@ import type { MealItem } from '../db/types';
 export const DEFAULT_MEAL_TIMES: Record<string, string> = { cafe: '07:30', almoco: '12:30', lanche: '16:00', jantar: '20:00', ceia: '22:00' };
 export const DEFAULT_SKIN_TIMES = { am: '07:00', pm: '21:30' };
 
-type Mod = 'skin' | 'food' | 'training';
+type Mod = 'skin' | 'food' | 'training' | 'journal';
 export interface TLItem {
   key: string;
   time?: string;
@@ -30,7 +30,8 @@ export interface TLItem {
 const MOD_STYLE: Record<Mod, { bg: string; ink: string; pill: string }> = {
   skin: { bg: 'var(--rose)', ink: 'var(--rose-ink)', pill: 'pa-rose' },
   food: { bg: 'var(--honey)', ink: 'var(--honey-ink)', pill: 'pa-honey' },
-  training: { bg: 'var(--blue)', ink: 'var(--blue-ink)', pill: 'pa-blue' }
+  training: { bg: 'var(--blue)', ink: 'var(--blue-ink)', pill: 'pa-blue' },
+  journal: { bg: 'var(--wine)', ink: 'var(--wine-ink)', pill: 'pa-wine' }
 };
 
 function useNowMinutes() {
@@ -52,7 +53,8 @@ export function useTimeline(date: DateKey): TLItem[] | undefined {
   const meals = useByDate('meal', date);
   const workouts = useByDate('workout', date);
   const skips = useByDate('skip', date);
-  if (!settings || !plans || !products || !wt || !mt || !foods || !mods || !skin || !meals || !workouts || !skips) return undefined;
+  const journal = useByDate('journal', date);
+  if (!journal || !settings || !plans || !products || !wt || !mt || !foods || !mods || !skin || !meals || !workouts || !skips) return undefined;
   const items: TLItem[] = [];
   const sTimes = settings.skinTimes ?? DEFAULT_SKIN_TIMES;
   const mTimes = { ...DEFAULT_MEAL_TIMES, ...(settings.mealTimes ?? {}) };
@@ -112,6 +114,10 @@ export function useTimeline(date: DateKey): TLItem[] | undefined {
     items.push({ key: `w-${w.id}`, time, mod: 'training', icon: <Dumbbell size={18} />, title: mods.find((m) => m.id === w.modalityId)?.name ?? 'Treino', detail: workoutLine(w, mods), done: true, open: '/treino' });
   }
 
+  const evening = (settings.reminders?.evening ?? '21:45') || '21:45';
+  const j = journal[0];
+  items.push({ key: 'journal', time: evening, mod: 'journal', icon: <NotebookPen size={18} />, title: 'Fechar o dia', detail: j ? [j.energy && `energia ${j.energy}`, j.mood && `humor ${j.mood}`, j.tags.join(', ')].filter(Boolean).join(', ') || 'Registrado' : 'Energia, humor e uma linha sobre hoje', done: !!j, open: '/diario' });
+
   return items.sort((a, b) => (toMin(a.time) ?? 24 * 60 + 1) - (toMin(b.time) ?? 24 * 60 + 1));
 }
 
@@ -156,7 +162,7 @@ export function NowAndTimeline({ date }: { date: DateKey }) {
         {items.map((i) => (
           <div key={i.key} className={`tl2 ${i.done ? 'done' : ''} ${i.skipped ? 'skipped' : ''}`} data-testid={`tl-${i.key}`}>
             <span className="tl2-time num">{i.time ?? ''}</span>
-            <span className="tl2-dot" style={{ background: i.done ? MOD_STYLE[i.mod].ink : MOD_STYLE[i.mod].bg, color: i.done ? 'var(--paper)' : MOD_STYLE[i.mod].ink }}>
+            <span className="tl2-dot" style={i.mod === 'journal' ? { background: 'var(--wine)', color: 'var(--wine-ink)' } : { background: i.done ? MOD_STYLE[i.mod].ink : MOD_STYLE[i.mod].bg, color: i.done ? 'var(--paper)' : MOD_STYLE[i.mod].ink }}>
               {i.done ? <CheckIcon size={14} strokeWidth={3} /> : i.icon}
             </span>
             <button className="tl2-body tap" onClick={() => nav(i.open)}>
@@ -204,6 +210,24 @@ export function TodayStats({ date }: { date: DateKey }) {
       <button className="stat-tile" onClick={() => nav('/treino')} style={{ background: 'var(--blue)', color: 'var(--blue-ink)' }}>
         <Dumbbell size={16} /><span className="v num">{trainMin ? `${trainMin} min` : '–'}</span><span className="l">{burned ? `${fmt(burned)} kcal no treino` : workouts.length ? 'treino feito' : 'treino'}</span>
       </button>
+    </div>
+  );
+}
+
+/** Passos, sono e recuperação vindos do Garmin (via intervals.icu), quando conectados. */
+export function WellnessStrip({ date }: { date: DateKey }) {
+  const w = useByDate('wellness', date)?.[0];
+  if (!w) return null;
+  const items: [string, string][] = [];
+  if (w.steps != null) items.push(['passos', w.steps.toLocaleString('pt-BR')]);
+  if (w.sleepH != null) items.push(['de sono', `${w.sleepH.toLocaleString('pt-BR')} h`]);
+  if (w.restingHR != null) items.push(['FC repouso', `${w.restingHR}`]);
+  if (w.hrv != null) items.push(['VFC', `${Math.round(w.hrv)}`]);
+  if (w.ctl != null && w.atl != null) items.push(['forma', `${Math.round(w.ctl - w.atl)}`]);
+  if (!items.length) return null;
+  return (
+    <div className="wellness-strip" data-testid="wellness">
+      {items.map(([l, v]) => <span key={l}><b className="num">{v}</b> {l}</span>)}
     </div>
   );
 }

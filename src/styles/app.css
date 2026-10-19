@@ -421,3 +421,18 @@ textarea { min-height: 88px; resize: vertical; }
 .add-line { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-weight: 700; font-size: 14.5px; color: var(--wine); }
 @media (max-width: 370px) { .kcal-eq .kv { font-size: 21px; } }
 a.link { color: var(--ink); }
+.time-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.time-grid input { min-height: 44px; }
+.wellness-strip { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: -4px 0 14px; font-size: 13.5px; color: var(--ink-2); }
+.wellness-strip b { color: var(--ink); font-size: 15px; }
+.scale5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.scale5 button { min-height: 46px; border-radius: 14px; border: 1.5px solid var(--line-2); background: var(--card); font-weight: 700; font-size: 16px; }
+.scale5 button.on { background: var(--wine); border-color: var(--wine); color: var(--wine-ink); }
+.book { display: grid; grid-template-columns: 64px 1fr; gap: 12px; padding: 12px 0; border-bottom: 1.5px dotted var(--line-2); }
+.book img, .book .nocover { width: 64px; height: 96px; border-radius: 8px; object-fit: cover; background: var(--paper-2); box-shadow: 0 2px 6px rgba(50,25,18,.18); }
+.book .nocover { display: grid; place-items: center; font-family: var(--f-display); font-size: 22px; color: var(--wine); }
+.book .bt { font-weight: 700; font-size: 16px; line-height: 1.25; }
+.book .ba { font-size: 13px; color: var(--ink-2); }
+.stars { display: inline-flex; gap: 2px; }
+.stars button { min-width: 34px; min-height: 34px; font-size: 20px; color: var(--honey-2); }
+.pa-wine { background: var(--wine-ink); color: var(--wine); }

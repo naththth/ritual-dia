@@ -15,7 +15,8 @@ export type Kind =
   | 'product' | 'skin' | 'photo'
   | 'food' | 'mtemplate' | 'meal' | 'water'
   | 'modality' | 'wtemplate' | 'workout'
-  | 'plan' | 'skip' | 'brief';
+  | 'plan' | 'skip' | 'brief'
+  | 'wellness' | 'journal' | 'note' | 'book' | 'readlog' | 'review';
 
 export type Priority = 'alta' | 'media' | 'baixa';
 export const PRIORITIES: Priority[] = ['alta', 'media', 'baixa'];
@@ -37,6 +38,10 @@ export interface Settings extends Base {
   showNutrition?: boolean; // padrão: ligado
   mealTimes?: Record<string, string>; // 'cafe' -> '07:30'
   skinTimes?: { am: string; pm: string };
+  reminders?: Reminders;
+  readingGoal?: number; // livros por ano
+  autoBrief?: boolean; // prepara o dia sozinho ao abrir
+  intervals?: { athleteId?: string; connected?: boolean; lastSync?: number };
   targets?: { kcal?: number; p?: number; c?: number; f?: number }; // metas próprias; sem elas, usa o plano do dia
 }
 
@@ -231,7 +236,7 @@ export interface WorkoutTemplate extends Base {
   archived?: boolean;
 }
 export interface WorkoutMetrics {
-  source: 'fit' | 'manual';
+  source: 'fit' | 'manual' | 'intervals';
   sport?: string;
   distanceKm?: number; kcal?: number; avgHr?: number; maxHr?: number;
   avgPower?: number; maxPower?: number; np?: number; if?: number; tss?: number;
@@ -287,10 +292,39 @@ export interface DayBrief extends Base {
   tarefas: { id: string; motivo: string; primeiro_passo: string }[];
 }
 
+export interface Reminders {
+  enabled: boolean; meals: boolean; skin: boolean; classes: boolean; water: boolean;
+  morning?: string; evening?: string;
+  custom: { id: string; label: string; time: string; days: number[]; note?: string }[];
+}
+export interface Wellness extends Base {
+  kind: 'wellness'; date: DateKey; source?: string;
+  steps?: number; sleepH?: number; sleepScore?: number; restingHR?: number; hrv?: number; weight?: number; ctl?: number; atl?: number; readiness?: number;
+}
+export interface Journal extends Base {
+  kind: 'journal'; date: DateKey;
+  energy?: number; mood?: number; sleep?: number; stress?: number; // 1 a 5
+  tags: string[];
+  text?: string;
+  gratitude?: string;
+}
+export interface Note extends Base {
+  kind: 'note'; date: DateKey; title?: string; text: string; tags: string[]; pinned?: boolean;
+}
+export type BookStatus = 'quero_ler' | 'lendo' | 'lido' | 'abandonado';
+export interface Book extends Base {
+  kind: 'book'; title: string; authors: string[]; cover?: string; pages?: number; googleId?: string; isbn?: string;
+  status: BookStatus; startedAt?: DateKey; finishedAt?: DateKey; rating?: number; currentPage?: number;
+  quotes: { id: string; text: string; page?: number }[]; review?: string;
+}
+export interface ReadLog extends Base { kind: 'readlog'; date: DateKey; bookId: string; pages: number; toPage?: number }
+export interface Review extends Base { kind: 'review'; date: DateKey; scope: 'semana'; text: string; highlights: string[]; focus: string[] }
+
 export type AnyRecord =
   | Settings | Category | Task | SuggestionLog | Habit | HabitLog | Goal | GoalEntry
   | Product | SkinLog | Photo | Food | MealTemplate | Meal | Water
-  | Modality | WorkoutTemplate | Workout | Plan | Skip | DayBrief;
+  | Modality | WorkoutTemplate | Workout | Plan | Skip | DayBrief
+  | Wellness | Journal | Note | Book | ReadLog | Review;
 
 export type KindMap = {
   settings: Settings; category: Category; task: Task; suggestion: SuggestionLog;
@@ -299,4 +333,5 @@ export type KindMap = {
   food: Food; mtemplate: MealTemplate; meal: Meal; water: Water;
   modality: Modality; wtemplate: WorkoutTemplate; workout: Workout;
   plan: Plan; skip: Skip; brief: DayBrief;
+  wellness: Wellness; journal: Journal; note: Note; book: Book; readlog: ReadLog; review: Review;
 };

@@ -203,7 +203,7 @@ for (const width of [360, 393, 430]) {
   test(`telas sem rolagem lateral em ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 800 });
     await onboard(page);
-    for (const route of ['#/', '#/treino', '#/alimentacao', '#/mais', '#/calendario', '#/listas', '#/evolucao', '#/pele', '#/alimentacao/refeicao', '#/treino/registrar', '#/ajustes', '#/plano/skin', '#/revisao']) {
+    for (const route of ['#/', '#/treino', '#/alimentacao', '#/mais', '#/calendario', '#/listas', '#/evolucao', '#/pele', '#/alimentacao/refeicao', '#/treino/registrar', '#/ajustes', '#/plano/skin', '#/revisao', '#/diario', '#/notas', '#/leitura']) {
       await page.goto('./' + route);
       await page.waitForTimeout(250);
       await noHorizontalScroll(page);
@@ -243,4 +243,24 @@ test('importar treino .FIT e ver potência, FC e zonas', async ({ page }) => {
   await page.getByTestId('fit-input').setInputFiles(path.resolve('tests/e2e/fixtures/pedal.fit'));
   await expect(page.getByTestId('workout-card')).toHaveCount(1);
   await page.screenshot({ path: 'test-results/shots/treino-fit.png', fullPage: true });
+});
+
+test('fechar o dia no diário e criar nota', async ({ page }) => {
+  await onboard(page);
+  await expect(page.getByTestId('tl-journal')).toContainText('Fechar o dia');
+  await page.getByTestId('tl-journal').locator('.tl2-body').click();
+  await page.getByRole('radio', { name: 'Energia 4' }).click();
+  await page.getByRole('radio', { name: 'Humor 5' }).click();
+  await page.getByRole('button', { name: 'Treino bom' }).click();
+  await page.getByLabel('Texto do diário').fill('Dia produtivo, pedal rendeu.');
+  await page.getByTestId('journal-save').click();
+  await page.getByRole('button', { name: 'Nova nota' }).click();
+  await page.getByLabel('Texto da nota').fill('Ideia: comprar rolo de espuma');
+  await page.getByTestId('note-save').click();
+  await expect(page.getByTestId('note-row')).toContainText('Ideia: comprar rolo de espuma');
+  await page.goto('./#/');
+  await expect(page.getByTestId('tl-journal')).toContainText('energia 4');
+  await page.goto('./#/notas');
+  await page.getByLabel('Buscar nas notas').fill('espuma');
+  await expect(page.getByTestId('note-row')).toHaveCount(1);
 });

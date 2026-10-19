@@ -5,7 +5,7 @@ import type { Plan, Product, WorkoutStep } from '../db/types';
 import { addDays, isoWeekday, type DateKey } from '../lib/dates';
 import { planFor, plannedSkin, plannedTraining } from './rules';
 
-export type AITask = 'skin_plan' | 'training_plan' | 'food_plan' | 'day_brief' | 'training_review';
+export type AITask = 'skin_plan' | 'training_plan' | 'food_plan' | 'day_brief' | 'training_review' | 'week_review';
 
 export function aiAvailable() {
   return !!supabase && !!useSync.getState().session && navigator.onLine;
@@ -135,8 +135,9 @@ export async function aiFoodPlan(dietText: string) {
 
 /* ---------- Orientação do dia ---------- */
 export async function aiDayBrief(date: DateKey) {
-  const [tasks, plans, products, tmpls, mods, skinLogs, settings] = await Promise.all([
-    all('task'), all('plan'), all('product'), all('wtemplate'), all('modality'), byDateRange('skin', addDays(date, -7), date), get<'settings'>('settings')
+  const [tasks, plans, products, tmpls, mods, skinLogs, settings, wellness, journals] = await Promise.all([
+    all('task'), all('plan'), all('product'), all('wtemplate'), all('modality'), byDateRange('skin', addDays(date, -7), date), get<'settings'>('settings'),
+    byDateRange('wellness', addDays(date, -3), date), byDateRange('journal', addDays(date, -3), date)
   ]);
   const pending = tasks.filter((t) => t.status === 'pendente');
   const skinPlan = planFor(plans, 'skin', date);
@@ -151,6 +152,8 @@ export async function aiDayBrief(date: DateKey) {
     pele_plano_manha: plannedSkin(skinPlan, date, 'am', products).map(name),
     pele_plano_noite: plannedSkin(skinPlan, date, 'pm', products).map(name),
     pele_registros_7_dias: skinLogs.map((l) => ({ data: l.date, periodo: l.period, condicao: l.condition, sinais: Object.keys(l.signals ?? {}) })),
+    garmin_ultimos_dias: wellness.map((w) => ({ data: w.date, passos: w.steps, sono_h: w.sleepH, fc_repouso: w.restingHR, vfc: w.hrv, forma: w.ctl != null && w.atl != null ? Math.round(w.ctl - w.atl) : undefined })),
+    diario_ultimos_dias: journals.map((j) => ({ data: j.date, energia: j.energy, humor: j.mood, sono: j.sleep, estresse: j.stress, tags: j.tags })),
     treino_planejado: tr.map((t) => ({ nome: t!.name, modalidade: mods.find((m) => m.id === t!.modalityId)?.name, minutos: t!.duration }))
   };
   const r = await askAI<any>('day_brief', ctx);
@@ -166,4 +169,35 @@ export async function aiDayBrief(date: DateKey) {
 
 export function watts(pct: number, ftp?: number) {
   return ftp ? Math.round((pct / 100) * ftp) : undefined;
+}
+
+/* ---------- Revisão da semana ---------- */
+export async function aiWeekReview(weekStartKey: DateKey) {
+  const end = addDays(weekStartKey, 6);
+  const [habits, hlogs, workouts, meals, foods, skin, journals, wellness, tasks, readlogs, water, settings] = await Promise.all([
+    all('habit'), byDateRange('hlog', weekStartKey, end), byDateRange('workout', weekStartKey, end), byDateRange('meal', weekStartKey, end), all('food'),
+    byDateRange('skin', weekStartKey, end), byDateRange('journal', weekStartKey, end), byDateRange('wellness', weekStartKey, end), all('task'),
+    byDateRange('readlog', weekStartKey, end), byDateRange('water', weekStartKey, end), get<'settings'>('settings')
+  ]);
+  const { totals } = await import('./nutrition');
+  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStartKey, i));
+  const ctx = {
+    semana: `${weekStartKey} a ${end}`,
+    observacoes_dela: settings?.aiContext ?? '',
+    habitos: habits.filter((h) => !h.archived).map((h) => ({ nome: h.title, meta: `${h.target}x ${h.freq}`, feitos: new Set([...hlogs.filter((l) => l.habitId === h.id && l.done).map((l) => l.date), ...(h.modalityId ? workouts.filter((w) => w.modalityId === h.modalityId).map((w) => w.date) : [])]).size })),
+    treinos: workouts.map((w) => ({ data: w.date, modalidade: w.modalityId.replace('mod:', ''), minutos: w.duration, do_plano: !!w.fromPlan, np: w.metrics?.np, tss: w.metrics?.tss, fc_media: w.metrics?.avgHr, kcal: w.metrics?.kcal })),
+    alimentacao_por_dia: days.map((d) => { const its = meals.filter((m) => m.date === d).flatMap((m) => m.items); const t = totals(its, foods).n; return { data: d, refeicoes: meals.filter((m) => m.date === d && m.items.length).length, kcal: Math.round(t.kcal), proteina_g: Math.round(t.p), agua_ml: water.filter((w) => w.date === d).reduce((a, w) => a + w.ml, 0) }; }),
+    pele: skin.map((s) => ({ data: s.date, periodo: s.period, condicao: s.condition, sinais: Object.keys(s.signals ?? {}), recuperacao: s.recovery })),
+    diario: journals.map((j) => ({ data: j.date, energia: j.energy, humor: j.mood, sono: j.sleep, estresse: j.stress, tags: j.tags, texto: j.text?.slice(0, 280) })),
+    garmin: wellness.map((w) => ({ data: w.date, passos: w.steps, sono_h: w.sleepH, fc_repouso: w.restingHR, vfc: w.hrv })),
+    tarefas_concluidas: tasks.filter((t) => t.completedDate && t.completedDate >= weekStartKey && t.completedDate <= end).map((t) => t.title),
+    tarefas_pendentes_alta: tasks.filter((t) => t.status === 'pendente' && t.priority === 'alta').map((t) => t.title).slice(0, 15),
+    paginas_lidas: readlogs.reduce((a, r) => a + r.pages, 0)
+  };
+  const r = await askAI<any>('week_review', ctx);
+  return upsert('review', `review:week:${weekStartKey}`, {
+    date: weekStartKey, scope: 'semana', text: String(r.texto ?? ''),
+    highlights: Array.isArray(r.destaques) ? r.destaques.map(String).slice(0, 5) : [],
+    focus: Array.isArray(r.foco) ? r.foco.map(String).slice(0, 3) : []
+  });
 }

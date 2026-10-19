@@ -12,6 +12,8 @@ import { EvolutionScreen } from './screens/EvolutionScreen';
 import { TrainingTab } from './screens/TrainingTab';
 import { FoodTab } from './screens/FoodTab';
 import { MoreScreen } from './screens/MoreScreen';
+import { JournalScreen, NotesScreen } from './screens/JournalScreen';
+import { ReadingScreen } from './screens/ReadingScreen';
 import { SkinScreen } from './screens/SkinScreen';
 import { FoodScreen } from './screens/FoodScreen';
 import { TrainingScreen } from './screens/TrainingScreen';
@@ -69,6 +71,9 @@ function Shell() {
         <Route path="/treino" element={<TrainingTab />} />
         <Route path="/treino/registrar" element={<TrainingScreen />} />
         <Route path="/mais" element={<MoreScreen />} />
+        <Route path="/diario" element={<JournalScreen />} />
+        <Route path="/notas" element={<NotesScreen />} />
+        <Route path="/leitura" element={<ReadingScreen />} />
         <Route path="/ajustes" element={<SettingsScreen />} />
         <Route path="/biblioteca/:section" element={<LibraryScreen />} />
         <Route path="/plano/:domain" element={<PlanScreen />} />

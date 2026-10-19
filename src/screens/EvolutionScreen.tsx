@@ -8,6 +8,10 @@ import { addDays, addMonths, monthEnd, monthStart, shortLabel, todayKey, weekSta
 import { habitDoneDates, planFor, plannedTraining } from '../domain/rules';
 import { SKIN_SIGNALS, SKIN_CONDITIONS } from '../domain/defaults';
 import { PhotoThumb } from './photos';
+import { useRecord } from '../db/hooks';
+import { aiAvailable, aiWeekReview } from '../domain/ai';
+import { Sparkles, RefreshCw } from 'lucide-react';
+import { toast } from '../state/store';
 import { fmt, totals } from '../domain/nutrition';
 
 function Bars({ rows, color, unit = '' }: { rows: { label: string; value: number }[]; color: string; unit?: string }) {
@@ -98,6 +102,7 @@ export function EvolutionScreen() {
         <button className="icon-btn" aria-label="Próximo período" onClick={() => shift(1)}><ChevronRight size={22} /></button>
       </div>
       <p className="small muted" style={{ marginTop: 0 }}>Só o que você registrou. Dia sem registro aparece como não registrado, não como falha.</p>
+      {mode === 'semana' && <WeekReview weekStartKey={from} />}
 
       <section className="block b-olive">
         <div className="bh"><h2>Hábitos</h2></div>
@@ -183,5 +188,23 @@ export function EvolutionScreen() {
         {!(goals ?? []).some((g) => g.status === 'ativa') && <Empty text="Nenhuma meta ativa." />}
       </section>
     </div>
+  );
+}
+
+function WeekReview({ weekStartKey }: { weekStartKey: DateKey }) {
+  const rev = useRecord<'review'>(`review:week:${weekStartKey}`);
+  const [busy, setBusy] = useState(false);
+  const run = async () => { setBusy(true); try { await aiWeekReview(weekStartKey); } catch (e: any) { toast(e.message, undefined, 'error'); } finally { setBusy(false); } };
+  if (rev === undefined) return null;
+  if (!rev) {
+    return aiAvailable() ? <button className="btn btn-wine btn-block" style={{ marginBottom: 14 }} onClick={run} disabled={busy} data-testid="week-review"><Sparkles size={18} />{busy ? 'Lendo sua semana…' : 'Revisão da semana com IA'}</button> : null;
+  }
+  return (
+    <section className="block b-wine" data-testid="week-review-result">
+      <div className="bh"><h2 style={{ fontSize: 20 }}>Sua semana</h2>{aiAvailable() && <button className="icon-btn" style={{ color: 'inherit' }} aria-label="Refazer revisão" onClick={run} disabled={busy}><RefreshCw size={18} /></button>}</div>
+      <p style={{ marginTop: 0, whiteSpace: 'pre-line', fontSize: 15 }}>{rev.text}</p>
+      {rev.highlights.length > 0 && (<><div className="small" style={{ fontWeight: 700 }}>O que foi bem</div><ul className="small" style={{ margin: '4px 0 10px', paddingLeft: 18 }}>{rev.highlights.map((h, i) => <li key={i}>{h}</li>)}</ul></>)}
+      {rev.focus.length > 0 && (<><div className="small" style={{ fontWeight: 700 }}>Foco para a próxima</div><ul className="small" style={{ margin: '4px 0 0', paddingLeft: 18 }}>{rev.focus.map((h, i) => <li key={i}>{h}</li>)}</ul></>)}
+    </section>
   );
 }

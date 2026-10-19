@@ -9,6 +9,7 @@ import { applyImport, parseImport } from '../domain/import';
 import { db, setMeta, getMeta, update } from '../db/db';
 import { toast } from '../state/store';
 import { Chip, useConfirm } from '../ui/ui';
+import { RemindersSection, GarminSection } from './settings-extra';
 
 let deferredPrompt: any = null;
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; });
@@ -92,6 +93,9 @@ export function SettingsScreen() {
         ) : null}
       </section>
 
+      <RemindersSection />
+      <GarminSection />
+
       <section className="block b-paper">
         <h2 style={{ fontSize: 20 }}>Backup</h2>
         <p className="small" style={{ marginTop: 4 }}>{lastBackup ? `Último backup: ${new Date(lastBackup).toLocaleDateString('pt-BR')}.` : 'Nenhum backup feito neste aparelho.'} No Android, o backup abre o compartilhamento para você salvar no Drive.</p>
@@ -136,6 +140,11 @@ export function SettingsScreen() {
           <input inputMode="numeric" defaultValue={settings.waterGoalMl ?? ''} onBlur={(e) => update<'settings'>('settings', { waterGoalMl: e.target.value ? Number(e.target.value) : undefined })} aria-label="Meta de água" />
           <span className="label">O que a IA deve saber sobre você</span>
           <textarea defaultValue={settings.aiContext ?? ''} onBlur={(e) => update<'settings'>('settings', { aiContext: e.target.value })} placeholder="Ex.: treino às 6h nos dias de semana; pele piora perto da menstruação; prefiro rotinas curtas de manhã." aria-label="Contexto para a IA" />
+          <span className="label">Preparar o dia sozinho ao abrir o app</span>
+          <div className="chips">
+            <Chip on={settings.autoBrief !== false} onClick={() => update<'settings'>('settings', { autoBrief: true })}>Sim</Chip>
+            <Chip on={settings.autoBrief === false} onClick={() => update<'settings'>('settings', { autoBrief: false })}>Só quando eu pedir</Chip>
+          </div>
           <span className="label">Botões de água (mL)</span>
           <div className="chips">
             {[150, 200, 250, 300, 400, 500, 750].map((ml) => {

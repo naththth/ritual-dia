@@ -11,6 +11,13 @@ export default defineConfig(({ mode }) => {
       react(),
       VitePWA({
         registerType: 'prompt',
+        strategies: 'injectManifest',
+        srcDir: 'src',
+        filename: 'sw.ts',
+        injectManifest: {
+          globPatterns: ['**/*.{js,css,html,png,svg,json}', '**/*latin-full*.woff2', '**/figtree-latin-wght*.woff2'],
+          globIgnores: ['**/*latin-ext*']
+        },
         includeAssets: ['icons/*.png', 'icons/*.svg'],
         manifest: {
           id: base,

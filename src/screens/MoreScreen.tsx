@@ -1,8 +1,11 @@
 import { useNavigate } from 'react-router-dom';
-import { CalendarDays, ChartNoAxesColumn, ListChecks, Library, Settings, ChevronRight, Sparkles } from 'lucide-react';
+import { CalendarDays, ChartNoAxesColumn, ListChecks, Library, Settings, ChevronRight, Sparkles, NotebookPen, StickyNote, BookOpen } from 'lucide-react';
 import { TopBar } from './common';
 
 const ITEMS = [
+  { to: '/diario', label: 'Diário', sub: 'Energia, humor, sono e o dia em poucas linhas', icon: <NotebookPen size={20} />, c: 'var(--wine-ink)' },
+  { to: '/notas', label: 'Notas', sub: 'Ideias e anotações com etiquetas', icon: <StickyNote size={20} />, c: 'var(--honey)' },
+  { to: '/leitura', label: 'Leitura', sub: 'Estante, páginas lidas e meta do ano', icon: <BookOpen size={20} />, c: 'var(--rose)' },
   { to: '/calendario', label: 'Calendário', sub: 'O mês inteiro e qualquer dia passado', icon: <CalendarDays size={20} />, c: 'var(--paper-2)' },
   { to: '/evolucao', label: 'Evolução', sub: 'Semana e mês: hábitos, treino, pele, alimentação', icon: <ChartNoAxesColumn size={20} />, c: 'var(--olive)' },
   { to: '/listas', label: 'Tarefas', sub: 'Pendências por categoria e prioridade', icon: <ListChecks size={20} />, c: 'var(--wine-ink)' },

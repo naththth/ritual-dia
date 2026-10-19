@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Sparkles, RefreshCw, CalendarPlus } from 'lucide-react';
 import type { WorkoutStep } from '../db/types';
 import { useAll, useRecord, useSettings } from '../db/hooks';
 import { aiAvailable, aiDayBrief, watts } from '../domain/ai';
 import { planTask } from '../domain/actions';
 import { toast } from '../state/store';
-import type { DateKey } from '../lib/dates';
+import { todayKey, type DateKey } from '../lib/dates';
 
 /** Blocos do treino de pedal, em watts a partir do FTP. */
 export function StepsView({ steps }: { steps: WorkoutStep[] }) {
@@ -42,6 +42,13 @@ export function DayBriefBlock({ date }: { date: DateKey }) {
     setBusy(true);
     try { await aiDayBrief(date); } catch (e: any) { toast(e.message, undefined, 'error'); } finally { setBusy(false); }
   };
+  const settings = useSettings();
+  useEffect(() => {
+    if (brief !== null || busy || !aiAvailable() || settings?.autoBrief === false || date !== todayKey()) return;
+    const k = `auto-brief:${date}`;
+    try { if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, '1'); } catch { /* */ }
+    run();
+  }, [brief, date, settings?.autoBrief]);
   if (brief === undefined) return null;
   if (!brief) {
     if (!aiAvailable()) return null;
