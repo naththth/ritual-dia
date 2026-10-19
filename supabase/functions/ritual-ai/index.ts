@@ -69,7 +69,7 @@ function pickProvider(): { name: string; call: Call } | null {
   const a = Deno.env.get('ANTHROPIC_API_KEY');
   const gemini: Call = async (system, user, images = []) => {
     // Modelos em ordem de preferência; se um estiver sobrecarregado (503/429) ou indisponível (404), tenta o próximo.
-    const models = Array.from(new Set([Deno.env.get('GEMINI_MODEL') ?? 'gemini-flash-latest', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-2.5-flash']));
+    const models = Array.from(new Set([Deno.env.get('GEMINI_MODEL') ?? 'gemini-flash-latest', 'gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash']));
     let last = '';
     for (const model of models) {
       const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
@@ -79,7 +79,7 @@ function pickProvider(): { name: string; call: Call } | null {
       });
       const b = await r.json();
       if (r.ok) return (b.candidates?.[0]?.content?.parts ?? []).map((p: any) => p.text ?? '').join('');
-      last = b?.error?.message ?? String(r.status);
+      last += `[${model} ${r.status}] ${String(b?.error?.message ?? '').slice(0, 120)} `;
       if (![404, 429, 500, 503].includes(r.status)) break;
     }
     throw new Error(`Gemini: ${last}`);
