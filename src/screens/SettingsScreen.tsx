@@ -116,6 +116,13 @@ export function SettingsScreen() {
       {settings && (
         <section className="block b-paper">
           <h2 style={{ fontSize: 20 }}>Preferências</h2>
+          <span className="label">FTP no pedal (watts)</span>
+          <input inputMode="numeric" defaultValue={settings.ftp ?? ''} onBlur={(e) => update<'settings'>('settings', { ftp: e.target.value ? Number(e.target.value) : undefined })} aria-label="FTP" />
+          <p className="field-hint">Os treinos de pedal mostram cada bloco em watts a partir deste valor.</p>
+          <span className="label">Meta de água por dia (mL)</span>
+          <input inputMode="numeric" defaultValue={settings.waterGoalMl ?? ''} onBlur={(e) => update<'settings'>('settings', { waterGoalMl: e.target.value ? Number(e.target.value) : undefined })} aria-label="Meta de água" />
+          <span className="label">O que a IA deve saber sobre você</span>
+          <textarea defaultValue={settings.aiContext ?? ''} onBlur={(e) => update<'settings'>('settings', { aiContext: e.target.value })} placeholder="Ex.: treino às 6h nos dias de semana; pele piora perto da menstruação; prefiro rotinas curtas de manhã." aria-label="Contexto para a IA" />
           <span className="label">Botões de água (mL)</span>
           <div className="chips">
             {[150, 200, 250, 300, 400, 500, 750].map((ml) => {

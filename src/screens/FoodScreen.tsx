@@ -148,7 +148,7 @@ export function FoodScreen() {
         <a className="link" href="#/biblioteca/refeicoes">Refeições favoritas</a>
       </div>
       <div className="block b-honey" style={{ marginTop: 20 }}>
-        <div className="bh"><h2 style={{ fontSize: 19 }}>Água</h2><span className="big-num num">{total} mL</span></div>
+        <div className="bh"><h2 style={{ fontSize: 19 }}>Água</h2><span className="big-num num">{total} mL{settings?.waterGoalMl ? <span className="small" style={{ fontFamily: 'var(--f-ui)' }}> de {settings.waterGoalMl} mL</span> : null}</span></div>
         <div className="row wrap" style={{ gap: 8 }}>
           {(settings?.waterPresets ?? [200, 300, 500]).map((ml) => <button key={ml} className="pill-act pa-honey" onClick={() => addWater(date, ml)}>+{ml} mL</button>)}
           {lastWater && <button className="pill-act pa-ghost" onClick={async () => { await remove(lastWater.id); toast(`−${lastWater.ml} mL`); }}><Undo2 size={16} />Desfazer última</button>}

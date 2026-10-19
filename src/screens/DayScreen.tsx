@@ -12,6 +12,7 @@ import { addDays, monthEnd, monthStart, weekStart, type DateKey } from '../lib/d
 import { addWater, logSuggestion, planTask, saveSkin, skipPlanned, toggleHabit, workoutFromTemplate, mealFromTemplate } from '../domain/actions';
 import type { Habit, Task } from '../db/types';
 import { toast } from '../state/store';
+import { StepsView, DayBriefBlock } from './ai-ui';
 
 export function DayScreen() {
   const date = useApp((s) => s.date);
@@ -38,6 +39,7 @@ export function DayScreen() {
         <span className="bars" aria-hidden>{Array.from({ length: sum.total }, (_, i) => <i key={i} style={i < sum.done ? { background: 'var(--ink)' } : undefined} />)}</span>
         <span>{sum.done} de {sum.total} áreas registradas</span>
       </div>
+      <DayBriefBlock date={date} />
       <Suggestion date={date} tasks={tasks} />
       <TodayTasks date={date} tasks={tasks} />
       <SkinBlock date={date} />
@@ -180,6 +182,7 @@ function TrainingBlock({ date, skips }: { date: DateKey; skips: string[] }) {
             <div className="grow"><div className="t" style={{ fontSize: 18 }}>{t.name}</div>
               <div className="small">{modName(t.modalityId)}, {t.duration} min, {t.intensity}</div></div>
           </div>
+          {t.steps?.length ? <StepsView steps={t.steps} /> : null}
           <div className="row wrap" style={{ gap: 8, marginTop: 10 }}>
             <button className="pill-act pa-blue" data-testid="train-done" onClick={() => workoutFromTemplate(t, date, true)}>Feito</button>
             <button className="pill-act pa-ghost" onClick={() => nav(`/treino?novo=1&de=${t.id}`)}>Fiz outro</button>
@@ -241,7 +244,7 @@ function FoodBlock({ date }: { date: DateKey }) {
       </div>
       <div className="water" data-testid="water">
         <span className="amount num">{total >= 1000 ? `${(total / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} L` : `${total} mL`}</span>
-        <span className="grow small">de água</span>
+        <span className="grow small">{settings?.waterGoalMl ? `de ${(settings.waterGoalMl / 1000).toLocaleString('pt-BR')} L` : 'de água'}</span>
         {(settings?.waterPresets ?? [300]).slice(0, 2).map((ml) => (
           <button key={ml} onClick={() => addWater(date, ml)} aria-label={`Adicionar ${ml} mL de água`}>+{ml}</button>
         ))}

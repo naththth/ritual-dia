@@ -38,7 +38,8 @@ export const DEFAULT_MODALITIES: Array<Pick<Modality, 'id' | 'name' | 'extra' | 
   { id: 'mod:transicao', name: 'Transição', extra: 'combo', order: 6 },
   { id: 'mod:caminhada', name: 'Caminhada', extra: 'distance', order: 7 },
   { id: 'mod:mobilidade', name: 'Mobilidade e alongamento', extra: null, order: 8 },
-  { id: 'mod:descanso', name: 'Descanso', extra: 'rest', order: 9 }
+  { id: 'mod:descanso', name: 'Descanso', extra: 'rest', order: 9 },
+  { id: 'mod:lpo', name: 'LPO', extra: null, order: 10 }
 ];
 
 export const MUSCLE_GROUPS = ['Pernas', 'Glúteos', 'Costas', 'Peito', 'Ombros', 'Braços', 'Core', 'Corpo todo'];

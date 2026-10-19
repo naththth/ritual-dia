@@ -15,7 +15,7 @@ export type Kind =
   | 'product' | 'skin' | 'photo'
   | 'food' | 'mtemplate' | 'meal' | 'water'
   | 'modality' | 'wtemplate' | 'workout'
-  | 'plan' | 'skip';
+  | 'plan' | 'skip' | 'brief';
 
 export type Priority = 'alta' | 'media' | 'baixa';
 export const PRIORITIES: Priority[] = ['alta', 'media', 'baixa'];
@@ -32,6 +32,8 @@ export interface Settings extends Base {
   importedAt?: number;
   reviewDone?: boolean;
   owners: string[];
+  ftp?: number;
+  aiContext?: string; // observações livres para a IA (rotina, restrições)
 }
 
 export interface Category extends Base {
@@ -204,8 +206,11 @@ export interface Modality extends Base {
   order: number;
   archived?: boolean;
 }
+export interface WorkoutStep { label: string; minutes: number; pct: number }
 export interface WorkoutTemplate extends Base {
   kind: 'wtemplate';
+  steps?: WorkoutStep[]; // blocos em % do FTP (pedal)
+  note?: string;
   name: string;
   modalityId: string;
   duration: number;
@@ -250,10 +255,19 @@ export interface Skip extends Base {
   ref: string;
 }
 
+export interface DayBrief extends Base {
+  kind: 'brief';
+  date: DateKey;
+  foco?: string;
+  pele?: string;
+  treino?: string;
+  tarefas: { id: string; motivo: string; primeiro_passo: string }[];
+}
+
 export type AnyRecord =
   | Settings | Category | Task | SuggestionLog | Habit | HabitLog | Goal | GoalEntry
   | Product | SkinLog | Photo | Food | MealTemplate | Meal | Water
-  | Modality | WorkoutTemplate | Workout | Plan | Skip;
+  | Modality | WorkoutTemplate | Workout | Plan | Skip | DayBrief;
 
 export type KindMap = {
   settings: Settings; category: Category; task: Task; suggestion: SuggestionLog;
@@ -261,5 +275,5 @@ export type KindMap = {
   product: Product; skin: SkinLog; photo: Photo;
   food: Food; mtemplate: MealTemplate; meal: Meal; water: Water;
   modality: Modality; wtemplate: WorkoutTemplate; workout: Workout;
-  plan: Plan; skip: Skip;
+  plan: Plan; skip: Skip; brief: DayBrief;
 };
