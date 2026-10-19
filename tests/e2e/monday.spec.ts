@@ -292,3 +292,20 @@ test('sono: acordar 6h calcula deitar e organiza o dia', async ({ page }) => {
   await expect(page.getByTestId('tl-bed')).toContainText('21:45');
   await expect(page.getByTestId('now-card')).not.toContainText('Acordar');
 });
+
+test('registrar sono, VFC e passos à mão', async ({ page }) => {
+  await onboard(page);
+  await page.getByTestId('wellness-ask').click();
+  await page.getByLabel('Sono', { exact: true }).fill('7h20');
+  await page.getByLabel('VFC (ms)').fill('46');
+  await page.getByLabel('FC repouso').fill('52');
+  await page.getByLabel('Body Battery').fill('78');
+  await page.getByTestId('wellness-save').click();
+  const strip = page.getByTestId('wellness');
+  await expect(strip).toContainText('7h20');
+  await expect(strip).toContainText('46 ms');
+  await expect(strip).toContainText('78');
+  await page.screenshot({ path: 'test-results/shots/hoje-sono.png' });
+  await page.goto('./#/treino');
+  await page.getByTestId('fit-input').setInputFiles(path.resolve('tests/e2e/fixtures/pedal.fit'));
+});

@@ -1,5 +1,6 @@
 // Chamadas aos serviços do servidor: notificações.
-import { supabase, useSync } from './sync';
+import { supabase, useSync, syncNow } from './sync';
+import { get } from '../db/db';
 
 async function svc<T = any>(action: string, body: Record<string, unknown> = {}): Promise<T> {
   if (!supabase) throw new Error('Sincronização não configurada.');
@@ -57,4 +58,36 @@ export async function disablePush() {
 
 export async function testPush() {
   return svc<{ sent: number }>('push_test');
+}
+
+/* ---------- intervals.icu (ponte com MyWhoosh e Garmin) ---------- */
+export async function saveIntervalsKey(apiKey: string, athleteId: string) {
+  if (!supabase || !useSync.getState().session) throw new Error('Entre com Google primeiro.');
+  const { error } = await supabase.from('user_secrets').upsert({
+    user_id: useSync.getState().session!.user.id, provider: 'intervals', secret: apiKey.trim(), meta: { athleteId: athleteId.trim() || '0' }, updated_at: new Date().toISOString()
+  }, { onConflict: 'user_id,provider' });
+  if (error) throw new Error(error.message);
+}
+
+export async function removeIntervalsKey() {
+  if (!supabase || !useSync.getState().session) return;
+  await supabase.from('user_secrets').delete().eq('provider', 'intervals');
+}
+
+/** Envia os treinos planejados dos próximos 7 dias e traz atividades, sono, VFC e passos. */
+export async function syncIntervalsNow(days = 30) {
+  const r = await svc<{ wellness: number; activities: number; pushed: number }>('intervals_sync', { days });
+  await syncNow();
+  return r;
+}
+
+/** Depois de mudar o plano de treino: sobe o plano e reenvia a semana ao MyWhoosh, em silêncio. */
+export async function pushTrainingSoon() {
+  try {
+    const s = await get<'settings'>('settings');
+    if (!s?.intervals?.connected || !useSync.getState().session || !navigator.onLine) return;
+    await syncNow();
+    await svc('intervals_sync', { days: 3 });
+    await syncNow();
+  } catch { /* tenta de novo no ciclo de hora em hora */ }
 }

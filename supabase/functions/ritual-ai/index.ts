@@ -1,11 +1,12 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
 // Assistente do Ritual. Funciona com Google Gemini, OpenAI ou Anthropic; a chave fica num segredo do Supabase.
 // Ordem: AI_PROVIDER (se definido) ou a primeira chave encontrada: GEMINI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY.
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
   'Access-Control-Allow-Methods': 'POST, OPTIONS'
 };
 const J = { ...CORS, 'Content-Type': 'application/json' };
@@ -40,8 +41,17 @@ Formato: {"tarefas":[{"id":"task:...","motivo":"","primeiro_passo":""}],"pele":"
   week_review: `Faça a revisão da semana dela a partir do contexto (hábitos, treinos, alimentação, pele, diário, tarefas e leitura).
 Escreva 'texto' com 5 a 8 frases: o que os números mostram, ligações reais entre áreas (ex.: noites de sono curto e energia baixa no diário; dias sem almoço registrado e treino pior), sempre citando dados do contexto. Diferencie "não registrado" de "não feito". Sem julgamento.
 'destaques': até 3 coisas que foram bem, concretas. 'foco': até 3 ajustes práticos e pequenos para a próxima semana.
-Formato: {"texto":"","destaques":[""],"foco":[""]}.`
+Formato: {"texto":"","destaques":[""],"foco":[""]}.`,
+  wellness_read: `Você recebe prints do Garmin Connect (ou de outro app de saúde/relógio). Extraia SOMENTE números que aparecem na imagem; nunca estime nem complete.
+- data: a data a que os números se referem, em YYYY-MM-DD. Use contexto.hoje para resolver "Hoje", "Ontem" ou dia da semana; se não houver nenhuma indicação, null.
+- sono_h: duração total do sono em horas decimais (7h 32min = 7.53). sono_score: pontuação de sono 0-100. dormiu / acordou: HH:MM em 24 h.
+- vfc: média noturna da VFC em ms (não o status nem a faixa). fc_repouso: FC de repouso em bpm.
+- body_battery: valor ao acordar (ou o maior do dia se só houver esse). passos: total de passos do dia mostrado. estresse: nível médio de estresse.
+- observacao: uma frase curta só se algo for ambíguo (ex.: os passos são parciais do dia).
+Formato: {"data":null,"sono_h":null,"sono_score":null,"dormiu":null,"acordou":null,"vfc":null,"fc_repouso":null,"body_battery":null,"passos":null,"estresse":null,"observacao":""}.`
 };
+
+type Img = { mime: string; data: string };
 
 function extractJson(text: string) {
   const s = text.indexOf('{');
@@ -50,14 +60,14 @@ function extractJson(text: string) {
   return JSON.parse(text.slice(s, e + 1));
 }
 
-type Call = (system: string, user: string) => Promise<string>;
+type Call = (system: string, user: string, images?: Img[]) => Promise<string>;
 
 function pickProvider(): { name: string; call: Call } | null {
   const forced = (Deno.env.get('AI_PROVIDER') ?? '').toLowerCase();
   const g = Deno.env.get('GEMINI_API_KEY');
   const o = Deno.env.get('OPENAI_API_KEY');
   const a = Deno.env.get('ANTHROPIC_API_KEY');
-  const gemini: Call = async (system, user) => {
+  const gemini: Call = async (system, user, images = []) => {
     // Modelos em ordem de preferência; se um estiver sobrecarregado (503/429) ou indisponível (404), tenta o próximo.
     const models = Array.from(new Set([Deno.env.get('GEMINI_MODEL') ?? 'gemini-flash-latest', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-2.5-flash']));
     let last = '';
@@ -65,7 +75,7 @@ function pickProvider(): { name: string; call: Call } | null {
       const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
         method: 'POST',
         headers: { 'x-goog-api-key': g!, 'content-type': 'application/json' },
-        body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: [{ text: user }] }], generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 8000, temperature: 0.4 } })
+        body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: [...images.map((i) => ({ inline_data: { mime_type: i.mime, data: i.data } })), { text: user }] }], generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 8000, temperature: 0.4 } })
       });
       const b = await r.json();
       if (r.ok) return (b.candidates?.[0]?.content?.parts ?? []).map((p: any) => p.text ?? '').join('');
@@ -74,23 +84,23 @@ function pickProvider(): { name: string; call: Call } | null {
     }
     throw new Error(`Gemini: ${last}`);
   };
-  const openai: Call = async (system, user) => {
+  const openai: Call = async (system, user, images = []) => {
     const model = Deno.env.get('OPENAI_MODEL') ?? 'gpt-5-mini';
     const r = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { authorization: `Bearer ${o}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ model, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] })
+      body: JSON.stringify({ model, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: system }, { role: 'user', content: images.length ? [{ type: 'text', text: user }, ...images.map((i) => ({ type: 'image_url', image_url: { url: `data:${i.mime};base64,${i.data}` } }))] : user }] })
     });
     const b = await r.json();
     if (!r.ok) throw new Error(`OpenAI: ${b?.error?.message ?? r.status}`);
     return b.choices?.[0]?.message?.content ?? '';
   };
-  const anthropic: Call = async (system, user) => {
+  const anthropic: Call = async (system, user, images = []) => {
     const model = Deno.env.get('ANTHROPIC_MODEL') ?? 'claude-sonnet-5-5';
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': a!, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model, max_tokens: 4000, system, messages: [{ role: 'user', content: user }] })
+      body: JSON.stringify({ model, max_tokens: 4000, system, messages: [{ role: 'user', content: images.length ? [...images.map((i) => ({ type: 'image', source: { type: 'base64', media_type: i.mime, data: i.data } })), { type: 'text', text: user }] : user }] })
     });
     const b = await r.json();
     if (!r.ok) throw new Error(`Anthropic: ${b?.error?.message ?? r.status}`);
@@ -105,16 +115,34 @@ function pickProvider(): { name: string; call: Call } | null {
   return null;
 }
 
+// Só a usuária logada (ou o teste interno com o segredo do agendador) usa a IA; a chave pública do app não basta.
+async function allowed(req: Request) {
+  const token = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '');
+  try {
+    const part = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(atob(part + '='.repeat((4 - (part.length % 4)) % 4)));
+    if (payload.role === 'authenticated') return true;
+  } catch { /* */ }
+  const probe = req.headers.get('x-cron-secret');
+  if (!probe) return false;
+  const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
+  const { data } = await admin.from('app_secrets').select('value').eq('key', 'cron_secret').maybeSingle();
+  return !!data?.value && data.value === probe;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   try {
+    if (!(await allowed(req))) return new Response(JSON.stringify({ error: 'Entre com Google para usar a IA.' }), { status: 401, headers: J });
     const provider = pickProvider();
     if (!provider) return new Response(JSON.stringify({ error: 'A chave da IA ainda não foi configurada no Supabase.' }), { status: 503, headers: J });
-    const { task, context } = await req.json();
+    const { task, context, images } = await req.json();
     if (!TASKS[task]) return new Response(JSON.stringify({ error: 'Tarefa desconhecida' }), { status: 400, headers: J });
     const ctx = JSON.stringify(context ?? {});
     if (ctx.length > 80000) return new Response(JSON.stringify({ error: 'Contexto grande demais' }), { status: 413, headers: J });
-    const text = await provider.call(BASE + '\n\n' + TASKS[task], `Contexto (JSON):\n${ctx}`);
+    const imgs: Img[] = Array.isArray(images) ? images.filter((i: any) => typeof i?.data === 'string' && /^image\/(jpeg|png|webp)$/.test(i?.mime)).slice(0, 4) : [];
+    if (imgs.reduce((a, i) => a + i.data.length, 0) > 8_000_000) return new Response(JSON.stringify({ error: 'Imagens grandes demais' }), { status: 413, headers: J });
+    const text = await provider.call(BASE + '\n\n' + TASKS[task], `Contexto (JSON):\n${ctx}`, imgs);
     return new Response(JSON.stringify({ result: extractJson(text), provider: provider.name }), { headers: J });
   } catch (e) {
     return new Response(JSON.stringify({ error: String((e as Error)?.message ?? e) }), { status: 502, headers: J });

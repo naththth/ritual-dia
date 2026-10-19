@@ -303,6 +303,7 @@ export interface Reminders {
 export interface Wellness extends Base {
   kind: 'wellness'; date: DateKey; source?: string;
   steps?: number; sleepH?: number; sleepScore?: number; restingHR?: number; hrv?: number; weight?: number; ctl?: number; atl?: number; readiness?: number;
+  bodyBattery?: number; stress?: number; sleepStart?: string; sleepEnd?: string; // HH:MM
 }
 export interface Journal extends Base {
   kind: 'journal'; date: DateKey;

@@ -11,8 +11,12 @@ export async function importFitFiles(files: FileList | File[] | null, ftp?: numb
   for (const f of list) {
     try {
       const a = await readFitFile(f, ftp);
-      const id = `workout:fit:${a.startIso}`;
-      const exists = await db.records.get(id);
+      // Se o mesmo treino já chegou pelo intervals.icu, o arquivo completa esse registro em vez de duplicar.
+      const t0 = new Date(a.startIso).getTime();
+      const twin = (await db.records.where('[kind+date]').equals(['workout', a.date]).toArray())
+        .find((r: any) => !r.deleted && r.startTime && Math.abs(new Date(r.startTime).getTime() - t0) < 5 * 60_000);
+      const id = twin?.id ?? `workout:fit:${a.startIso}`;
+      const exists = twin ?? await db.records.get(id);
       const live = (k: string) => db.records.where('kind').equals(k).toArray().then((r: any[]) => r.filter((x) => !x.deleted));
       const [plans, tmpls] = await Promise.all([live('plan'), live('wtemplate')]);
       const planned = plannedTraining(planFor(plans as any, 'training', a.date), a.date)

@@ -9,7 +9,7 @@ import { applyImport, parseImport } from '../domain/import';
 import { db, setMeta, getMeta, update } from '../db/db';
 import { toast } from '../state/store';
 import { Chip, useConfirm } from '../ui/ui';
-import { RemindersSection } from './settings-extra';
+import { RemindersSection, IntervalsSection } from './settings-extra';
 
 let deferredPrompt: any = null;
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; });
@@ -94,6 +94,7 @@ export function SettingsScreen() {
       </section>
 
       <RemindersSection />
+      <IntervalsSection />
 
       <section className="block b-paper">
         <h2 style={{ fontSize: 20 }}>Backup</h2>

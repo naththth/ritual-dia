@@ -14,6 +14,7 @@ import type { Habit, Task } from '../db/types';
 import { toast } from '../state/store';
 import { DayBriefBlock } from './ai-ui';
 import { NowAndTimeline, TodayStats } from './today';
+import { WellnessCard } from './wellness';
 
 export function DayScreen() {
   const date = useApp((s) => s.date);
@@ -23,6 +24,7 @@ export function DayScreen() {
       <TopBar />
       <DateHeader />
       <TodayStats date={date} />
+      <WellnessCard date={date} />
       <DayBriefBlock date={date} />
       <NowAndTimeline date={date} />
       <HabitsBlock date={date} />

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Bell, BellOff, Plus, Trash2, Moon } from 'lucide-react';
+import { Bell, BellOff, Plus, Trash2, Moon, RefreshCw, Link2 } from 'lucide-react';
 import { DEFAULT_SLEEP, bedFor, hoursLabel, scheduleFromSleep, sleepPlan, wakeFor } from '../domain/sleep';
 import { addDays, todayKey, weekStart } from '../lib/dates';
 import { useSettings } from '../db/hooks';
@@ -7,7 +7,7 @@ import { update, uid } from '../db/db';
 import type { Reminders } from '../db/types';
 import { Chip } from '../ui/ui';
 import { toast } from '../state/store';
-import { disablePush, enablePush, pushStatus, testPush } from '../sync/services';
+import { disablePush, enablePush, pushStatus, testPush, saveIntervalsKey, syncIntervalsNow, removeIntervalsKey } from '../sync/services';
 import { useSync } from '../sync/sync';
 import { WEEKDAY_SHORT } from '../lib/dates';
 import { DEFAULT_MEAL_TIMES, DEFAULT_SKIN_TIMES } from './today';
@@ -150,5 +150,53 @@ function SleepSection({ r, setR }: { r: Reminders; setR: (p: Partial<Reminders>)
 function TimeField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <label className="nutr-cell"><span>{label}</span><input type="time" value={value} onChange={(e) => e.target.value && onChange(e.target.value)} aria-label={`Horário: ${label}`} /></label>
+  );
+}
+
+export function IntervalsSection() {
+  const settings = useSettings();
+  const session = useSync((s) => s.session);
+  const [key, setKey] = useState('');
+  const [athlete, setAthlete] = useState('');
+  const [busy, setBusy] = useState(false);
+  if (!settings) return null;
+  const conn = settings.intervals;
+  const run = async () => {
+    setBusy(true);
+    try {
+      const r = await syncIntervalsNow(30);
+      await update<'settings'>('settings', { intervals: { ...(conn ?? {}), connected: true, lastSync: Date.now() } });
+      toast(`${r.pushed} treinos enviados ao MyWhoosh; ${r.activities} atividades e ${r.wellness} dias de sono e passos recebidos`);
+    } catch (e: any) { toast(e.message, undefined, 'error'); } finally { setBusy(false); }
+  };
+  return (
+    <section className="block b-paper" data-testid="intervals">
+      <h2 style={{ fontSize: 20 }}><Link2 size={18} style={{ verticalAlign: '-3px', marginRight: 6 }} />MyWhoosh e Garmin</h2>
+      {!session ? <p className="small">Entre com Google para conectar.</p> : conn?.connected ? (
+        <>
+          <p className="small" style={{ marginTop: 4 }}>Conectado pelo intervals.icu. A cada hora o Ritual envia os pedais planejados dos próximos 7 dias (eles aparecem no calendário do MyWhoosh) e recebe os treinos feitos, sono, VFC, FC de repouso e passos.{conn.lastSync ? ` Última atualização: ${new Date(conn.lastSync).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}.` : ''}</p>
+          <div className="row wrap" style={{ gap: 8 }}>
+            <button className="btn btn-ink btn-sm" onClick={run} disabled={busy} data-testid="intervals-sync"><RefreshCw size={15} />{busy ? 'Atualizando…' : 'Atualizar agora'}</button>
+            <button className="btn btn-soft btn-sm" onClick={async () => { await removeIntervalsKey(); await update<'settings'>('settings', { intervals: { connected: false } }); toast('Desconectado'); }}>Desconectar</button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="small" style={{ marginTop: 4 }}>O MyWhoosh não abre conexão direta para outros apps. A ponte é o intervals.icu (gratuito): ele leva os treinos do Ritual para o calendário do MyWhoosh e traz de volta o que você pedalou, junto com sono e passos do Garmin.</p>
+          <ol className="small" style={{ paddingLeft: 18, margin: '6px 0 10px' }}>
+            <li>Crie a conta em intervals.icu. Em Settings, conecte o <b>MyWhoosh</b> e o <b>Garmin Connect</b> (não precisa do Strava).</li>
+            <li>No fim da página Settings, em Developer Settings, gere a <b>API Key</b> e copie o <b>Athlete ID</b> (começa com "i").</li>
+            <li>Cole aqui. A chave fica guardada só no servidor.</li>
+          </ol>
+          <input value={athlete} onChange={(e) => setAthlete(e.target.value)} placeholder="Athlete ID, ex.: i123456" aria-label="Athlete ID" />
+          <input value={key} onChange={(e) => setKey(e.target.value)} placeholder="API Key" aria-label="API Key do intervals.icu" style={{ marginTop: 8 }} autoComplete="off" />
+          <button className="btn btn-ink btn-sm" style={{ marginTop: 10 }} disabled={busy || key.trim().length < 10} onClick={async () => {
+            setBusy(true);
+            try { await saveIntervalsKey(key, athlete); setKey(''); await run(); }
+            catch (e: any) { toast(e.message, undefined, 'error'); setBusy(false); }
+          }}>Conectar</button>
+        </>
+      )}
+    </section>
   );
 }

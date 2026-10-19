@@ -25,6 +25,7 @@ export function TrainingTab() {
   const workouts = useByRange('workout', ws, we);
   const skips = useByRange('skip', ws, we);
   const history = useByRange('workout', addDays(todayKey(), -120), todayKey());
+  const wellness = useByRange('wellness', ws, we);
   const plans = useAll('plan');
   const tmpls = useAll('wtemplate');
   const mods = useAll('modality');
@@ -62,6 +63,7 @@ export function TrainingTab() {
         observacoes_dela: settings?.aiContext ?? '',
         plano_atual: days.map((d) => ({ dia: ['', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'][isoWeekday(d)], treinos: plannedOf(d).map((t) => ({ nome: t.name, minutos: t.duration, intensidade: t.intensity, blocos: t.steps, horario: t.time })) })),
         carga_atual: (() => { const l = trainingLoad(history ?? [], addDays(todayKey(), -120), todayKey()).slice(-1)[0]; return l ? { fitness_ctl: Math.round(l.ctl), fadiga_atl: Math.round(l.atl), forma_tsb: Math.round(l.tsb) } : null; })(),
+        sono_e_recuperacao_28_dias: (await db.records.where('[kind+date]').between(['wellness', addDays(todayKey(), -28)], ['wellness', todayKey()], true, true).toArray()).filter((r: any) => !r.deleted).map((w: any) => ({ data: w.date, sono_h: w.sleepH, vfc: w.hrv, fc_repouso: w.restingHR, body_battery: w.bodyBattery, passos: w.steps })),
         diario_14_dias: (await db.records.where('[kind+date]').between(['journal', addDays(todayKey(), -14)], ['journal', todayKey()], true, true).toArray()).filter((r: any) => !r.deleted).map((j: any) => ({ data: j.date, energia: j.energy, sono: j.sleep, estresse: j.stress })),
         treinos_feitos_28_dias: recent.map((w) => ({ data: w.date, modalidade: modName(w.modalityId), minutos: w.duration, do_plano: !!w.fromPlan, metricas: w.metrics ? { ...w.metrics, laps: undefined } : undefined }))
       });
@@ -146,15 +148,26 @@ export function TrainingTab() {
         const load = trainingLoad(history, addDays(todayKey(), -120), todayKey());
         const now = load[load.length - 1];
         const weekAgo = load[load.length - 8];
+        const wk = wellness ?? [];
+        const avg = (k: 'sleepH' | 'hrv' | 'restingHR' | 'steps') => { const v = wk.map((x) => x[k]).filter((x): x is number => x != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : undefined; };
+        const sleep = avg('sleepH'), hrv = avg('hrv'), rhr = avg('restingHR'), steps = avg('steps');
         const est = history.filter((w) => w.date >= addDays(todayKey(), -42)).some((w) => workoutLoad(w).estimated);
         return (
           <section className="block b-paper" data-testid="recovery">
-            <div className="bh"><h2 style={{ fontSize: 20 }}>Carga de treino</h2><span className="tiny muted">hoje</span></div>
+            <div className="bh"><h2 style={{ fontSize: 20 }}>Carga e recuperação</h2><span className="tiny muted">semana</span></div>
             <div className="row wrap" style={{ gap: '12px 22px' }}>
               <div><div className="big-num num">{Math.round(now.ctl)}</div><div className="small">fitness{weekAgo ? ` (${now.ctl >= weekAgo.ctl ? '+' : ''}${Math.round(now.ctl - weekAgo.ctl)} na semana)` : ''}</div></div>
               <div><div className="big-num num">{Math.round(now.atl)}</div><div className="small">fadiga</div></div>
               <div><div className="big-num num">{Math.round(now.tsb)}</div><div className="small">forma: {formLabel(now.tsb)}</div></div>
             </div>
+            {(sleep ?? hrv ?? rhr ?? steps) != null && (
+              <div className="row wrap" style={{ gap: '12px 22px', marginTop: 12 }} data-testid="recovery-week">
+                {sleep != null && <div><div className="big-num num">{Math.floor(sleep)}h{String(Math.round((sleep % 1) * 60)).padStart(2, '0')}</div><div className="small">sono médio</div></div>}
+                {hrv != null && <div><div className="big-num num">{Math.round(hrv)}</div><div className="small">VFC média</div></div>}
+                {rhr != null && <div><div className="big-num num">{Math.round(rhr)}</div><div className="small">FC repouso</div></div>}
+                {steps != null && <div><div className="big-num num">{Math.round(steps).toLocaleString('pt-BR')}</div><div className="small">passos por dia</div></div>}
+              </div>
+            )}
             <p className="tiny muted" style={{ marginBottom: 0 }}>Calculada pelo TSS dos arquivos .FIT{est ? '; treinos sem potência (musculação, aulas) entram por estimativa de duração e intensidade' : ''}. Fica mais precisa depois de algumas semanas de registros.</p>
           </section>
         );

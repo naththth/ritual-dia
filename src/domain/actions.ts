@@ -118,5 +118,6 @@ export async function savePlan(domain: PlanDomain, current: Plan | undefined, da
     await create('plan', { domain, validFrom: target.validFrom, ...data, id: uid('plan') } as any);
   }
   haptic();
+  if (domain === 'training') import('../sync/services').then((m) => m.pushTrainingSoon());
   toast(target.mode === 'create' && current ? 'Plano salvo. Vale a partir de hoje; dias anteriores mantêm o plano antigo.' : 'Plano salvo');
 }
