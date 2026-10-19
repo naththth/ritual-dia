@@ -229,10 +229,17 @@ async function syncIntervals(userId: string, days = 14) {
   const { data: existing } = await admin.from('records').select('id, data').eq('user_id', userId).eq('kind', 'workout').gte('data->>date', oldest);
   const fitStarts = (existing ?? []).filter((r: any) => r.data?.metrics?.source === 'fit' && r.data?.startTime).map((r: any) => new Date(r.data.startTime).getTime());
   let acts = 0;
-  for (const a of activities ?? []) {
+  // O mesmo treino pode chegar por duas origens (MyWhoosh e Garmin): fica um só, o que tem potência.
+  const sorted = [...(activities ?? [])].sort((x: any, y: any) => Number(!!y.icu_weighted_avg_watts) - Number(!!x.icu_weighted_avg_watts));
+  const icuOthers = (existing ?? []).filter((r: any) => r.id.startsWith('workout:icu:') && r.data?.startTime).map((r: any) => ({ id: r.id, t: new Date(r.data.startTime).getTime() }));
+  const taken: number[] = [];
+  for (const a of sorted) {
     if (!a?.id || !a.start_date_local) continue;
     const start = new Date(a.start_date ?? a.start_date_local).getTime();
     if (fitStarts.some((t: number) => Math.abs(t - start) < 5 * 60_000)) continue; // já veio pelo arquivo
+    if (taken.some((t) => Math.abs(t - start) < 5 * 60_000)) continue; // duplicado nesta leva
+    if (icuOthers.some((o: any) => o.id !== `workout:icu:${a.id}` && Math.abs(o.t - start) < 5 * 60_000)) continue; // já existe pela outra origem
+    taken.push(start);
     const moving = num(a.moving_time, a.elapsed_time) ?? 0;
     const np = num(a.icu_weighted_avg_watts, a.weighted_average_watts);
     const ftp = num(a.icu_ftp);
