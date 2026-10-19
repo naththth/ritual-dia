@@ -35,6 +35,8 @@ export interface Settings extends Base {
   ftp?: number;
   aiContext?: string; // observações livres para a IA (rotina, restrições)
   showNutrition?: boolean; // padrão: ligado
+  mealTimes?: Record<string, string>; // 'cafe' -> '07:30'
+  skinTimes?: { am: string; pm: string };
   targets?: { kcal?: number; p?: number; c?: number; f?: number }; // metas próprias; sem elas, usa o plano do dia
 }
 
@@ -217,6 +219,7 @@ export interface Modality extends Base {
 export interface WorkoutStep { label: string; minutes: number; pct: number }
 export interface WorkoutTemplate extends Base {
   kind: 'wtemplate';
+  time?: string; // 'HH:MM' quando tem horário fixo (aula)
   steps?: WorkoutStep[]; // blocos em % do FTP (pedal)
   note?: string;
   name: string;
@@ -227,8 +230,20 @@ export interface WorkoutTemplate extends Base {
   distanceKm?: number;
   archived?: boolean;
 }
+export interface WorkoutMetrics {
+  source: 'fit' | 'manual';
+  sport?: string;
+  distanceKm?: number; kcal?: number; avgHr?: number; maxHr?: number;
+  avgPower?: number; maxPower?: number; np?: number; if?: number; tss?: number;
+  best5?: number; best20?: number; avgCadence?: number; ascentM?: number; avgSpeed?: number;
+  zones?: Record<string, number>; ftpUsed?: number;
+  laps?: { minutes: number; avgPower?: number; avgHr?: number }[];
+}
 export interface Workout extends Base {
   kind: 'workout';
+  metrics?: WorkoutMetrics;
+  startTime?: string; // ISO do início real (arquivo)
+  fileName?: string;
   date: DateKey;
   modalityId: string;
   duration?: number;

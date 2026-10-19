@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Search, ChevronRight, Droplet, Utensils, Dumbbell, Target, Repeat2, Tags, CalendarRange, Sparkles, BookmarkCheck } from 'lucide-react';
 import { useAll, useSettings } from '../db/hooks';
 import { useApp } from '../state/store';
@@ -13,7 +13,8 @@ import { shortLabel } from '../lib/dates';
 type Sort = 'prioridade' | 'recentes' | 'custo' | 'tempo';
 
 export function ListsScreen() {
-  const [tab, setTab] = useState<'tarefas' | 'biblioteca'>(() => (sessionStorage.getItem('lists-tab') as any) || 'tarefas');
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState<'tarefas' | 'biblioteca'>(() => (params.get('tab') as any) || (sessionStorage.getItem('lists-tab') as any) || 'tarefas');
   const change = (t: typeof tab) => { setTab(t); try { sessionStorage.setItem('lists-tab', t); } catch { /* */ } };
   return (
     <div className="screen" data-testid="lists-screen">

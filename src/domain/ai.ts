@@ -5,7 +5,7 @@ import type { Plan, Product, WorkoutStep } from '../db/types';
 import { addDays, isoWeekday, type DateKey } from '../lib/dates';
 import { planFor, plannedSkin, plannedTraining } from './rules';
 
-export type AITask = 'skin_plan' | 'training_plan' | 'food_plan' | 'day_brief';
+export type AITask = 'skin_plan' | 'training_plan' | 'food_plan' | 'day_brief' | 'training_review';
 
 export function aiAvailable() {
   return !!supabase && !!useSync.getState().session && navigator.onLine;
@@ -58,7 +58,7 @@ export async function aiSkinPlan(today: DateKey) {
 
 /* ---------- Treino ---------- */
 export interface AITrainingResult {
-  templates: { key: string; name: string; modality: string; duration: number; intensity: 'leve' | 'moderada' | 'intensa'; steps?: WorkoutStep[]; muscles?: string[] }[];
+  templates: { key: string; name: string; modality: string; duration: number; intensity: 'leve' | 'moderada' | 'intensa'; time?: string; steps?: WorkoutStep[]; muscles?: string[] }[];
   week: Record<string, string[]>;
   resumo: string;
 }
@@ -87,7 +87,8 @@ export async function applyTrainingResult(r: AITrainingResult): Promise<Record<n
       name: t.name, modalityId: modId(t.modality), duration: Number(t.duration) || 45,
       intensity: ['leve', 'moderada', 'intensa'].includes(t.intensity) ? t.intensity : 'moderada',
       steps: Array.isArray(t.steps) ? t.steps.map((s) => ({ label: String(s.label), minutes: Number(s.minutes) || 5, pct: Number(s.pct) || 60 })) : undefined,
-      muscles: t.muscles
+      muscles: t.muscles,
+      time: /^\d{2}:\d{2}$/.test(String(t.time ?? '')) ? t.time : undefined
     });
     keyToId.set(t.key, rec.id);
   }

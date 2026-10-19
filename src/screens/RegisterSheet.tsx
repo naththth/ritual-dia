@@ -19,9 +19,9 @@ export function RegisterSheet({ open, onClose }: { open: boolean; onClose: () =>
   const items = [
     { icon: <Sunrise size={22} />, label: 'Pele da manhã', color: 'var(--rose)', on: () => go('/pele?p=am') },
     { icon: <Moon size={22} />, label: 'Pele da noite', color: 'var(--rose)', on: () => go('/pele?p=pm') },
-    { icon: <Utensils size={22} />, label: 'Refeição', color: 'var(--honey)', on: () => go('/alimentacao') },
+    { icon: <Utensils size={22} />, label: 'Refeição', color: 'var(--honey)', on: () => go('/alimentacao/refeicao') },
     { icon: <Droplets size={22} />, label: `Água +${settings?.waterPresets?.[1] ?? 300} mL`, color: 'var(--honey)', on: () => { addWater(date, settings?.waterPresets?.[1] ?? 300); } },
-    { icon: <Dumbbell size={22} />, label: 'Treino', color: 'var(--blue)', on: () => go('/treino?novo=1') },
+    { icon: <Dumbbell size={22} />, label: 'Treino', color: 'var(--blue)', on: () => go('/treino/registrar?novo=1') },
     { icon: <SquareCheck size={22} />, label: 'Hábito', color: 'var(--olive)', on: () => setSub('habit') },
     { icon: <ListPlus size={22} />, label: 'Nova tarefa', color: 'var(--wine-ink)', on: () => setSub('task') },
     { icon: <Ruler size={22} />, label: 'Medida de meta', color: 'var(--paper-2)', on: () => setSub('measure') }

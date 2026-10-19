@@ -49,15 +49,16 @@ test('segunda-feira completa: todos os módulos na mesma data', async ({ page })
   await expect(page.getByTestId('task-row')).toContainText('Decidir data da viagem');
 
   // 2) buscar "roupa" em Listas e adicionar à segunda
-  await page.getByRole('link', { name: 'Listas' }).click();
+  await page.getByRole('link', { name: 'Mais' }).click();
+  await page.getByRole('button', { name: /Tarefas/ }).click();
   await page.getByTestId('lists-search').fill('roupa');
   await expect(page.getByTestId('task-row')).toHaveCount(1);
   await page.getByRole('button', { name: 'Adicionar Comprar conjunto novo de treino a seg, 19/10' }).click();
-  await page.getByRole('link', { name: 'Dia' }).click();
+  await page.getByRole('link', { name: 'Hoje' }).click();
   await expect(page.getByTestId('task-row')).toHaveCount(2);
 
   // 3) pele da manhã: sinais, plano, salvar
-  await page.getByTestId('skin-am').getByRole('button').first().click();
+  await page.getByTestId('tl-skin-am').locator('.tl2-body').click();
   await expect(page.getByTestId('page-date')).toContainText('seg, 19/10');
   await page.getByRole('button', { name: 'Boa' }).click();
   await page.getByTestId('sig-oleosidade').click();
@@ -65,16 +66,20 @@ test('segunda-feira completa: todos os módulos na mesma data', async ({ page })
   await page.getByTestId('skin-use-all').click();
   await expect(page.locator('[data-testid=product-pick][aria-pressed=true]')).toHaveCount(3);
   await page.getByTestId('skin-save').click();
-  await expect(page.getByTestId('skin-am')).toContainText('Boa. 3 produtos');
+  await expect(page.getByTestId('tl-skin-am')).toContainText('3 produtos usados');
 
   // 4) almoço por toques
-  await page.getByTestId('food-block').getByRole('button', { name: /Almoço/ }).click();
+  await page.getByRole('link', { name: 'Alimentação' }).click();
+  await page.getByTestId('add-almoco').click();
   for (const f of ['Frango', 'Arroz', 'Feijão', 'Salada de folhas']) await page.getByTestId('food-list').getByRole('button', { name: f, exact: true }).click();
   await expect(page.getByTestId('meal-selected')).toContainText('4 itens');
   await page.getByTestId('meal-save').click();
-  await expect(page.getByTestId('food-block')).toContainText('Frango, Arroz, Feijão, Salada de folhas');
-  await page.getByRole('button', { name: 'Adicionar 300 mL de água' }).click();
+  await expect(page.getByTestId('meal-sec-almoco')).toContainText('Frango');
+  await expect(page.getByTestId('meal-sec-almoco')).toContainText('Salada de folhas');
+  await page.getByRole('button', { name: '+300 mL' }).click();
+  await page.getByRole('link', { name: 'Hoje' }).click();
   await expect(page.getByTestId('water')).toContainText('300 mL');
+  await expect(page.getByTestId('tl-meal-almoco')).toContainText('Frango');
 
   // 5) treino: musculação 45 min moderada atualiza o hábito uma única vez
   await page.getByTestId('fab').click();
@@ -84,7 +89,7 @@ test('segunda-feira completa: todos os módulos na mesma data', async ({ page })
   await page.getByTestId('workout-form').getByRole('button', { name: '45 min' }).click();
   await page.getByTestId('workout-save').click();
   await page.getByRole('button', { name: 'Voltar' }).click();
-  await expect(page.getByTestId('training-block')).toContainText('Musculação');
+  await expect(page.getByTestId('timeline')).toContainText('Musculação');
   const musc = page.getByTestId('habit-Musculação');
   await expect(musc).toContainText('1 de 3 na semana');
   await musc.click(); // já contou pelo treino
@@ -97,28 +102,28 @@ test('segunda-feira completa: todos os módulos na mesma data', async ({ page })
   // 7) fim do dia: concluir a tarefa de roupa
   await page.getByRole('checkbox', { name: 'Concluir Comprar conjunto novo de treino' }).click();
   await expect(page.getByRole('checkbox', { name: 'Concluir Comprar conjunto novo de treino' })).toHaveAttribute('aria-checked', 'true');
-  await expect(page.getByTestId('day-summary')).toContainText('4 de 5 áreas registradas');
 
   // 8) recarregar: nada some
   await page.reload();
-  await expect(page.getByTestId('skin-am')).toContainText('Boa. 3 produtos');
+  await expect(page.getByTestId('tl-skin-am')).toContainText('3 produtos usados');
   await expect(page.getByTestId('habit-Musculação')).toContainText('1 de 3 na semana');
 
   // 9) terça é independente
   await page.getByRole('button', { name: 'ter, 20/10' }).click();
-  await expect(page.getByTestId('skin-am')).not.toContainText('Boa');
-  await expect(page.getByTestId('food-block')).not.toContainText('Frango');
+  await expect(page.getByTestId('tl-skin-am')).not.toContainText('usados');
+  await expect(page.getByTestId('timeline')).not.toContainText('Frango');
   await expect(page.getByTestId('task-row')).toHaveCount(0);
   await expect(page.getByTestId('habit-Musculação')).toContainText('1 de 3 na semana');
 
   // 10) semanas depois, voltar pelo calendário à segunda
-  await page.getByRole('link', { name: 'Calendário' }).click();
+  await page.getByRole('link', { name: 'Mais' }).click();
+  await page.getByRole('button', { name: /Calendário/ }).click();
   await page.getByRole('button', { name: 'Próximo mês' }).click();
   await page.getByRole('button', { name: 'Mês anterior' }).click();
   await page.getByRole('button', { name: '2026-10-19' }).click();
   await expect(page.getByTestId('day-panel')).toContainText('Musculação 45 min');
   await page.getByRole('button', { name: 'Abrir o dia completo' }).click();
-  await expect(page.getByTestId('skin-am')).toContainText('Boa. 3 produtos');
+  await expect(page.getByTestId('tl-skin-am')).toContainText('3 produtos usados');
   await noHorizontalScroll(page);
   expect(errors).toEqual([]);
 });
@@ -142,14 +147,14 @@ test('editar e desfazer registro em data anterior', async ({ page }) => {
 
 test('cadastrar alimento e produto aparecem na hora para uso', async ({ page }) => {
   await onboard(page);
-  await page.goto('./#/alimentacao?m=almoco');
+  await page.goto('./#/alimentacao/refeicao?m=almoco');
   await page.getByRole('button', { name: 'Novo alimento' }).click();
   await page.getByLabel('Nome do alimento').fill('Patinho');
   await page.getByTestId('food-save').click();
   await expect(page.getByTestId('meal-selected')).toContainText('Patinho');
   await page.getByTestId('meal-save').click();
   await expect(page.getByTestId('day-screen')).toBeVisible();
-  await expect(page.getByTestId('food-block')).toContainText('Patinho');
+  await expect(page.getByTestId('timeline')).toContainText('Patinho');
   await page.goto('./#/pele?p=pm');
   await page.getByTestId('skin-add-from-list').click();
   await page.getByRole('button', { name: 'Cadastrar produto' }).click();
@@ -168,13 +173,15 @@ test('plano de treino seg/qua/sex: sugestão e check', async ({ page }) => {
   await page.goto('./#/plano/training');
   for (const d of [1, 3, 5]) await page.getByTestId(`tplan-${d}`).getByRole('button', { name: 'Musculação' }).click();
   await page.getByTestId('plan-save').click();
-  await expect(page.getByTestId('training-block')).toContainText('Planejado');
-  await page.getByTestId('train-done').click();
+  await page.goto('./#/');
+  await expect(page.getByTestId('tl-train-done')).toBeVisible();
+  await page.getByTestId('tl-train-done').click();
   await expect(page.getByTestId('habit-Musculação')).toContainText('1 de 3 na semana');
   await page.getByRole('button', { name: 'ter, 20/10' }).click();
-  await expect(page.getByTestId('training-block')).toContainText('Nada planejado');
+  await expect(page.getByTestId('timeline')).toBeVisible();
+  await expect(page.getByTestId('tl-train-done')).toHaveCount(0);
   await page.getByRole('button', { name: 'qua, 21/10' }).click();
-  await expect(page.getByTestId('training-block')).toContainText('Planejado');
+  await expect(page.getByTestId('tl-train-done')).toBeVisible();
 });
 
 test('backup e restauração', async ({ page }) => {
@@ -196,7 +203,7 @@ for (const width of [360, 393, 430]) {
   test(`telas sem rolagem lateral em ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 800 });
     await onboard(page);
-    for (const route of ['#/', '#/calendario', '#/listas', '#/evolucao', '#/pele', '#/alimentacao', '#/treino', '#/ajustes', '#/plano/skin', '#/revisao']) {
+    for (const route of ['#/', '#/treino', '#/alimentacao', '#/mais', '#/calendario', '#/listas', '#/evolucao', '#/pele', '#/alimentacao/refeicao', '#/treino/registrar', '#/ajustes', '#/plano/skin', '#/revisao']) {
       await page.goto('./' + route);
       await page.waitForTimeout(250);
       await noHorizontalScroll(page);
@@ -207,7 +214,7 @@ for (const width of [360, 393, 430]) {
 
 test('buscar alimento na tabela TACO e ver calorias da refeição', async ({ page }) => {
   await onboard(page);
-  await page.goto('./#/alimentacao?m=almoco');
+  await page.goto('./#/alimentacao/refeicao?m=almoco');
   await page.getByLabel('Buscar alimento').fill('frango peito grelhado');
   await page.getByTestId('taco-option').first().click();
   await expect(page.getByTestId('meal-selected')).toContainText('Frango, peito, sem pele, grelhado');
@@ -216,6 +223,24 @@ test('buscar alimento na tabela TACO e ver calorias da refeição', async ({ pag
   await page.getByLabel('Gramas de Frango, peito, sem pele, grelhado').blur();
   await expect(page.getByTestId('meal-totals')).toContainText('223');
   await page.getByTestId('meal-save').click();
-  await expect(page.getByTestId('day-nutrition')).toContainText('223');
+  await expect(page.getByTestId('today-stats')).toContainText('223');
   await page.screenshot({ path: 'test-results/shots/nutricao-dia.png', fullPage: true });
+});
+
+test('importar treino .FIT e ver potência, FC e zonas', async ({ page }) => {
+  await onboard(page);
+  await page.goto('./#/ajustes');
+  await page.getByLabel('FTP').fill('190');
+  await page.getByLabel('FTP').blur();
+  await page.goto('./#/treino');
+  await page.getByTestId('fit-input').setInputFiles(path.resolve('tests/e2e/fixtures/pedal.fit'));
+  const card = page.getByTestId('workout-card');
+  await expect(card).toContainText('Ciclismo');
+  await expect(card).toContainText('229 W');
+  await expect(card).toContainText('24.79 km');
+  await expect(card).toContainText('Tempo por zona');
+  // reimportar não duplica
+  await page.getByTestId('fit-input').setInputFiles(path.resolve('tests/e2e/fixtures/pedal.fit'));
+  await expect(page.getByTestId('workout-card')).toHaveCount(1);
+  await page.screenshot({ path: 'test-results/shots/treino-fit.png', fullPage: true });
 });
