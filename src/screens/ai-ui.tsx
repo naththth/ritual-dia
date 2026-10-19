@@ -38,22 +38,22 @@ export function DayBriefBlock({ date }: { date: DateKey }) {
   const brief = useRecord<'brief'>(`brief:${date}`);
   const tasks = useAll('task');
   const [busy, setBusy] = useState(false);
-  const run = async () => {
+  const run = async (silent = false) => {
     setBusy(true);
-    try { await aiDayBrief(date); } catch (e: any) { toast(e.message, undefined, 'error'); } finally { setBusy(false); }
+    try { await aiDayBrief(date); } catch (e: any) { if (!silent) toast(e.message, undefined, 'error'); } finally { setBusy(false); }
   };
   const settings = useSettings();
   useEffect(() => {
     if (brief !== null || busy || !aiAvailable() || settings?.autoBrief === false || date !== todayKey()) return;
     const k = `auto-brief:${date}`;
     try { if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, '1'); } catch { /* */ }
-    run();
+    run(true); // automático: se falhar, fica quieto; o botão continua lá
   }, [brief, date, settings?.autoBrief]);
   if (brief === undefined) return null;
   if (!brief) {
     if (!aiAvailable()) return null;
     return (
-      <button className="btn btn-soft btn-block" style={{ marginBottom: 14 }} onClick={run} disabled={busy} data-testid="brief-ask">
+      <button className="btn btn-soft btn-block" style={{ marginBottom: 14 }} onClick={() => run()} disabled={busy} data-testid="brief-ask">
         <Sparkles size={18} />{busy ? 'Preparando o dia…' : 'Preparar meu dia com IA'}
       </button>
     );
@@ -62,7 +62,7 @@ export function DayBriefBlock({ date }: { date: DateKey }) {
     <section className="block b-paper" data-testid="day-brief" aria-label="Orientação do dia">
       <div className="bh">
         <h2 style={{ fontSize: 20 }}>{brief.foco || 'Seu dia'}</h2>
-        {aiAvailable() && <button className="icon-btn" aria-label="Refazer orientação" onClick={run} disabled={busy}><RefreshCw size={18} /></button>}
+        {aiAvailable() && <button className="icon-btn" aria-label="Refazer orientação" onClick={() => run()} disabled={busy}><RefreshCw size={18} /></button>}
       </div>
       {brief.tarefas.map((t) => {
         const task = tasks?.find((x) => x.id === t.id);

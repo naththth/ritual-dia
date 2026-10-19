@@ -12,6 +12,15 @@ export function aiAvailable() {
   return !!supabase && !!useSync.getState().session && navigator.onLine;
 }
 
+/** Traduz os erros mais comuns dos provedores para algo que diz o que fazer. */
+function friendly(msg: string) {
+  if (/402|credits are depleted|prepayment|billing|quota/i.test(msg)) return 'Os créditos da IA acabaram. Recarregue no Google AI Studio (Faturamento) ou troque a chave no Supabase.';
+  if (/429|rate limit|RESOURCE_EXHAUSTED/i.test(msg)) return 'A IA atingiu o limite de uso por agora. Tente de novo em alguns minutos.';
+  if (/503|overloaded|high demand/i.test(msg)) return 'A IA está sobrecarregada agora. Tente de novo em instantes.';
+  if (/API key not valid|invalid api key|401/i.test(msg)) return 'A chave da IA não foi aceita. Confira o segredo no Supabase.';
+  return msg;
+}
+
 export async function askAI<T = any>(task: AITask, context: unknown, images?: { mime: string; data: string }[]): Promise<T> {
   if (!supabase) throw new Error('Sincronização não configurada.');
   if (!useSync.getState().session) throw new Error('Entre com Google para usar a IA.');
@@ -20,9 +29,9 @@ export async function askAI<T = any>(task: AITask, context: unknown, images?: { 
   if (error) {
     let msg = error.message;
     try { const b = await (error as any).context?.json?.(); if (b?.error) msg = b.error; } catch { /* */ }
-    throw new Error(msg);
+    throw new Error(friendly(msg));
   }
-  if (data?.error) throw new Error(data.error);
+  if (data?.error) throw new Error(friendly(data.error));
   return data.result as T;
 }
 
