@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { HashRouter, NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import { Dumbbell, Menu, Plus, Sun, Utensils } from 'lucide-react';
 import { ensureDefaults } from './domain/defaults';
@@ -28,15 +28,19 @@ import { toast } from './state/store';
 
 export function App() {
   const [booted, setBooted] = useState(false);
+  const bootedRef = useRef(false);
   useEffect(() => {
     (async () => {
       try { await navigator.storage?.persist?.(); } catch { /* opcional */ }
-      await ensureDefaults();
-      await initSync();
+      try { await ensureDefaults(); } catch (e) { console.error(e); }
+      // O app abre com o que está no aparelho; a sincronização corre por trás e nunca segura a abertura.
+      bootedRef.current = true;
       setBooted(true);
+      initSync().catch((e) => console.error(e));
     })();
     const update = registerSW({
-      onNeedRefresh() { toast('Nova versão disponível', () => update(true)); }
+      // Se a versão nova chegar enquanto o app ainda abre, troca na hora; depois de aberto, pergunta.
+      onNeedRefresh() { if (!bootedRef.current) update(true); else toast('Nova versão disponível', () => update(true)); }
     });
   }, []);
   if (!booted) return <div className="app" style={{ display: 'grid', placeItems: 'center', minHeight: '100dvh' }}><span className="wordmark">Ritual</span></div>;

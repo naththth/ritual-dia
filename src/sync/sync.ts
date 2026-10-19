@@ -144,7 +144,11 @@ export async function signOut() {
 
 export async function initSync() {
   if (!supabase) { useSync.setState({ ready: true, state: 'local' }); return; }
-  const { data } = await supabase.auth.getSession();
+  // getSession pode demorar (renovação do login sem rede); não deixa a sincronização travar por isso.
+  const { data } = await Promise.race([
+    supabase.auth.getSession(),
+    new Promise<{ data: { session: null } }>((r) => setTimeout(() => r({ data: { session: null } }), 6000))
+  ]) as any;
   useSync.setState({ session: data.session, state: data.session ? 'pending' : 'local', ready: true });
   // limpa ?code= da URL após o retorno do login
   if (window.location.search.includes('code=')) {
@@ -153,7 +157,8 @@ export async function initSync() {
   supabase.auth.onAuthStateChange((_e, session) => {
     const had = useSync.getState().session;
     useSync.setState({ session, state: session ? 'pending' : 'local' });
-    if (session && !had) void syncNow();
+    // fora do callback: chamar o Supabase dentro dele pode travar o login
+    if (session && !had) setTimeout(() => void syncNow(), 0);
   });
   onLocalWrite(() => scheduleSync());
   window.addEventListener('online', () => scheduleSync(200));
