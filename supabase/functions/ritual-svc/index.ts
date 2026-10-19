@@ -175,6 +175,16 @@ async function syncIntervals(userId: string, days = 14) {
     return txt ? JSON.parse(txt) : null;
   };
 
+  // 0) O FTP do Ritual é a referência: os blocos em % viram watts no MyWhoosh a partir do FTP do intervals.
+  const recs0 = await userRecords(userId, ['settings']);
+  const ftp = Number(recs0.find((x) => x.kind === 'settings')?.ftp) || 0;
+  let ftpSynced: number | undefined;
+  if (ftp > 50) {
+    const ss: any[] = (await call('sport-settings')) ?? [];
+    const ride = ss.find((x) => (x.types ?? []).includes('VirtualRide') || (x.types ?? []).includes('Ride'));
+    if (ride && ride.ftp !== ftp) { await call(`sport-settings/${ride.id}`, { method: 'PUT', body: JSON.stringify({ ftp }) }); ftpSynced = ftp; }
+  }
+
   // 1) Envia os pedais planejados dos próximos 7 dias (o intervals repassa ao MyWhoosh e ao Garmin).
   const recs = await userRecords(userId, ['plan', 'wtemplate', 'skip']);
   const plans = recs.filter((x) => x.kind === 'plan');
@@ -249,7 +259,7 @@ async function syncIntervals(userId: string, days = 14) {
     if (error) throw new Error(error.message);
   }
   await admin.from('user_secrets').update({ meta: { ...(sec.meta ?? {}), lastSync: nowIso } }).eq('user_id', userId).eq('provider', 'intervals');
-  return { wellness: (wellness ?? []).length, activities: acts, pushed: events.length };
+  return { wellness: (wellness ?? []).length, activities: acts, pushed: events.length, ftpSynced };
 }
 
 async function userFrom(req: Request) {
@@ -271,10 +281,10 @@ Deno.serve(async (req: Request) => {
     if (action === 'cron') {
       if (req.headers.get('x-cron-secret') !== (await secret('cron_secret'))) return json({ error: 'forbidden' }, 403);
       const out: any = { reminders: await sendReminders() };
-      if (nowParts().min % 60 < 5) {
+      if (nowParts().min % 60 < 5 || body.sync === true) {
         const { data: users } = await admin.from('user_secrets').select('user_id').eq('provider', 'intervals');
         out.intervals = [];
-        for (const u of users ?? []) { try { out.intervals.push(await syncIntervals(u.user_id, 3)); } catch (e) { out.intervals.push({ error: String(e) }); } }
+        for (const u of users ?? []) { try { out.intervals.push(await syncIntervals(u.user_id, Number(body.days) || 3)); } catch (e) { out.intervals.push({ error: String(e) }); } }
       }
       return json(out);
     }
