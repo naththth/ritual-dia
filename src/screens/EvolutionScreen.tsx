@@ -8,6 +8,7 @@ import { addDays, addMonths, monthEnd, monthStart, shortLabel, todayKey, weekSta
 import { habitDoneDates, planFor, plannedTraining } from '../domain/rules';
 import { SKIN_SIGNALS, SKIN_CONDITIONS } from '../domain/defaults';
 import { PhotoThumb } from './photos';
+import { fmt, totals } from '../domain/nutrition';
 
 function Bars({ rows, color, unit = '' }: { rows: { label: string; value: number }[]; color: string; unit?: string }) {
   const max = Math.max(1, ...rows.map((r) => r.value));
@@ -78,6 +79,10 @@ export function EvolutionScreen() {
   (meals ?? []).forEach((m) => m.items.forEach((i) => foodCount.set(i.foodId, (foodCount.get(i.foodId) ?? 0) + 1)));
   const topFoods = [...foodCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([id, v]) => ({ label: foods?.find((f) => f.id === id)?.name ?? '?', value: v }));
 
+  const dayTot = [...mealDays].map((d) => totals((meals ?? []).filter((m) => m.date === d).flatMap((m) => m.items), foods ?? []).n);
+  const avgKcal = dayTot.length && dayTot.some((t) => t.kcal > 0) ? dayTot.reduce((a, t) => a + t.kcal, 0) / dayTot.length : null;
+  const avgProt = avgKcal != null ? dayTot.reduce((a, t) => a + t.p, 0) / dayTot.length : null;
+
   // Tarefas
   const done = (tasks ?? []).filter((t) => t.completedDate && t.completedDate >= from && t.completedDate <= to);
   const byCat = (cats ?? []).map((c) => ({ label: c.name, value: done.filter((t) => t.categoryId === c.id).length })).filter((r) => r.value > 0);
@@ -115,7 +120,7 @@ export function EvolutionScreen() {
 
       <section className="block b-blue">
         <div className="bh"><h2>Treino</h2></div>
-        <div className="row" style={{ gap: 24, marginBottom: 12 }}>
+        <div className="row wrap" style={{ gap: '12px 24px', marginBottom: 12 }}>
           <Stat n={workouts?.length ?? 0} label="treinos" />
           <Stat n={minutes} label="minutos" />
           {plannedCount > 0 && <Stat n={`${fromPlan}/${plannedCount}`} label="do plano feitos" />}
@@ -125,7 +130,7 @@ export function EvolutionScreen() {
 
       <section className="block b-rose">
         <div className="bh"><h2>Pele</h2></div>
-        <div className="row" style={{ gap: 24, marginBottom: 12 }}>
+        <div className="row wrap" style={{ gap: '12px 24px', marginBottom: 12 }}>
           <Stat n={skinDays.size} label={`de ${elapsed} ${elapsed === 1 ? 'dia' : 'dias'} com registro`} />
         </div>
         {cond.length > 0 && (<><span className="label" style={{ marginTop: 0 }}>Como a pele estava</span><Bars color="var(--rose-ink)" rows={cond} unit="x" /></>)}
@@ -142,8 +147,10 @@ export function EvolutionScreen() {
 
       <section className="block b-honey">
         <div className="bh"><h2>Alimentação</h2></div>
-        <div className="row" style={{ gap: 24, marginBottom: 12 }}>
+        <div className="row wrap" style={{ gap: '12px 24px', marginBottom: 12 }}>
           <Stat n={mealDays.size} label={`de ${elapsed} ${elapsed === 1 ? 'dia' : 'dias'} com refeição`} />
+          {avgKcal != null && <Stat n={fmt(avgKcal)} label="kcal média por dia registrado" />}
+          {avgProt != null && <Stat n={`${fmt(avgProt)} g`} label="proteína média" />}
           {avgWater > 0 && <Stat n={`${(avgWater / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} L`} label="água nos dias registrados" />}
         </div>
         {topFoods.length > 0 ? (<><span className="label" style={{ marginTop: 0 }}>Mais presentes</span><Bars color="var(--honey-ink)" rows={topFoods} unit="x" /></>) : <p className="small" style={{ margin: 0 }}>Nenhuma refeição registrada no período.</p>}

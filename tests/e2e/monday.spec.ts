@@ -204,3 +204,18 @@ for (const width of [360, 393, 430]) {
     }
   });
 }
+
+test('buscar alimento na tabela TACO e ver calorias da refeição', async ({ page }) => {
+  await onboard(page);
+  await page.goto('./#/alimentacao?m=almoco');
+  await page.getByLabel('Buscar alimento').fill('frango peito grelhado');
+  await page.getByTestId('taco-option').first().click();
+  await expect(page.getByTestId('meal-selected')).toContainText('Frango, peito, sem pele, grelhado');
+  await expect(page.getByTestId('meal-totals')).toContainText('159');
+  await page.getByLabel('Gramas de Frango, peito, sem pele, grelhado').fill('140');
+  await page.getByLabel('Gramas de Frango, peito, sem pele, grelhado').blur();
+  await expect(page.getByTestId('meal-totals')).toContainText('223');
+  await page.getByTestId('meal-save').click();
+  await expect(page.getByTestId('day-nutrition')).toContainText('223');
+  await page.screenshot({ path: 'test-results/shots/nutricao-dia.png', fullPage: true });
+});

@@ -1,37 +1,151 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Plus, Trash2, Search } from 'lucide-react';
 import { create, update } from '../../db/db';
-import type { Food } from '../../db/types';
+import type { Food, Measure, Nutr } from '../../db/types';
 import { Chip } from '../../ui/ui';
-import { PORTIONS } from '../../domain/defaults';
 import { toast } from '../../state/store';
 import { useAll } from '../../db/hooks';
+import { loadTaco, searchList, searchOFF, typeFromTacoCat, fmt, type OffFood, type TacoFood } from '../../domain/nutrition';
 
-const TYPES = ['Proteína', 'Carboidrato', 'Leguminosas', 'Vegetais', 'Fruta', 'Laticínios sem lactose', 'Complemento', 'Suplemento', 'Bebida', 'Doce', 'Outros'];
+const TYPES = ['Proteína', 'Carboidrato', 'Leguminosas', 'Vegetais', 'Fruta', 'Laticínios', 'Laticínios sem lactose', 'Complemento', 'Suplemento', 'Bebida', 'Doce', 'Outros'];
+
+/** Lista suspensa enquanto ela digita: seus alimentos, tabela TACO e, se pedir, marcas (Open Food Facts). */
+export function FoodSuggest({ q, onPickTaco, onPickOff, onPickMine, excludeMine }: {
+  q: string; onPickTaco: (t: TacoFood) => void; onPickOff: (o: OffFood) => void; onPickMine?: (f: Food) => void; excludeMine?: boolean;
+}) {
+  const foods = useAll('food');
+  const [taco, setTaco] = useState<TacoFood[]>([]);
+  const [off, setOff] = useState<OffFood[] | null>(null);
+  const [offBusy, setOffBusy] = useState(false);
+  const [offErr, setOffErr] = useState('');
+  const ctrl = useRef<AbortController | null>(null);
+  useEffect(() => {
+    setOff(null); setOffErr('');
+    if (q.trim().length < 2) { setTaco([]); return; }
+    let alive = true;
+    loadTaco().then((all) => { if (alive) setTaco(searchList(all, q, (t) => t.name, 8)); }).catch(() => setTaco([]));
+    return () => { alive = false; };
+  }, [q]);
+  if (q.trim().length < 2) return null;
+  const mine = excludeMine ? [] : searchList((foods ?? []).filter((f) => !f.archived), q, (f) => f.name, 4);
+  const brands = async () => {
+    ctrl.current?.abort();
+    ctrl.current = new AbortController();
+    setOffBusy(true); setOffErr('');
+    try { setOff(await searchOFF(q, ctrl.current.signal)); } catch (e: any) { if (e?.name !== 'AbortError') setOffErr(navigator.onLine ? 'Busca de marcas indisponível agora.' : 'Sem internet para buscar marcas.'); }
+    finally { setOffBusy(false); }
+  };
+  const nLine = (n: Nutr | null) => (n ? `${fmt(n.kcal)} kcal, P ${fmt(n.p)} g, C ${fmt(n.c)} g, G ${fmt(n.f)} g por 100 g` : 'sem dados de energia');
+  return (
+    <div className="suggest" role="listbox" aria-label="Sugestões de alimentos" data-testid="food-suggest">
+      {mine.length > 0 && onPickMine && <div className="sg-head">Meus alimentos</div>}
+      {onPickMine && mine.map((f) => (
+        <button key={f.id} className="sg-item" role="option" onClick={() => onPickMine(f)}>
+          <span className="sg-name">{f.name}</span>
+          <span className="sg-meta">{f.n ? `${fmt(f.n.kcal)} kcal por 100 g` : f.type}</span>
+        </button>
+      ))}
+      {taco.length > 0 && <div className="sg-head">Tabela TACO</div>}
+      {taco.map((t) => (
+        <button key={t.id} className="sg-item" role="option" onClick={() => onPickTaco(t)} data-testid="taco-option">
+          <span className="sg-name">{t.name}</span>
+          <span className="sg-meta">{nLine(t.n)}</span>
+        </button>
+      ))}
+      {off === null ? (
+        <button className="sg-more" onClick={brands} disabled={offBusy}><Search size={15} />{offBusy ? 'Buscando marcas…' : `Buscar "${q.trim()}" em produtos de marca`}</button>
+      ) : off.length === 0 ? <div className="sg-meta" style={{ padding: '10px 4px' }}>Nenhum produto de marca encontrado.</div> : (
+        <>
+          <div className="sg-head">Produtos de marca (Open Food Facts)</div>
+          {off.map((o) => (
+            <button key={o.code} className="sg-item" role="option" onClick={() => onPickOff(o)}>
+              <span className="sg-name">{o.name}{o.brand ? `, ${o.brand}` : ''}</span>
+              <span className="sg-meta">{nLine(o.n)}</span>
+            </button>
+          ))}
+        </>
+      )}
+      {offErr && <div className="sg-meta" style={{ padding: '8px 4px', color: 'var(--alert)' }}>{offErr}</div>}
+    </div>
+  );
+}
+
+export function foodFromTaco(t: TacoFood): Partial<Food> {
+  return { name: t.name, type: typeFromTacoCat(t.cat), n: t.n ?? undefined, source: 'taco', sourceRef: String(t.id), measures: [{ label: '100 g', grams: 100 }], portions: [] };
+}
+export function foodFromOff(o: OffFood): Partial<Food> {
+  return { name: o.brand ? `${o.name} (${o.brand})` : o.name, type: 'Outros', n: o.n ?? undefined, source: 'off', sourceRef: o.code, measures: [{ label: '100 g', grams: 100 }, ...(o.serving ? [o.serving] : [])], portions: [] };
+}
 
 export function FoodForm({ food, onDone }: { food?: Food; onDone: (f?: Food) => void }) {
   const foods = useAll('food');
   const types = Array.from(new Set([...TYPES, ...(foods ?? []).map((f) => f.type)]));
-  const [d, setD] = useState<Partial<Food>>(food ?? { name: '', type: 'Proteína', portions: ['P', 'M', 'G'], favorite: false });
+  const [d, setD] = useState<Partial<Food>>(food ?? { name: '', type: 'Outros', portions: [], measures: [{ label: '100 g', grams: 100 }], favorite: false });
+  const [q, setQ] = useState(food ? '' : '');
+  const [picked, setPicked] = useState(!!food);
+  const [mLabel, setMLabel] = useState('');
+  const [mGrams, setMGrams] = useState('');
   const set = (p: Partial<Food>) => setD((x) => ({ ...x, ...p }));
+  const setN = (k: keyof Nutr, v: string) => {
+    const num = v === '' ? undefined : Number(v.replace(',', '.'));
+    const cur = d.n ?? { kcal: 0, p: 0, c: 0, f: 0 };
+    set({ n: { ...cur, [k]: num ?? 0 }, source: d.source === 'manual' || !d.source ? 'manual' : d.source });
+  };
   const save = async () => {
     if (!d.name?.trim()) { toast('Informe o nome do alimento.', undefined, 'error'); return; }
-    const data = { ...d, name: d.name.trim(), portions: d.portions?.length ? d.portions : ['M'] } as Food;
+    const data = { ...d, name: d.name.trim(), portions: d.portions ?? [], measures: d.measures?.length ? d.measures : [{ label: '100 g', grams: 100 }] } as Food;
     const r = food ? await update<'food'>(food.id, data) : await create('food', data);
     toast(food ? 'Alimento salvo' : 'Alimento cadastrado');
     onDone(r);
   };
+  const addMeasure = () => {
+    const g = Number(mGrams.replace(',', '.'));
+    if (!mLabel.trim() || !(g > 0)) { toast('Informe a medida e o peso em gramas.', undefined, 'error'); return; }
+    set({ measures: [...(d.measures ?? []), { label: mLabel.trim(), grams: g }] });
+    setMLabel(''); setMGrams('');
+  };
+  const n = d.n;
   return (
     <div data-testid="food-form">
       <span className="label" style={{ marginTop: 0 }}>Nome</span>
-      <input value={d.name ?? ''} onChange={(e) => set({ name: e.target.value })} aria-label="Nome do alimento" autoFocus={!food} />
+      <div style={{ position: 'relative' }}>
+        <input value={d.name ?? ''} onChange={(e) => { set({ name: e.target.value }); setQ(e.target.value); setPicked(false); }} aria-label="Nome do alimento" autoFocus={!food} autoComplete="off" placeholder="Comece a digitar: frango, pão, iogurte…" />
+        {!picked && (
+          <FoodSuggest q={q} excludeMine
+            onPickTaco={(t) => { setD((x) => ({ ...x, ...foodFromTaco(t) })); setPicked(true); }}
+            onPickOff={(o) => { setD((x) => ({ ...x, ...foodFromOff(o) })); setPicked(true); }} />
+        )}
+      </div>
+      {d.source && d.source !== 'manual' && <p className="field-hint">Valores da {d.source === 'taco' ? 'tabela TACO (UNICAMP)' : 'base Open Food Facts'}. Você pode ajustar.</p>}
+
+      <span className="label">Valores por 100 g</span>
+      <div className="nutr-grid">
+        {([['kcal', 'kcal'], ['p', 'Proteína (g)'], ['c', 'Carboidrato (g)'], ['f', 'Gordura (g)'], ['fib', 'Fibra (g)'], ['na', 'Sódio (mg)']] as [keyof Nutr, string][]).map(([k, l]) => (
+          <label key={k} className="nutr-cell">
+            <span>{l}</span>
+            <input inputMode="decimal" value={n?.[k] != null ? String(Math.round((n[k] as number) * 10) / 10) : ''} onChange={(e) => setN(k, e.target.value)} aria-label={l} />
+          </label>
+        ))}
+      </div>
+
+      <span className="label">Medidas que você usa</span>
+      {(d.measures ?? []).map((m: Measure, i) => (
+        <div key={i} className="row between" style={{ minHeight: 44 }}>
+          <span style={{ fontWeight: 600 }}>{m.label}</span>
+          <span className="row"><span className="small num">{fmt(m.grams)} g{n ? `, ${fmt((n.kcal * m.grams) / 100)} kcal` : ''}</span>
+            <button className="icon-btn" aria-label={`Remover ${m.label}`} onClick={() => set({ measures: d.measures!.filter((_, j) => j !== i) })}><Trash2 size={17} /></button></span>
+        </div>
+      ))}
+      <div className="row" style={{ gap: 8 }}>
+        <input value={mLabel} onChange={(e) => setMLabel(e.target.value)} placeholder="1 un., 1 fatia, 1 colher" aria-label="Nova medida" style={{ flex: 2 }} />
+        <input value={mGrams} onChange={(e) => setMGrams(e.target.value)} inputMode="decimal" placeholder="g" aria-label="Peso da medida em gramas" style={{ flex: 1 }} />
+        <button className="btn btn-soft" aria-label="Adicionar medida" onClick={addMeasure}><Plus size={18} /></button>
+      </div>
+
       <span className="label">Grupo</span>
       <div className="chips">{types.map((t) => <Chip key={t} color="honey" on={d.type === t} onClick={() => set({ type: t })}>{t}</Chip>)}</div>
-      <span className="label">Porções que você usa</span>
-      <div className="chips">{PORTIONS.map((p) => <Chip key={p} on={d.portions?.includes(p)} onClick={() => set({ portions: d.portions?.includes(p) ? d.portions.filter((x) => x !== p) : [...(d.portions ?? []), p] })}>{p}</Chip>)}</div>
       <span className="label">Favorito</span>
       <div className="chips"><Chip on={!!d.favorite} onClick={() => set({ favorite: true })}>Sim</Chip><Chip on={!d.favorite} onClick={() => set({ favorite: false })}>Não</Chip></div>
-      <span className="label">Calorias por porção média <span className="muted small">(opcional; só se você tiver a informação)</span></span>
-      <input inputMode="numeric" value={d.kcal ?? ''} onChange={(e) => set({ kcal: e.target.value ? Number(e.target.value) : undefined })} aria-label="Calorias" />
       <div className="row" style={{ marginTop: 18 }}>
         <button className="btn btn-soft" onClick={() => onDone()}>Cancelar</button>
         <button className="btn btn-ink grow" onClick={save} data-testid="food-save">Salvar alimento</button>

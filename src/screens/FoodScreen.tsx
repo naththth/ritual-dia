@@ -10,7 +10,8 @@ import { addWater, copyMealsFrom, deleteRecord, mealId, saveMeal } from '../doma
 import { byDateRange, create, remove } from '../db/db';
 import type { Food, MealItem } from '../db/types';
 import { addDays, shortLabel } from '../lib/dates';
-import { FoodForm } from './library/FoodForm';
+import { FoodForm, FoodSuggest, foodFromTaco, foodFromOff } from './library/FoodForm';
+import { fmt, gramsFor, itemNutr, portionOptions, totals } from '../domain/nutrition';
 import { planFor, plannedFood } from '../domain/rules';
 
 function defaultMeal() {
@@ -59,8 +60,17 @@ export function FoodScreen() {
     .filter((f) => !q || f.name.toLowerCase().includes(q.toLowerCase()))
     .sort((a, b) => Number(!!b.favorite) - Number(!!a.favorite) || a.name.localeCompare(b.name));
   const sel = (id: string) => items.find((i) => i.foodId === id);
-  const toggle = (f: Food) => setItems((xs) => (sel(f.id) ? xs.filter((x) => x.foodId !== f.id) : [...xs, { foodId: f.id, portion: f.portions?.[1] ?? 'M' }]));
-  const setPortion = (id: string, portion: string) => setItems((xs) => xs.map((x) => (x.foodId === id ? { ...x, portion } : x)));
+  const toggle = (f: Food) => setItems((xs) => (sel(f.id) ? xs.filter((x) => x.foodId !== f.id) : [...xs, { foodId: f.id, portion: portionOptions(f)[0] }]));
+  const setPortion = (id: string, portion: string) => setItems((xs) => xs.map((x) => (x.foodId === id ? { foodId: x.foodId, portion } : x)));
+  const setGrams = (id: string, g: number) => setItems((xs) => xs.map((x) => (x.foodId === id ? { foodId: x.foodId, portion: `${g} g`, grams: g } : x)));
+  const addNew = async (data: Partial<Food>) => {
+    const existing = activeFoods.find((f) => f.sourceRef && f.sourceRef === data.sourceRef);
+    const f = existing ?? (await create('food', { ...(data as Food), favorite: false }));
+    setItems((xs) => (xs.some((x) => x.foodId === f.id) ? xs : [...xs, { foodId: f.id, portion: portionOptions(f)[0] }]));
+    setQ('');
+  };
+  const showN = settings?.showNutrition !== false;
+  const mealTot = foods ? totals(items, foods) : undefined;
   const total = (water ?? []).reduce((a, w) => a + w.ml, 0);
   const lastWater = [...(water ?? [])].sort((a, b) => b.createdAt - a.createdAt)[0];
   const typeLabel = settings?.mealTypes.find((m) => m.id === type)?.label ?? type;
@@ -100,13 +110,29 @@ export function FoodScreen() {
       {items.length > 0 && (
         <div className="block b-honey" style={{ marginTop: 16 }} data-testid="meal-selected">
           <div className="bh"><h2 style={{ fontSize: 19 }}>{typeLabel}</h2><span className="meta">{items.length} {items.length === 1 ? 'item' : 'itens'}</span></div>
+          {showN && mealTot && (
+            <div className="macro-row" style={{ marginBottom: 6 }} data-testid="meal-totals">
+              <span><b className="num">{fmt(mealTot.n.kcal)}</b>kcal</span>
+              <span>P {fmt(mealTot.n.p)} g</span><span>C {fmt(mealTot.n.c)} g</span><span>G {fmt(mealTot.n.f)} g</span>
+              {mealTot.missing > 0 && <span className="small" style={{ fontWeight: 500 }}>{mealTot.missing} sem dados</span>}
+            </div>
+          )}
           {items.map((i) => {
             const f = foods?.find((x) => x.id === i.foodId);
+            const nn = itemNutr(f, i);
+            const g = gramsFor(f, i.portion, i.grams);
             return (
-              <div key={i.foodId} className="row between" style={{ minHeight: 48, gap: 8 }}>
-                <button className="tap" style={{ fontWeight: 700, flex: '1 1 30%' }} onClick={() => f && toggle(f)} aria-label={`Remover ${f?.name}`}>{f?.name ?? '?'} <span className="tiny">✕</span></button>
-                <div className="portion">
-                  {(f?.portions?.length ? f.portions : ['P', 'M', 'G']).map((p) => <button key={p} className={i.portion === p ? 'on' : ''} onClick={() => setPortion(i.foodId, p)}>{p}</button>)}
+              <div key={i.foodId} className="meal-item">
+                <div className="row between" style={{ gap: 8 }}>
+                  <button className="tap" style={{ fontWeight: 700, flex: 1 }} onClick={() => f && toggle(f)} aria-label={`Remover ${f?.name}`}>{f?.name ?? '?'} <span className="tiny">✕</span></button>
+                  {showN && <span className="small num" style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{nn ? `${fmt(nn.kcal)} kcal` : f?.n ? 'informe o peso' : 'sem dados'}</span>}
+                </div>
+                <div className="row wrap" style={{ gap: 6, marginTop: 6 }}>
+                  <div className="portion" style={{ justifyContent: 'flex-start' }}>
+                    {portionOptions(f).map((p) => <button key={p} className={i.portion === p && !i.grams ? 'on' : ''} onClick={() => setPortion(i.foodId, p)}>{p}</button>)}
+                  </div>
+                  <input className="grams-in" inputMode="decimal" placeholder="g" defaultValue={i.grams ?? ''} key={i.portion} onBlur={(e) => { const v = Number(e.target.value.replace(',', '.')); if (v > 0) setGrams(i.foodId, v); }} aria-label={`Gramas de ${f?.name}`} />
+                  {g != null && !i.grams && <span className="tiny">{fmt(g)} g</span>}
                 </div>
               </div>
             );
@@ -124,7 +150,8 @@ export function FoodScreen() {
 
       <div style={{ position: 'relative', margin: '16px 0 10px' }}>
         <Search size={18} style={{ position: 'absolute', left: 14, top: 15, color: 'var(--ink-2)' }} />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar alimento" style={{ paddingLeft: 40 }} aria-label="Buscar alimento" />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar ou adicionar alimento" style={{ paddingLeft: 40 }} aria-label="Buscar alimento" autoComplete="off" />
+        <FoodSuggest q={q} onPickMine={(f) => { if (!sel(f.id)) toggle(f); setQ(''); }} onPickTaco={(t) => addNew(foodFromTaco(t))} onPickOff={(o) => addNew(foodFromOff(o))} />
       </div>
       <div className="chips scroll" style={{ marginBottom: 10 }}>
         <Chip on={!cat} onClick={() => setCat('')}>Todos</Chip>

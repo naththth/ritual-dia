@@ -354,3 +354,23 @@ textarea { min-height: 88px; resize: vertical; }
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+
+/* ---------- Busca de alimentos ---------- */
+.suggest { margin-top: 6px; background: var(--card); border: 1.5px solid var(--line); border-radius: var(--r-m); padding: 6px; max-height: 360px; overflow-y: auto; box-shadow: 0 8px 22px rgba(50,25,18,.12); }
+.sg-head { font-size: 12.5px; font-weight: 700; color: var(--ink-2); padding: 8px 8px 4px; }
+.sg-item { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; text-align: left; padding: 9px 8px; border-radius: 10px; min-height: 48px; }
+.sg-item:active, .sg-item:hover { background: var(--paper-2); }
+.sg-name { font-weight: 650; font-size: 15px; line-height: 1.25; }
+.sg-meta { font-size: 12.5px; color: var(--ink-2); }
+.sg-more { display: flex; align-items: center; gap: 6px; width: 100%; padding: 10px 8px; min-height: 44px; font-weight: 650; font-size: 14px; color: var(--wine); }
+.nutr-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.nutr-cell { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; font-weight: 600; color: var(--ink-2); }
+.nutr-cell input { min-height: 44px; padding: 8px 10px; }
+.macro-row { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13.5px; font-weight: 600; }
+.macro-row b { font-family: var(--f-display); font-size: 20px; font-weight: 600; margin-right: 3px; }
+.macro-bar { height: 8px; border-radius: 4px; background: rgba(91,58,8,.18); overflow: hidden; margin: 6px 0 2px; }
+.macro-bar i { display: block; height: 100%; background: var(--honey-ink); border-radius: 4px; }
+.meal-item { padding: 8px 0; border-bottom: 1.5px dotted rgba(91,58,8,.3); }
+.meal-item:last-of-type { border-bottom: 0; }
+.grams-in { width: 72px !important; min-height: 36px !important; padding: 4px 8px !important; font-size: 13px; }
+@media (max-width: 370px) { .nutr-grid { grid-template-columns: repeat(2, 1fr); } }

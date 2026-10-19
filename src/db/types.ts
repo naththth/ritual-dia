@@ -34,6 +34,8 @@ export interface Settings extends Base {
   owners: string[];
   ftp?: number;
   aiContext?: string; // observações livres para a IA (rotina, restrições)
+  showNutrition?: boolean; // padrão: ligado
+  targets?: { kcal?: number; p?: number; c?: number; f?: number }; // metas próprias; sem elas, usa o plano do dia
 }
 
 export interface Category extends Base {
@@ -164,17 +166,23 @@ export interface Photo extends Base {
   height?: number;
 }
 
+export interface Nutr { kcal: number; p: number; c: number; f: number; fib?: number; na?: number }
+export interface Measure { label: string; grams: number }
 export interface Food extends Base {
   kind: 'food';
   name: string;
   type: string;
   favorite?: boolean;
   portions: string[];
-  kcal?: number; // por porção M, opcional e editável
+  kcal?: number; // legado
+  n?: Nutr; // por 100 g, de fonte rastreável ou digitado por ela
+  source?: 'taco' | 'off' | 'manual';
+  sourceRef?: string; // id TACO ou código de barras
+  measures?: Measure[]; // medidas caseiras com peso (ex.: 1 un. = 50 g)
   archived?: boolean;
   sourceId?: string;
 }
-export interface MealItem { foodId: string; portion: string }
+export interface MealItem { foodId: string; portion: string; grams?: number }
 export interface MealTemplate extends Base {
   kind: 'mtemplate';
   name: string;

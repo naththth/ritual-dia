@@ -13,6 +13,7 @@ import { addWater, logSuggestion, planTask, saveSkin, skipPlanned, toggleHabit, 
 import type { Habit, Task } from '../db/types';
 import { toast } from '../state/store';
 import { StepsView, DayBriefBlock } from './ai-ui';
+import { DayNutrition } from './nutrition-ui';
 
 export function DayScreen() {
   const date = useApp((s) => s.date);
@@ -242,6 +243,7 @@ function FoodBlock({ date }: { date: DateKey }) {
           );
         })}
       </div>
+      <DayNutrition date={date} />
       <div className="water" data-testid="water">
         <span className="amount num">{total >= 1000 ? `${(total / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} L` : `${total} mL`}</span>
         <span className="grow small">{settings?.waterGoalMl ? `de ${(settings.waterGoalMl / 1000).toLocaleString('pt-BR')} L` : 'de água'}</span>

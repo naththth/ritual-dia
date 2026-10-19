@@ -119,6 +119,19 @@ export function SettingsScreen() {
           <span className="label">FTP no pedal (watts)</span>
           <input inputMode="numeric" defaultValue={settings.ftp ?? ''} onBlur={(e) => update<'settings'>('settings', { ftp: e.target.value ? Number(e.target.value) : undefined })} aria-label="FTP" />
           <p className="field-hint">Os treinos de pedal mostram cada bloco em watts a partir deste valor.</p>
+          <span className="label">Calorias e macros</span>
+          <div className="chips">
+            <Chip on={settings.showNutrition !== false} onClick={() => update<'settings'>('settings', { showNutrition: true })}>Mostrar</Chip>
+            <Chip on={settings.showNutrition === false} onClick={() => update<'settings'>('settings', { showNutrition: false })}>Ocultar</Chip>
+          </div>
+          <p className="field-hint">Sem metas próprias, o app compara o dia com o seu plano alimentar.</p>
+          <div className="nutr-grid" style={{ marginTop: 8 }}>
+            {([['kcal', 'Meta kcal'], ['p', 'Proteína (g)'], ['c', 'Carbo (g)'], ['f', 'Gordura (g)']] as const).map(([k, l]) => (
+              <label key={k} className="nutr-cell"><span>{l}</span>
+                <input inputMode="numeric" defaultValue={settings.targets?.[k] ?? ''} onBlur={(e) => update<'settings'>('settings', { targets: { ...(settings.targets ?? {}), [k]: e.target.value ? Number(e.target.value) : undefined } })} aria-label={l} />
+              </label>
+            ))}
+          </div>
           <span className="label">Meta de água por dia (mL)</span>
           <input inputMode="numeric" defaultValue={settings.waterGoalMl ?? ''} onBlur={(e) => update<'settings'>('settings', { waterGoalMl: e.target.value ? Number(e.target.value) : undefined })} aria-label="Meta de água" />
           <span className="label">O que a IA deve saber sobre você</span>
