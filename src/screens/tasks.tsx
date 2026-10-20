@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarPlus, Search, Trash2, Plus } from 'lucide-react';
+import { CalendarPlus, CalendarCheck, Search, Trash2, Plus } from 'lucide-react';
 import { useAll, useSettings } from '../db/hooks';
 import { create, update, uid } from '../db/db';
 import type { Category, ExecMode, Priority, Task, TaskStatus } from '../db/types';
@@ -38,6 +38,9 @@ export function TaskRow({ t, cats, date, onOpen, showPlan }: { t: Task; cats?: C
         </div>
       </button>
       <span className={`prio ${t.priority}`}>{prioLabel(cats, t)}</span>
+      {!done && t.plannedDate === date && (
+        <button className="in-day" aria-label={`Tirar ${t.title} do dia`} onClick={() => planTask(t, null)}><CalendarCheck size={15} />No dia</button>
+      )}
       {showPlan && !done && t.plannedDate !== date && (
         <button className="icon-btn" aria-label={`Adicionar ${t.title} a ${shortLabel(date)}`} onClick={() => planTask(t, date)}><CalendarPlus size={20} /></button>
       )}

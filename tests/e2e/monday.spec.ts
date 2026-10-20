@@ -79,7 +79,7 @@ test('segunda-feira completa: todos os módulos na mesma data', async ({ page })
   await expect(page.getByTestId('meal-sec-almoco')).toContainText('Salada de folhas');
   await page.getByRole('button', { name: '+300 mL' }).click();
   await page.getByRole('link', { name: 'Hoje' }).click();
-  await expect(page.getByTestId('water')).toContainText('300 mL');
+  await expect(page.getByTestId('water-open')).toContainText('300 mL');
   await expect(page.getByTestId('tl-meal-almoco')).toContainText('Frango');
 
   // 5) treino: musculação 45 min moderada atualiza o hábito uma única vez

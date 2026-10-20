@@ -10,6 +10,7 @@ import { watts } from '../domain/ai';
 import { addDays, todayKey, type DateKey } from '../lib/dates';
 import { sleepPlan, wakeFor, bedFor, hoursLabel } from '../domain/sleep';
 import type { MealItem } from '../db/types';
+import { WaterSheet } from './WaterSheet';
 
 export const DEFAULT_MEAL_TIMES: Record<string, string> = { cafe: '07:30', almoco: '12:30', lanche: '16:00', jantar: '20:00', ceia: '22:00' };
 export const DEFAULT_SKIN_TIMES = { am: '07:00', pm: '21:30' };
@@ -197,6 +198,7 @@ export function NowAndTimeline({ date }: { date: DateKey }) {
 export function TodayStats({ date }: { date: DateKey }) {
   const nav = useNavigate();
   const settings = useSettings();
+  const [waterOpen, setWaterOpen] = useState(false);
   const meals = useByDate('meal', date);
   const water = useByDate('water', date);
   const workouts = useByDate('workout', date);
@@ -218,9 +220,13 @@ export function TodayStats({ date }: { date: DateKey }) {
           <Flame size={16} /><span className="v num">{fmt(eaten.kcal)}</span><span className="l">{goal ? `de ${fmt(goal)} kcal` : 'kcal'}</span>
         </button>
       )}
-      <button className="stat-tile" onClick={() => addWater(date, settings?.waterPresets?.[0] ?? 300)} style={{ background: 'var(--card)', border: '1.5px solid var(--line)' }} aria-label={`Água: ${ml} mL. Toque para somar ${settings?.waterPresets?.[0] ?? 300} mL`} data-testid="water">
-        <Droplets size={16} /><span className="v num">{ml >= 1000 ? (ml / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' L' : ml + ' mL'}</span><span className="l">{settings?.waterGoalMl ? `de ${settings.waterGoalMl / 1000} L, +${settings?.waterPresets?.[0] ?? 300}` : `+${settings?.waterPresets?.[0] ?? 300} mL`}</span>
-      </button>
+      <div className="stat-tile water-tile" style={{ background: 'var(--card)', border: '1.5px solid var(--line)' }}>
+        <button className="tap water-open" onClick={() => setWaterOpen(true)} aria-label={`Água: ${ml} mL. Abrir registros de água`} data-testid="water-open">
+          <Droplets size={16} /><span className="v num">{ml >= 1000 ? (ml / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' L' : ml + ' mL'}</span><span className="l">{settings?.waterGoalMl ? `de ${settings.waterGoalMl / 1000} L` : 'água'}</span>
+        </button>
+        <button className="water-plus" onClick={() => addWater(date, settings?.waterPresets?.[0] ?? 300)} aria-label={`Somar ${settings?.waterPresets?.[0] ?? 300} mL de água`} data-testid="water">+{settings?.waterPresets?.[0] ?? 300}</button>
+      </div>
+      <WaterSheet open={waterOpen} date={date} onClose={() => setWaterOpen(false)} />
       <button className="stat-tile" onClick={() => nav('/treino')} style={{ background: 'var(--blue)', color: 'var(--blue-ink)' }}>
         <Dumbbell size={16} /><span className="v num">{trainMin ? `${trainMin} min` : '–'}</span><span className="l">{burned ? `${fmt(burned)} kcal no treino` : workouts.length ? 'treino feito' : 'treino'}</span>
       </button>

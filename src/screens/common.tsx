@@ -54,7 +54,7 @@ export function DateHeader() {
           <button key={d} className={`wd ${d === date ? 'sel' : ''} ${d === today ? 'today' : ''}`} onClick={() => setDate(d)} aria-label={shortLabel(d)} aria-pressed={d === date}>
             {WEEKDAY_LETTER[isoWeekday(d)]}
             <span className="n">{dayNum(d)}</span>
-            <span className="dots">{factDots(facts?.[d]).slice(0, 4).map((c, i) => <i key={i} style={{ background: d === date ? 'var(--paper)' : c }} />)}</span>
+            <span className="dots">{factDots(facts?.[d]).slice(0, 3).map((c, i) => <i key={i} style={{ background: d === date ? 'var(--paper)' : c }} />)}</span>
           </button>
         ))}
         <button className="nav" aria-label="Próxima semana" onClick={() => setDate(addDays(date, 7))}><ChevronRight size={20} /></button>

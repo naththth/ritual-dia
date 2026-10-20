@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Sparkles, RefreshCw, CalendarPlus } from 'lucide-react';
+import { Sparkles, RefreshCw, CalendarPlus, Check as CheckIcon } from 'lucide-react';
 import type { WorkoutStep } from '../db/types';
 import { useAll, useRecord, useSettings } from '../db/hooks';
 import { aiAvailable, aiDayBrief, watts } from '../domain/ai';
@@ -74,7 +74,9 @@ export function DayBriefBlock({ date }: { date: DateKey }) {
               <div className="t">{task.title}</div>
               <div className="s">{t.primeiro_passo ? `Primeiro passo: ${t.primeiro_passo}` : t.motivo}</div>
             </div>
-            {inDay ? <span className="small muted">No dia</span> : (
+            {inDay ? (
+              <button className="in-day" aria-label={`Tirar ${task.title} do dia`} onClick={() => planTask(task, null)} data-testid="brief-unplan"><CheckIcon size={14} strokeWidth={3} />No dia</button>
+            ) : (
               <button className="icon-btn" aria-label={`Adicionar ${task.title} ao dia`} onClick={() => planTask(task, date)}><CalendarPlus size={20} /></button>
             )}
           </div>
