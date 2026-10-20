@@ -1,5 +1,6 @@
 // Perfil e objetivos: o que a IA precisa saber para orientar alimentação, treino e pele com base em evidência.
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
 import { PageHead, useBack } from './common';
 import { useSettings } from '../db/hooks';
@@ -26,9 +27,10 @@ const CONCERNS = ['Acne', 'Cravos', 'Textura', 'Manchas', 'Oleosidade', 'Sensibi
 const SKIN = ['Oleosa', 'Mista', 'Normal', 'Seca'];
 const HAIR_TYPE = ['Liso', 'Ondulado', 'Cacheado', 'Crespo'];
 const SCALP = ['Oleoso', 'Normal', 'Seco', 'Sensível'];
-const HAIR_CONCERNS = ['Queda', 'Frizz', 'Quebra', 'Pontas secas', 'Oleosidade', 'Caspa', 'Volume', 'Brilho'];
+const HAIR_CONCERNS = ['Queda', 'Frizz', 'Quebra', 'Pontas duplas', 'Pontas secas', 'Oleosidade', 'Caspa', 'Coceira', 'Falta de volume', 'Falta de brilho', 'Embaraça fácil', 'Cachos sem definição'];
 const HAIR_CHEM = ['Coloração', 'Luzes ou mechas', 'Descoloração', 'Progressiva ou alisamento', 'Nenhuma'];
-const BODY_CONCERNS = ['Ressecamento', 'Foliculite', 'Acne no corpo', 'Manchas', 'Estrias', 'Celulite', 'Sensibilidade', 'Atrito no treino'];
+const BODY_CONCERNS = ['Ressecamento', 'Coceira', 'Foliculite', 'Pelos encravados', 'Bolinhas nos braços', 'Acne no corpo', 'Manchas', 'Estrias', 'Celulite', 'Flacidez', 'Sensibilidade', 'Atrito no treino'];
+const BODY_AREAS = ['Costas', 'Colo', 'Braços', 'Pernas', 'Glúteos', 'Virilha e axilas', 'Pés', 'Mãos'];
 const DAYS = ['', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
 
 /** Escolha única em grade de botões do mesmo tamanho (alinha melhor que chips soltos). */
@@ -81,12 +83,22 @@ export function ProfileScreen() {
   const [busy, setBusy] = useState(false);
   const [res, setRes] = useState<any>(null);
   useEffect(() => { if (settings && !loaded) { setP(settings.profile ?? {}); setLoaded(true); } }, [settings, loaded]);
+  // Vindo da rotina de cuidados (?s=cabelo ou ?s=corpo): abre direto na seção.
+  const [params] = useSearchParams();
+  useEffect(() => {
+    const sec = params.get('s');
+    if (loaded && sec) setTimeout(() => document.getElementById(sec)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+  }, [loaded]);
   // salva sozinho enquanto ela preenche
+  // Ao sair da tela antes do salvamento automático, grava o que ficou pendente.
+  const pending = useRef<Profile | null>(null);
   useEffect(() => {
     if (!loaded) return;
-    const t = setTimeout(() => { update<'settings'>('settings', { profile: { ...p, updatedAt: Date.now() } }); }, 900);
+    pending.current = p;
+    const t = setTimeout(() => { pending.current = null; update<'settings'>('settings', { profile: { ...p, updatedAt: Date.now() } }); }, 900);
     return () => clearTimeout(t);
   }, [p, loaded]);
+  useEffect(() => () => { if (pending.current) update<'settings'>('settings', { profile: { ...pending.current, updatedAt: Date.now() } }); }, []);
   if (!settings) return null;
   const set = (x: Partial<Profile>) => setP((o) => ({ ...o, ...x }));
   const save = async (quiet = false) => { await update<'settings'>('settings', { profile: { ...p, updatedAt: Date.now() } }); if (!quiet) toast('Perfil salvo'); };
@@ -168,7 +180,7 @@ export function ProfileScreen() {
         <AutoText label="Limitações" value={tr.limitations} onChange={(v) => set({ training: { ...tr, limitations: v } })} placeholder="O que a IA deve respeitar" />
       </section>
 
-      <section className="block b-rose pf">
+      <section className="block b-rose pf" id="pele">
         <h2>Pele</h2>
         <span className="label">Tipo</span>
         <Opts label="Tipo de pele" value={skin.type} onChange={(t) => set({ skin: { ...skin, type: t } })} cols={4} options={SKIN.map((t) => [t, t] as [string, string])} />
@@ -181,26 +193,73 @@ export function ProfileScreen() {
         <AutoText label="Prescrições da dermatologista" value={skin.prescriptions} onChange={(v) => set({ skin: { ...skin, prescriptions: v } })} placeholder="O que ela prescreveu e como usar" />
       </section>
 
-      <section className="block b-rose pf" data-testid="profile-hair">
+      <section className="block b-rose pf" data-testid="profile-hair" id="cabelo">
         <h2>Cabelo</h2>
+        <p className="small pf-intro">As particularidades do seu cabelo. A IA usa as respostas para diagnosticar e indicar como e quando usar cada produto.</p>
         <span className="label">Tipo de fio</span>
         <Opts label="Tipo de fio" value={hair.type} onChange={(t) => set({ hair: { ...hair, type: t } })} cols={4} options={HAIR_TYPE.map((t) => [t, t] as [string, string])} />
+        <span className="label">Espessura do fio</span>
+        <Opts label="Espessura do fio" value={hair.thickness} onChange={(t) => set({ hair: { ...hair, thickness: t } })} cols={3} options={[['fino', 'Fino'], ['medio', 'Médio'], ['grosso', 'Grosso']]} />
+        <span className="label">Quantidade de fios</span>
+        <Opts label="Quantidade de fios" value={hair.density} onChange={(t) => set({ hair: { ...hair, density: t } })} cols={3} options={[['pouco', 'Pouco'], ['medio', 'Médio'], ['muito', 'Muito']]} />
+        <span className="label">Como o fio reage à água</span>
+        <Opts label="Porosidade" value={hair.porosity} onChange={(t) => set({ hair: { ...hair, porosity: t } })} cols={1} options={[
+          ['baixa', 'Demora a molhar e a secar', 'produto tende a ficar por cima do fio'],
+          ['media', 'Molha e seca no tempo normal', 'equilibrado'],
+          ['alta', 'Molha rápido e seca muito rápido', 'embaraça, frizz, absorve e perde água fácil'],
+          ['nao_sei', 'Não sei dizer', '']]} />
+        <span className="label">Comprimento</span>
+        <Opts label="Comprimento" value={hair.length} onChange={(t) => set({ hair: { ...hair, length: t } })} cols={4} options={[['curto', 'Curto'], ['ombro', 'Ombro'], ['medio', 'Médio'], ['longo', 'Longo']]} />
         <span className="label">Couro cabeludo</span>
         <Opts label="Couro cabeludo" value={hair.scalp} onChange={(t) => set({ hair: { ...hair, scalp: t } })} cols={4} options={SCALP.map((t) => [t, t] as [string, string])} />
+        <span className="label">Depois de lavar, a raiz fica oleosa em</span>
+        <Opts label="Tempo até a raiz ficar oleosa" value={hair.oilyAfter} onChange={(t) => set({ hair: { ...hair, oilyAfter: t } })} cols={4} options={[['1', 'Menos de 1 dia'], ['2', '1 a 2 dias'], ['3', '3 dias ou mais'], ['nunca', 'Quase nunca']]} />
         <span className="label">Queixas</span>
         <MultiOpts label="Queixas do cabelo" values={hair.concerns ?? []} onToggle={(c) => set({ hair: { ...hair, concerns: toggleIn(hair.concerns, c) } })} cols={2} options={HAIR_CONCERNS.map((c) => [c, c])} />
         <span className="label">Química</span>
         <MultiOpts label="Química no cabelo" values={hair.chemical ?? []} onToggle={(c) => set({ hair: { ...hair, chemical: c === 'Nenhuma' ? ['Nenhuma'] : toggleIn((hair.chemical ?? []).filter((x) => x !== 'Nenhuma'), c) } })} cols={2} options={HAIR_CHEM.map((c) => [c, c])} />
+        {(hair.chemical ?? []).some((c) => c !== 'Nenhuma') && (
+          <>
+            <span className="label">Última química</span>
+            <AutoText label="Última química" value={hair.lastChemical} onChange={(v) => set({ hair: { ...hair, lastChemical: v } })} placeholder="Ex.: luzes em agosto, retoque de raiz a cada 2 meses" />
+          </>
+        )}
+        <span className="label">Secador, chapinha ou babyliss</span>
+        <Opts label="Uso de calor" value={hair.heat} onChange={(t) => set({ hair: { ...hair, heat: t } })} cols={3} options={[['nunca', 'Quase nunca'], ['as_vezes', 'Às vezes'], ['sempre', 'Quase sempre']]} />
         <span className="label">Lavagens por semana</span>
         <Opts label="Lavagens por semana" value={hair.washesPerWeek} onChange={(n) => set({ hair: { ...hair, washesPerWeek: n } })} cols={4} options={[2, 3, 4, 5, 6, 7].map((n) => [n, n === 7 ? 'Todo dia' : String(n)] as [number, string])} />
+        <span className="label">Costuma lavar o cabelo</span>
+        <Opts label="Quando lava o cabelo" value={hair.washTime} onChange={(t) => set({ hair: { ...hair, washTime: t } })} cols={3} options={[['manha', 'De manhã'], ['noite', 'À noite'], ['varia', 'Varia']]} />
+        <span className="label">Piscina ou mar</span>
+        <Opts label="Piscina ou mar" value={hair.water} onChange={(t) => set({ hair: { ...hair, water: t } })} cols={3} options={[['nunca', 'Quase nunca'], ['semana', '1 a 2 vezes por semana'], ['frequente', '3 vezes ou mais']]} />
+        <span className="label">Cronograma capilar</span>
+        <Opts label="Cronograma capilar" value={hair.schedule} onChange={(t) => set({ hair: { ...hair, schedule: t } })} cols={3} options={[['sim', 'Já faço'], ['quero', 'Quero fazer'], ['nao', 'Não faço']]} />
+        <span className="label">Acompanhamento</span>
+        <MultiOpts label="Acompanhamento do cabelo" values={hair.followsTricho ? ['t'] : []} onToggle={() => set({ hair: { ...hair, followsTricho: !hair.followsTricho } })} cols={1} options={[['t', 'Tenho dermatologista ou tricologista para o cabelo']]} />
+        <AutoText label="Tratamentos para o cabelo" value={hair.treatments} onChange={(v) => set({ hair: { ...hair, treatments: v } })} placeholder="Tratamento indicado por profissional, se houver (ex.: tônico, suplemento)" />
         <span className="label">Observações <span className="muted small">(opcional)</span></span>
-        <AutoText label="Observações sobre o cabelo" value={hair.notes} onChange={(v) => set({ hair: { ...hair, notes: v } })} placeholder="Ex.: lavo depois do treino; tricologista indicou tônico" />
+        <AutoText label="Observações sobre o cabelo" value={hair.notes} onChange={(v) => set({ hair: { ...hair, notes: v } })} placeholder="Ex.: lavo depois do treino; uso touca na natação" />
       </section>
 
-      <section className="block b-paper pf" data-testid="profile-body">
+      <section className="block b-paper pf" data-testid="profile-body" id="corpo">
         <h2>Corpo</h2>
+        <p className="small pf-intro">Como é a pele do seu corpo e seus hábitos de banho. A IA usa para diagnosticar e montar o uso dos produtos.</p>
+        <span className="label">Pele do corpo</span>
+        <Opts label="Pele do corpo" value={body.skinType} onChange={(t) => set({ body: { ...body, skinType: t } })} cols={4} options={[['seca', 'Seca'], ['normal', 'Normal'], ['oleosa', 'Oleosa'], ['mista', 'Mista']]} />
+        <span className="label">Banho principal</span>
+        <Opts label="Banho principal" value={body.showerTime} onChange={(t) => set({ body: { ...body, showerTime: t } })} cols={3} options={[['manha', 'De manhã'], ['noite', 'À noite'], ['os_dois', 'Os dois']]} />
+        <span className="label">Temperatura do banho</span>
+        <Opts label="Temperatura do banho" value={body.showerTemp} onChange={(t) => set({ body: { ...body, showerTemp: t } })} cols={3} options={[['quente', 'Quente'], ['morno', 'Morno'], ['frio', 'Frio']]} />
         <span className="label">Queixas</span>
         <MultiOpts label="Queixas do corpo" values={body.concerns ?? []} onToggle={(c) => set({ body: { ...body, concerns: toggleIn(body.concerns, c) } })} cols={2} options={BODY_CONCERNS.map((c) => [c, c])} />
+        <span className="label">Onde aparecem</span>
+        <MultiOpts label="Áreas do corpo" values={body.areas ?? []} onToggle={(c) => set({ body: { ...body, areas: toggleIn(body.areas, c) } })} cols={2} options={BODY_AREAS.map((c) => [c, c])} />
+        <span className="label">Remoção de pelos</span>
+        <Opts label="Remoção de pelos" value={body.hairRemoval} onChange={(t) => set({ body: { ...body, hairRemoval: t } })} cols={2} options={[['lamina', 'Lâmina'], ['cera', 'Cera'], ['laser', 'Laser'], ['nenhuma', 'Nenhuma']]} />
+        <span className="label">Sol no corpo</span>
+        <Opts label="Exposição ao sol" value={body.sun} onChange={(t) => set({ body: { ...body, sun: t } })} cols={3} options={[['pouco', 'Pouco'], ['treino', 'Nos treinos ao ar livre'], ['muito', 'Muito']]} />
+        <span className="label">Sensibilidade</span>
+        <MultiOpts label="Sensibilidade a perfume" values={body.fragranceSensitive ? ['f'] : []} onToggle={() => set({ body: { ...body, fragranceSensitive: !body.fragranceSensitive } })} cols={1} options={[['f', 'Minha pele reage a perfume ou fragrância']]} />
         <span className="label">Observações <span className="muted small">(opcional)</span></span>
         <AutoText label="Observações sobre o corpo" value={body.notes} onChange={(v) => set({ body: { ...body, notes: v } })} placeholder="Ex.: natação deixa a pele ressecada" />
       </section>

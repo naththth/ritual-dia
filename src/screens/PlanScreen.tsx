@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageHead , useBack } from './common';
 import { useAll, useSettings } from '../db/hooks';
-import { Chip, Sheet, Empty } from '../ui/ui';
+import { Chip, Seg, Sheet, Empty } from '../ui/ui';
 import { planFor } from '../domain/rules';
 import { savePlan } from '../domain/actions';
 import { todayKey, WEEKDAY_LONG, shortLabel } from '../lib/dates';
@@ -12,13 +12,14 @@ import { aiSkinPlan, aiTrainingPlan, applyTrainingResult, aiFoodPlan, aiAvailabl
 import { Sparkles } from 'lucide-react';
 import { toast } from '../state/store';
 import { GROUP_RANK } from '../domain/defaults';
+import { careProgress } from '../domain/care';
 
 const DAYS = [1, 2, 3, 4, 5, 6, 7];
 const emptySkin = (): NonNullable<Plan['skin']> => ({ am: { base: [], days: {} }, pm: { base: [], days: {} }, recovery: { am: [], pm: [] } });
 
 export function PlanScreen() {
   const { domain = 'skin' } = useParams();
-  const title = { skin: 'Pele, corpo e cabelo', training: 'Plano de treino', food: 'Plano de alimentação' }[domain] ?? 'Plano';
+  const title = { skin: 'Rotina de cuidados', training: 'Plano de treino', food: 'Plano de alimentação' }[domain] ?? 'Plano';
   return (
     <div className="screen no-nav" data-testid={`plan-${domain}`}>
       <PageHead title={title} withDate={false} />
@@ -39,10 +40,8 @@ function VersionNote({ current }: { current?: Plan }) {
   return <p className="small muted">Plano em vigor desde {shortLabel(current.validFrom)}. Se você mudar, a mudança vale a partir de hoje e os dias anteriores continuam com o plano antigo.</p>;
 }
 
-/* ---------------- Pele, corpo e cabelo ---------------- */
-type SkinTab = 'am' | 'pm' | 'corpo' | 'cabelo' | 'rec';
-const TAB_KEY = { am: 'am', pm: 'pm', corpo: 'body', cabelo: 'hair' } as const;
-const TAB_NAME: Record<Exclude<SkinTab, 'rec'>, string> = { am: 'manhã', pm: 'noite', corpo: 'corpo', cabelo: 'cabelo' };
+/* ---------------- Rotina: rosto, corpo e cabelo juntos, de manhã e de noite ---------------- */
+const AREAS: { id: 'rosto' | 'corpo' | 'cabelo'; label: string }[] = [{ id: 'rosto', label: 'Rosto' }, { id: 'corpo', label: 'Corpo' }, { id: 'cabelo', label: 'Cabelo' }];
 
 function SkinPlan() {
   const { plans, current } = useCurrent('skin');
@@ -50,7 +49,7 @@ function SkinPlan() {
   const nav = useNavigate();
   const back = useBack();
   const [d, setD] = useState<NonNullable<Plan['skin']> | null>(null);
-  const [tab, setTab] = useState<SkinTab>('am');
+  const [tab, setTab] = useState<'am' | 'pm' | 'rec'>('am');
   const [baseOpen, setBaseOpen] = useState(false);
   const [dayOpen, setDayOpen] = useState<number | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -59,86 +58,63 @@ function SkinPlan() {
   useEffect(() => { if (plans && !dirty) setD(structuredClone(current?.skin ?? emptySkin())); }, [plans, current?.id, current?.updatedAt]);
   const setDD = (v: NonNullable<Plan['skin']>) => { setDirty(true); setD(v); };
   if (!d || !products) return null;
-  const area = tab === 'corpo' ? 'corpo' : tab === 'cabelo' ? 'cabelo' : 'rosto';
-  const inUse = products.filter((p) => p.status === 'em_uso' && p.area === area);
-  const faceInUse = products.filter((p) => p.status === 'em_uso' && p.area === 'rosto');
+  const inUse = products.filter((p) => p.status === 'em_uso');
+  const faceInUse = inUse.filter((p) => (p.area ?? 'rosto') === 'rosto');
   const byId = new Map(products.map((p) => [p.id, p]));
   const sortIds = (ids: string[]) => [...ids].sort((a, b) => (GROUP_RANK[byId.get(a)?.group ?? 'hidratacao'] - GROUP_RANK[byId.get(b)?.group ?? 'hidratacao']));
-  const names = (ids: string[]) => sortIds(ids).map((id) => byId.get(id)?.name).filter(Boolean).join(', ');
+  /** "Rosto: gel, sérum. Corpo: loção. Cabelo: shampoo." */
+  const names = (ids: string[]) => AREAS.map((ar) => {
+    const n = sortIds(ids).filter((id) => (byId.get(id)?.area ?? 'rosto') === ar.id).map((id) => byId.get(id)?.name).filter(Boolean);
+    return n.length ? `${ar.label}: ${n.join(', ')}` : '';
+  }).filter(Boolean).join('. ');
 
-  if (products.filter((p) => p.status === 'em_uso').length === 0) {
+  if (inUse.length === 0) {
     return <Empty text="Nenhum produto marcado como em uso. Faça a revisão dos produtos primeiro." action={<button className="btn btn-ink" onClick={() => nav('/revisao')}>Revisar produtos</button>} />;
   }
-  const key = tab === 'rec' ? null : TAB_KEY[tab];
-  const pp: SkinPeriodPlan | null = key ? (d[key] ?? { base: [], days: {} }) : null;
-  const setPP = (v: SkinPeriodPlan) => key && setDD({ ...d, [key]: v });
-  const hair = tab === 'cabelo';
-  const isWash = (wd: number) => !hair || !pp?.washDays || pp.washDays.includes(wd);
+  const pp: SkinPeriodPlan | null = tab === 'rec' ? null : d[tab];
   const dayList = (p: SkinPeriodPlan, wd: number) => {
     const day = p.days[wd] ?? { add: [], remove: [] };
-    const base = isWash(wd) ? p.base : [];
-    return [...base.filter((id) => !day.remove.includes(id)), ...day.add];
+    return [...p.base.filter((id) => !day.remove.includes(id)), ...day.add];
   };
   const toggleDay = (wd: number, id: string) => {
     if (!pp) return;
     const day = { add: [...(pp.days[wd]?.add ?? [])], remove: [...(pp.days[wd]?.remove ?? [])] };
-    if (pp.base.includes(id) && isWash(wd)) day.remove = day.remove.includes(id) ? day.remove.filter((x) => x !== id) : [...day.remove, id];
+    if (pp.base.includes(id)) day.remove = day.remove.includes(id) ? day.remove.filter((x) => x !== id) : [...day.remove, id];
     else day.add = day.add.includes(id) ? day.add.filter((x) => x !== id) : [...day.add, id];
-    setPP({ ...pp, days: { ...pp.days, [wd]: day } });
+    setDD({ ...d, [tab]: { ...pp, days: { ...pp.days, [wd]: day } } });
   };
   const copyToAll = (wd: number) => {
     if (!pp) return;
     const src = pp.days[wd] ?? { add: [], remove: [] };
     const days: SkinPeriodPlan['days'] = {};
     DAYS.forEach((x) => (days[x] = { add: [...src.add], remove: [...src.remove] }));
-    setPP({ ...pp, days });
+    setDD({ ...d, [tab]: { ...pp, days } });
   };
-  const toggleWash = (wd: number) => {
-    if (!pp) return;
-    const cur = pp.washDays ?? [];
-    setPP({ ...pp, washDays: (cur.includes(wd) ? cur.filter((x) => x !== wd) : [...cur, wd]).sort() });
-  };
-  const baseTitle = tab === 'corpo' ? 'Todos os dias' : hair ? 'Nos dias de lavar' : 'Rotina-base';
-  const baseEmpty = tab === 'corpo' ? 'Ex.: hidratante depois do banho, protetor nas áreas expostas.' : hair ? 'Ex.: shampoo, condicionador, leave-in ou protetor térmico.' : 'Nenhum produto ainda. Comece pela rotina que se repete todos os dias.';
   return (
     <>
       <VersionNote current={current} />
-      <AIButton busy={busy} label="Montar pele, corpo e cabelo com IA" onClick={async () => {
+      <CareAssessment products={inUse} diagnosis={d.diagnosis} />
+      <AIButton busy={busy} label="Montar rotina com IA" onClick={async () => {
         setBusy(true);
-        try { const r = await aiSkinPlan(todayKey()); setDD(r.skin); setNote({ resumo: r.resumo, observacoes: r.observacoes }); toast('Rascunho pronto. Revise e salve.'); }
+        try { const r = await aiSkinPlan(todayKey()); setDD(r.skin); setNote({ resumo: r.resumo, observacoes: r.observacoes }); toast('Diagnóstico e rotina prontos. Revise e salve.'); }
         catch (e: any) { toast(e.message, undefined, 'error'); } finally { setBusy(false); }
       }} />
       {note && <div className="notice calm" style={{ margin: '10px 0', whiteSpace: 'pre-line' }}>{note.resumo}{note.observacoes ? <><br /><br />{note.observacoes}</> : null}</div>}
-      <div className="seg-tabs" role="tablist" aria-label="Rotina">
-        {([['am', 'Manhã'], ['pm', 'Noite'], ['corpo', 'Corpo'], ['cabelo', 'Cabelo'], ['rec', 'Recuperação']] as [SkinTab, string][]).map(([k, l]) => (
-          <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>
-        ))}
-      </div>
-      {pp && inUse.length === 0 && (
-        <p className="notice calm" style={{ marginTop: 12 }}>Nenhum produto de {TAB_NAME[tab as Exclude<SkinTab, 'rec'>]} em uso. Cadastre em Biblioteca → Produtos, no tipo {tab === 'cabelo' ? 'Cabelo' : tab === 'corpo' ? 'Corpo' : 'certo'}.</p>
-      )}
-      {pp && hair && (
-        <>
-          <div className="section"><h2 className="section-title">Dias de lavar</h2></div>
-          <div className="chips" data-testid="wash-days">
-            {DAYS.map((wd) => <Chip key={wd} on={!!pp.washDays?.includes(wd)} onClick={() => toggleWash(wd)}>{WEEKDAY_LONG[wd].slice(0, 3)}</Chip>)}
-          </div>
-          <p className="small muted" style={{ marginTop: 6 }}>Nos dias de lavar entra a rotina abaixo. Nos outros, só o que você marcar para o dia (óleo, tônico, finalizador).</p>
-        </>
-      )}
+      <Seg value={tab} onChange={setTab} options={[{ id: 'am', label: 'Manhã' }, { id: 'pm', label: 'Noite' }, { id: 'rec', label: 'Recuperação' }]} />
       {pp && (
         <>
-          <div className="section"><h2 className="section-title">{baseTitle}</h2><button className="link" onClick={() => setBaseOpen(true)} data-testid="edit-base">Editar</button></div>
-          <p className="small" style={{ marginTop: 0 }}>{pp.base.length ? names(pp.base) : baseEmpty}</p>
+          <div className="section"><h2 className="section-title">Todos os dias</h2><button className="link" onClick={() => setBaseOpen(true)} data-testid="edit-base">Editar</button></div>
+          <p className="small" style={{ marginTop: 0 }} data-testid="plan-base">{pp.base.length ? names(pp.base) : 'Nada ainda. Comece pelo que se repete todo dia: limpeza e hidratante do rosto, protetor, hidratante do corpo.'}</p>
           <div className="section"><h2 className="section-title">Por dia da semana</h2></div>
+          <p className="small muted" style={{ marginTop: -6 }}>Para o que não é diário: lavar o cabelo, máscara, esfoliação, ativos do rosto.</p>
           {DAYS.map((wd) => {
             const list = dayList(pp, wd);
             const day = pp.days[wd];
             return (
-              <button key={wd} className="plan-day tap" onClick={() => setDayOpen(wd)} style={{ display: 'block' }}>
-                <div className="dn">{WEEKDAY_LONG[wd]}{hair && pp.washDays?.includes(wd) ? <span className="small muted"> · lavar</span> : null}</div>
+              <button key={wd} className="plan-day tap" onClick={() => setDayOpen(wd)} style={{ display: 'block' }} data-testid={`plan-day-${wd}`}>
+                <div className="dn">{WEEKDAY_LONG[wd]}</div>
                 <div className="small">{list.length ? names(list) : 'Nada planejado'}</div>
-                {(day?.add.length || day?.remove.length) ? <div className="tiny muted">{day.add.length ? `+ ${names(day.add)}` : ''}{day.add.length && day.remove.length ? '. ' : ''}{day.remove.length ? `sem ${names(day.remove)}` : ''}</div> : null}
+                {(day?.add.length || day?.remove.length) ? <div className="tiny muted">{day.add.length ? `+ ${day.add.map((id) => byId.get(id)?.name).filter(Boolean).join(', ')}` : ''}{day.add.length && day.remove.length ? '. ' : ''}{day.remove.length ? `sem ${day.remove.map((id) => byId.get(id)?.name).filter(Boolean).join(', ')}` : ''}</div> : null}
               </button>
             );
           })}
@@ -146,7 +122,7 @@ function SkinPlan() {
       )}
       {tab === 'rec' && (
         <>
-          <p className="small">Lista usada quando você liga o modo recuperação em um dia. Não muda os outros dias.</p>
+          <p className="small">Lista do rosto usada quando você liga o modo recuperação em um dia. Corpo e cabelo seguem o plano normal.</p>
           {(['am', 'pm'] as const).map((per) => (
             <div key={per}>
               <span className="label">{per === 'am' ? 'Manhã' : 'Noite'}</span>
@@ -157,15 +133,72 @@ function SkinPlan() {
           ))}
         </>
       )}
-      <button className="btn btn-ink btn-block" style={{ marginTop: 20 }} data-testid="plan-save" onClick={async () => { await savePlan('skin', current, { skin: d }); back(); }}>Salvar plano</button>
+      <button className="btn btn-ink btn-block" style={{ marginTop: 20 }} data-testid="plan-save" onClick={async () => { await savePlan('skin', current, { skin: { ...d, body: undefined, hair: undefined } }); back(); }}>Salvar plano</button>
 
-      <Sheet open={baseOpen} onClose={() => setBaseOpen(false)} title={tab === 'rec' ? '' : tab === 'am' || tab === 'pm' ? `Rotina-base da ${TAB_NAME[tab]}` : `${baseTitle} · ${TAB_NAME[tab]}`} footer={<button className="btn btn-ink" onClick={() => setBaseOpen(false)}>Pronto</button>}>
-        {pp && <ProductToggleList products={inUse} selected={pp.base} onToggle={(id) => setPP({ ...pp, base: pp.base.includes(id) ? pp.base.filter((x) => x !== id) : [...pp.base, id] })} />}
+      <Sheet open={baseOpen} onClose={() => setBaseOpen(false)} title={`Todos os dias · ${tab === 'am' ? 'manhã' : 'noite'}`} footer={<button className="btn btn-ink" onClick={() => setBaseOpen(false)}>Pronto</button>}>
+        {pp && <AreaToggleList products={inUse} selected={pp.base} onToggle={(id) => setDD({ ...d, [tab]: { ...pp, base: pp.base.includes(id) ? pp.base.filter((x) => x !== id) : [...pp.base, id] } })} />}
       </Sheet>
-      <Sheet open={dayOpen !== null} onClose={() => setDayOpen(null)} title={dayOpen ? WEEKDAY_LONG[dayOpen] : ''} sub={tab === 'rec' ? '' : TAB_NAME[tab]}
+      <Sheet open={dayOpen !== null} onClose={() => setDayOpen(null)} title={dayOpen ? WEEKDAY_LONG[dayOpen] : ''} sub={tab === 'am' ? 'Manhã' : 'Noite'}
         footer={<><button className="btn btn-soft" onClick={() => { if (dayOpen) copyToAll(dayOpen); setDayOpen(null); }}>Usar em todos os dias</button><button className="btn btn-ink" onClick={() => setDayOpen(null)}>Pronto</button></>}>
-        {pp && dayOpen && <ProductToggleList products={inUse} selected={dayList(pp, dayOpen)} onToggle={(id) => toggleDay(dayOpen, id)} />}
+        {pp && dayOpen && <AreaToggleList products={inUse} selected={dayList(pp, dayOpen)} onToggle={(id) => toggleDay(dayOpen, id)} />}
       </Sheet>
+    </>
+  );
+}
+
+/** Avaliação antes da IA: o que falta responder sobre rosto, corpo e cabelo, e o diagnóstico da última vez. */
+function CareAssessment({ products, diagnosis }: { products: Product[]; diagnosis?: NonNullable<Plan['skin']>['diagnosis'] }) {
+  const settings = useSettings();
+  const nav = useNavigate();
+  const [open, setOpen] = useState(false);
+  const prog = careProgress(settings?.profile);
+  const has = (a: string) => products.some((p) => (p.area ?? 'rosto') === a);
+  const rows = ([
+    ['rosto', 'Rosto', prog.face, 'pele'],
+    ['corpo', 'Corpo', prog.body, 'corpo'],
+    ['cabelo', 'Cabelo', prog.hair, 'cabelo']
+  ] as const).filter(([a]) => a === 'rosto' || has(a));
+  const missing = rows.filter(([, , pr]) => pr.done < pr.total);
+  return (
+    <section className="care-assess" data-testid="care-assessment">
+      <div className="row between" style={{ alignItems: 'baseline' }}>
+        <b>Avaliação</b>
+        {diagnosis && (diagnosis.rosto || diagnosis.corpo || diagnosis.cabelo) ? <button className="link" onClick={() => setOpen(!open)} data-testid="diagnosis-toggle">{open ? 'Fechar diagnóstico' : 'Ver diagnóstico'}</button> : null}
+      </div>
+      <div className="care-rows">
+        {rows.map(([a, label, pr, sec]) => (
+          <button key={a} className={`care-row ${pr.done >= pr.total ? 'ok' : ''}`} onClick={() => nav(`/perfil?s=${sec}`)} data-testid={`assess-${a}`}>
+            <span>{label}</span><span className="small">{pr.done >= pr.total ? 'respondido' : `${pr.done} de ${pr.total}`}</span>
+          </button>
+        ))}
+      </div>
+      {missing.length > 0 && <p className="small" style={{ margin: '8px 0 0' }}>Responda a avaliação de {(() => { const n = missing.map(([, l]) => l.toLowerCase()); return n.length > 1 ? `${n.slice(0, -1).join(', ')} e ${n[n.length - 1]}` : n[0]; })()} para a IA diagnosticar e indicar o melhor uso de cada produto.</p>}
+      {open && diagnosis && (
+        <div className="small" style={{ marginTop: 10, whiteSpace: 'pre-line' }} data-testid="diagnosis">
+          {diagnosis.rosto && <p style={{ margin: '0 0 8px' }}><b>Rosto.</b> {diagnosis.rosto}</p>}
+          {diagnosis.corpo && <p style={{ margin: '0 0 8px' }}><b>Corpo.</b> {diagnosis.corpo}</p>}
+          {diagnosis.cabelo && <p style={{ margin: 0 }}><b>Cabelo.</b> {diagnosis.cabelo}</p>}
+          {diagnosis.date && <p className="tiny muted" style={{ margin: '8px 0 0' }}>Feito em {shortLabel(diagnosis.date)}. Não substitui avaliação médica.</p>}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** Lista de produtos separada por Rosto, Corpo e Cabelo. */
+function AreaToggleList({ products, selected, onToggle }: { products: Product[]; selected: string[]; onToggle: (id: string) => void }) {
+  return (
+    <>
+      {AREAS.map((ar) => {
+        const list = products.filter((p) => (p.area ?? 'rosto') === ar.id);
+        if (!list.length) return null;
+        return (
+          <div key={ar.id}>
+            <h3 className="sec-cap">{ar.label}</h3>
+            <ProductToggleList products={list} selected={selected} onToggle={onToggle} />
+          </div>
+        );
+      })}
     </>
   );
 }

@@ -290,7 +290,9 @@ export interface Plan extends Base {
   kind: 'plan';
   domain: PlanDomain;
   validFrom: DateKey;
-  skin?: { am: SkinPeriodPlan; pm: SkinPeriodPlan; recovery: { am: string[]; pm: string[] }; body?: SkinPeriodPlan; hair?: SkinPeriodPlan };
+  skin?: { am: SkinPeriodPlan; pm: SkinPeriodPlan; recovery: { am: string[]; pm: string[] }; body?: SkinPeriodPlan; hair?: SkinPeriodPlan;
+    /** Diagnóstico da IA a partir da avaliação (rosto, corpo, cabelo), guardado com a versão do plano. */
+    diagnosis?: { rosto?: string; corpo?: string; cabelo?: string; date?: string } };
   training?: Record<number, string[]>; // weekday -> wtemplate ids
   food?: Record<number, Record<string, string | null>>; // weekday -> mealType -> mtemplate id
 }
@@ -377,8 +379,18 @@ export interface Profile {
   diet?: { restrictions: string[]; dislikes?: string; likes?: string; mealsPerDay?: number; followsNutritionist?: boolean };
   training?: { daysAvailable?: number[]; minutesPerSession?: number; equipment?: string; limitations?: string; followsCoach?: boolean };
   skin?: { type?: string; concerns: string[]; sensitive?: boolean; followsDerm?: boolean; prescriptions?: string };
-  hair?: { type?: string; scalp?: string; concerns?: string[]; chemical?: string[]; washesPerWeek?: number; notes?: string };
-  body?: { concerns?: string[]; notes?: string };
+  /** Avaliação do cabelo: base para a IA diagnosticar e indicar o uso dos produtos. */
+  hair?: {
+    type?: string; thickness?: string; density?: string; porosity?: string; length?: string;
+    scalp?: string; oilyAfter?: string; concerns?: string[]; chemical?: string[]; lastChemical?: string;
+    heat?: string; washesPerWeek?: number; washTime?: string; water?: string; schedule?: string;
+    followsTricho?: boolean; treatments?: string; notes?: string;
+  };
+  /** Avaliação da pele do corpo. */
+  body?: {
+    skinType?: string; showerTime?: string; showerTemp?: string; concerns?: string[]; areas?: string[];
+    hairRemoval?: string; sun?: string; fragranceSensitive?: boolean; notes?: string;
+  };
   cycle?: { hormonalContraception?: boolean; typicalLength?: number; typicalPeriod?: number; tracks?: boolean };
   health?: { professionals: string[]; meds: { id: string; name: string; dose?: string; schedule?: string }[]; notes?: string };
   updatedAt?: number;

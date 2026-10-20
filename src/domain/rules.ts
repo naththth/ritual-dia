@@ -29,12 +29,12 @@ export function plannedSkin(
     // Cabelo: a rotina-base só entra nos dias de lavar; nos outros, só o que foi marcado para o dia.
     const base = period === 'cabelo' && pp.washDays && !pp.washDays.includes(wd) ? [] : pp.base;
     ids = [...base.filter((id) => !day.remove.includes(id)), ...day.add.filter((id) => !base.includes(id))];
-  } else if (recovery) {
-    ids = plan.skin.recovery[period] ?? [];
   } else {
     const pp = plan.skin[period];
     const day = pp.days?.[isoWeekday(date)] ?? { add: [], remove: [] };
     ids = [...pp.base.filter((id) => !day.remove.includes(id)), ...day.add.filter((id) => !pp.base.includes(id))];
+    // Recuperação troca só a parte do rosto; corpo e cabelo seguem o plano do dia.
+    if (recovery) ids = [...(plan.skin.recovery[period] ?? []), ...ids.filter((id) => (byId.get(id)?.area ?? 'rosto') !== 'rosto')];
   }
   const usable = ids.filter((id) => {
     const p = byId.get(id);

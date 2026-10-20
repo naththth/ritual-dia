@@ -301,8 +301,8 @@ test('sono: acordar 6h calcula deitar e organiza o dia', async ({ page }) => {
   await expect(page.getByTestId('sleep-bed')).toContainText('21:15');
   await page.getByRole('button', { name: '8 h', exact: true }).click();
   await page.getByTestId('sleep-organize').click();
-  await expect(page.getByLabel('Horário: Pele da manhã')).toHaveValue('06:20');
-  await expect(page.getByLabel('Horário: Pele da noite')).toHaveValue('21:15');
+  await expect(page.getByLabel('Horário: Rotina da manhã')).toHaveValue('06:20');
+  await expect(page.getByLabel('Horário: Rotina da noite')).toHaveValue('21:15');
   await page.screenshot({ path: 'test-results/shots/sono.png', fullPage: true });
   await page.goto('./#/');
   await expect(page.getByTestId('tl-wake')).toContainText('06:00');
@@ -437,9 +437,8 @@ test('perfil alinhado: campos, opções e texto longo', async ({ page }) => {
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/perfil.png', fullPage: true });
 });
 
-test('cabelo e corpo: categoria, plano com dias de lavar e linha do dia', async ({ page }) => {
+test('rotina de cuidados: rosto, corpo e cabelo juntos na noite, com avaliação', async ({ page }) => {
   await onboard(page);
-  // cadastra um shampoo e um hidratante corporal pela biblioteca
   await page.goto('./#/biblioteca/produtos');
   for (const [brand, name, group] of [['Marca A', 'Shampoo suave', 'Cabelo'], ['Marca B', 'Loção de ureia 10%', 'Corpo']]) {
     await page.getByRole('button', { name: 'Cadastrar produto' }).first().click();
@@ -452,31 +451,38 @@ test('cabelo e corpo: categoria, plano com dias de lavar e linha do dia', async 
   await expect(page.getByText('Shampoo suave')).toBeVisible();
   await expect(page.getByText('Loção de ureia 10%')).toBeHidden();
 
-  // plano: cabelo lavando na segunda; corpo todo dia
+  // avaliação aparece no plano e leva para o perfil
   await page.goto('./#/plano/skin');
+  await expect(page.getByTestId('assess-cabelo')).toContainText('0 de');
+  await page.getByTestId('assess-cabelo').click();
+  await expect(page.getByTestId('profile-hair')).toBeVisible();
+  await page.getByRole('radio', { name: 'Ondulado' }).click();
+  await page.getByRole('radio', { name: /Molha rápido/ }).click();
+  await page.goBack();
+  await expect(page.getByTestId('assess-cabelo')).toContainText('2 de');
+
+  // noite: loção todo dia; shampoo só na segunda
   await page.setViewportSize({ width: 360, height: 780 });
-  await page.getByRole('tab', { name: 'Cabelo' }).click();
+  await page.getByRole('tab', { name: 'Noite' }).click();
   await noHorizontalScroll(page);
-  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/plano-cabelo.png' });
-  await page.getByTestId('wash-days').getByRole('button', { name: 'Seg' }).click();
-  await page.getByTestId('edit-base').click();
-  await page.locator('.sheet [data-testid=product-pick]', { hasText: 'Shampoo suave' }).click();
-  await page.getByRole('button', { name: 'Pronto' }).click();
-  await page.getByRole('tab', { name: 'Corpo' }).click();
   await page.getByTestId('edit-base').click();
   await page.locator('.sheet [data-testid=product-pick]', { hasText: 'Loção de ureia' }).click();
   await page.getByRole('button', { name: 'Pronto' }).click();
+  await page.getByTestId('plan-day-1').click();
+  await page.locator('.sheet [data-testid=product-pick]', { hasText: 'Shampoo suave' }).click();
+  await page.getByRole('button', { name: 'Pronto' }).click();
+  await expect(page.getByTestId('plan-day-1')).toContainText('Cabelo: Shampoo suave');
+  await expect(page.getByTestId('plan-day-2')).not.toContainText('Shampoo');
   await page.getByTestId('plan-save').click();
+  await expect(page.getByTestId('plan-skin')).toBeHidden();
 
-  // segunda-feira: aparece na linha do dia
+  // segunda à noite: rosto, corpo e cabelo na mesma rotina
+  await page.goto('./#/pele?p=pm');
+  await expect(page.getByTestId('skin-sec-corpo')).toContainText('Loção de ureia');
+  await expect(page.getByTestId('skin-sec-cabelo')).toContainText('Shampoo suave');
+  await expect(page.getByTestId('body-hair-signals')).toBeVisible();
+  if (process.env.SHOTS) { await page.getByTestId('skin-sec-corpo').scrollIntoViewIfNeeded(); await page.screenshot({ path: '/tmp/claude-0/shots/rotina-noite.png' }); await page.goto('./#/plano/skin'); await page.getByRole('tab', { name: 'Noite' }).click(); await page.screenshot({ path: '/tmp/claude-0/shots/plano-noite.png' }); }
   await page.goto('./#/');
-  await expect(page.getByTestId('tl-skin-cabelo')).toContainText('dia de lavar');
-  await expect(page.getByTestId('tl-skin-corpo')).toContainText('Loção de ureia');
-  await page.goto('./#/pele?p=cabelo');
-  await expect(page.getByTestId('hair-day')).toContainText('Hoje é dia de lavar');
-  await expect(page.getByTestId('product-pick').filter({ hasText: 'Shampoo suave' })).toBeVisible();
-  await page.getByTestId('skin-use-all').click();
-  await page.getByTestId('skin-save').click();
-  await expect(page.getByTestId('tl-skin-cabelo')).toContainText('1 produto usado');
-  await noHorizontalScroll(page);
+  await expect(page.getByTestId('tl-skin-pm')).toContainText('Rotina da noite');
+  await expect(page.getByTestId('tl-skin-pm')).toContainText('Shampoo suave');
 });

@@ -68,10 +68,8 @@ export function RemindersSection() {
       <div className="time-grid">
         {r.morning ? <TimeField label="Abertura do dia" value={r.morning} onChange={(v) => setR({ morning: v })} /> : null}
         {(settings.mealTypes ?? []).map((m) => <TimeField key={m.id} label={m.label} value={meals[m.id] ?? ''} onChange={(v) => update<'settings'>('settings', { mealTimes: { ...meals, [m.id]: v } })} />)}
-        <TimeField label="Pele da manhã" value={skin.am} onChange={(v) => update<'settings'>('settings', { skinTimes: { ...skin, am: v } })} />
-        <TimeField label="Pele da noite" value={skin.pm} onChange={(v) => update<'settings'>('settings', { skinTimes: { ...skin, pm: v } })} />
-        <TimeField label="Corpo" value={skin.corpo ?? '21:00'} onChange={(v) => update<'settings'>('settings', { skinTimes: { ...skin, corpo: v } })} />
-        <TimeField label="Cabelo" value={skin.cabelo ?? '20:30'} onChange={(v) => update<'settings'>('settings', { skinTimes: { ...skin, cabelo: v } })} />
+        <TimeField label="Rotina da manhã" value={skin.am} onChange={(v) => update<'settings'>('settings', { skinTimes: { ...skin, am: v } })} />
+        <TimeField label="Rotina da noite" value={skin.pm} onChange={(v) => update<'settings'>('settings', { skinTimes: { ...skin, pm: v } })} />
         {r.evening ? <TimeField label="Fechar o dia" value={r.evening} onChange={(v) => setR({ evening: v })} /> : null}
       </div>
       <p className="field-hint">Esses horários também organizam a linha do tempo do dia. Lembrete de refeição ou pele não chega se você já registrou.</p>

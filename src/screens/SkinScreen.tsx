@@ -6,21 +6,24 @@ import { useAll, useByDate } from '../db/hooks';
 import { PageHead , useBack } from './common';
 import { Chip, Seg, Sheet, Empty } from '../ui/ui';
 import { GROUPS, SKIN_CONDITIONS, SKIN_SIGNALS, INTENSITY_LABEL, BODY_SIGNALS, HAIR_SIGNALS, PERIOD_LABEL } from '../domain/defaults';
-import { isoWeekday } from '../lib/dates';
 import { activesTogether, planFor, plannedSkin } from '../domain/rules';
 import { saveSkin, skinId, deleteRecord } from '../domain/actions';
-import type { Product, ProductGroup, SkinCondition, SkinPeriod } from '../db/types';
+import type { Product, ProductGroup, SkinCondition } from '../db/types';
 import { PhotoStrip } from './photos';
 import { ProductForm } from './library/ProductForm';
+
+const SECTIONS: { area: 'rosto' | 'corpo' | 'cabelo'; label: string }[] = [
+  { area: 'rosto', label: 'Rosto' }, { area: 'corpo', label: 'Corpo' }, { area: 'cabelo', label: 'Cabelo' }
+];
 
 export function SkinScreen() {
   const date = useApp((s) => s.date);
   const [params] = useSearchParams();
   const nav = useNavigate();
   const back = useBack();
-  const [period, setPeriod] = useState<SkinPeriod>(() => (params.get('p') as SkinPeriod) || (new Date().getHours() < 14 ? 'am' : 'pm'));
-  const face = period === 'am' || period === 'pm';
-  const area = period === 'corpo' ? 'corpo' : period === 'cabelo' ? 'cabelo' : 'rosto';
+  // Corpo e cabelo fazem parte da rotina da manhã ou da noite; links antigos para essas abas abrem a noite.
+  const initial = params.get('p');
+  const [period, setPeriod] = useState<'am' | 'pm'>(() => (initial === 'am' || initial === 'pm' ? initial : initial ? 'pm' : new Date().getHours() < 14 ? 'am' : 'pm'));
   const logs = useByDate('skin', date);
   const photos = useByDate('photo', date);
   const products = useAll('product');
@@ -54,6 +57,9 @@ export function SkinScreen() {
   const extras = used.filter((id) => !planned.includes(id));
   const alert = activesTogether(used, products ?? []);
   const toggle = (id: string) => setUsed((u) => (u.includes(id) ? u.filter((x) => x !== id) : [...u, id]));
+  const areaOfId = (id: string) => byId.get(id)?.area ?? 'rosto';
+  const hasBodyOrHair = planned.some((id) => areaOfId(id) !== 'rosto') || used.some((id) => areaOfId(id) !== 'rosto');
+  const toggleSignal = (id: string) => setSignals((x) => { const n = { ...x }; if (n[id]) delete n[id]; else n[id] = 1; return n; });
 
   const save = async (skipped = false) => {
     await saveSkin(date, period, {
@@ -62,96 +68,74 @@ export function SkinScreen() {
     back();
   };
 
-  // Corpo e cabelo sem plano montado: mostra os produtos em uso daquela área para marcar.
-  const areaProducts = (products ?? []).filter((p) => p.area === area && p.status === 'em_uso');
-  const areaPlan = period === 'corpo' ? plan?.skin?.body : period === 'cabelo' ? plan?.skin?.hair : undefined;
-  const washDay = period === 'cabelo' && !!areaPlan?.washDays?.includes(isoWeekday(date));
-  const otherSignals = period === 'corpo' ? BODY_SIGNALS : HAIR_SIGNALS;
-  const shownExtras = extras.filter((id) => face || planned.length > 0 || !areaProducts.some((p) => p.id === id));
-
   return (
     <div className="screen no-nav" data-testid="skin-screen">
-      <PageHead title={face ? 'Pele' : period === 'corpo' ? 'Corpo' : 'Cabelo'} />
-      <Seg value={period} onChange={(p) => setPeriod(p)} options={[{ id: 'am', label: 'Manhã' }, { id: 'pm', label: 'Noite' }, { id: 'corpo', label: 'Corpo' }, { id: 'cabelo', label: 'Cabelo' }]} label="Rotina" />
+      <PageHead title={period === 'am' ? 'Rotina da manhã' : 'Rotina da noite'} />
+      <Seg value={period} onChange={(p) => setPeriod(p)} options={[{ id: 'am', label: 'Manhã' }, { id: 'pm', label: 'Noite' }]} label="Período" />
 
-      {!face && (
-        <>
-          {period === 'cabelo' && areaPlan?.washDays?.length ? <p className="small" style={{ margin: '12px 0 0' }} data-testid="hair-day">{washDay ? 'Hoje é dia de lavar.' : 'Hoje não é dia de lavar: só os cuidados do dia.'}</p> : null}
-          <span className="label">Sinais</span>
-          <div className="chips">
-            {otherSignals.map((x) => (
-              <Chip key={x.id} color="rose" on={!!signals[x.id]} testId={`sig-${x.id}`} onClick={() => setSignals((v) => { const n = { ...v }; if (n[x.id]) delete n[x.id]; else n[x.id] = 1; return n; })}>{x.label}</Chip>
-            ))}
-          </div>
-        </>
-      )}
-
-      {face && (
-        <>
-          <span className="label">Como está a pele</span>
-          <div className="chips">
-            {SKIN_CONDITIONS.map((c) => <Chip key={c.id} color="rose" on={condition === c.id} onClick={() => setCondition(condition === c.id ? undefined : c.id)}>{c.label}</Chip>)}
-          </div>
-          <span className="label">Sinais</span>
-          <div className="chips">
-            {SKIN_SIGNALS.map((s) => (
-              <Chip key={s.id} color="rose" on={!!signals[s.id]} testId={`sig-${s.id}`} onClick={() => setSignals((x) => {
-                const n = { ...x };
-                if (n[s.id]) delete n[s.id]; else n[s.id] = 1;
-                return n;
-              })}>{s.label}</Chip>
-            ))}
-          </div>
-          {Object.keys(signals).length > 0 && (
-            <div style={{ marginTop: 10 }}>
-              {Object.entries(signals).map(([id, lvl]) => (
-                <div key={id} className="row between" style={{ minHeight: 48 }}>
-                  <span className="small" style={{ fontWeight: 600 }}>{SKIN_SIGNALS.find((s) => s.id === id)?.label}</span>
-                  <div className="row" style={{ gap: 4 }}>
-                    {([1, 2, 3] as const).map((n) => (
-                      <button key={n} className={`chip ${lvl === n ? 'on c-rose' : ''}`} style={{ minHeight: 38, padding: '0 12px', fontSize: 13.5 }} onClick={() => setSignals((x) => ({ ...x, [id]: n }))}>{INTENSITY_LABEL[n]}</button>
-                    ))}
-                  </div>
-                </div>
-              ))}
+      <span className="label">Como está a pele</span>
+      <div className="chips">
+        {SKIN_CONDITIONS.map((c) => <Chip key={c.id} color="rose" on={condition === c.id} onClick={() => setCondition(condition === c.id ? undefined : c.id)}>{c.label}</Chip>)}
+      </div>
+      <span className="label">Sinais no rosto</span>
+      <div className="chips">
+        {SKIN_SIGNALS.map((x) => <Chip key={x.id} color="rose" on={!!signals[x.id]} testId={`sig-${x.id}`} onClick={() => toggleSignal(x.id)}>{x.label}</Chip>)}
+      </div>
+      {Object.keys(signals).filter((id) => SKIN_SIGNALS.some((x) => x.id === id)).length > 0 && (
+        <div style={{ marginTop: 10 }}>
+          {Object.entries(signals).filter(([id]) => SKIN_SIGNALS.some((x) => x.id === id)).map(([id, lvl]) => (
+            <div key={id} className="row between" style={{ minHeight: 48 }}>
+              <span className="small" style={{ fontWeight: 600 }}>{SKIN_SIGNALS.find((s) => s.id === id)?.label}</span>
+              <div className="row" style={{ gap: 4 }}>
+                {([1, 2, 3] as const).map((n) => (
+                  <button key={n} className={`chip ${lvl === n ? 'on c-rose' : ''}`} style={{ minHeight: 38, padding: '0 12px', fontSize: 13.5 }} onClick={() => setSignals((x) => ({ ...x, [id]: n }))}>{INTENSITY_LABEL[n]}</button>
+                ))}
+              </div>
             </div>
-          )}
+          ))}
+        </div>
+      )}
+      {hasBodyOrHair && (
+        <>
+          <span className="label">Corpo e cabelo</span>
+          <div className="chips" data-testid="body-hair-signals">
+            {[...BODY_SIGNALS, ...HAIR_SIGNALS].map((x) => <Chip key={x.id} color="rose" on={!!signals[x.id]} testId={`sig-${x.id}`} onClick={() => toggleSignal(x.id)}>{x.label}</Chip>)}
+          </div>
         </>
       )}
 
       <div className="section">
         <h2 className="section-title">Produtos</h2>
-        {face && (
-          <button className={`chip ${recovery ? 'on c-rose' : ''}`} onClick={() => setRecovery(!recovery)} aria-pressed={recovery} style={{ minHeight: 38 }}>Modo recuperação</button>
-        )}
+        <button className={`chip ${recovery ? 'on c-rose' : ''}`} onClick={() => setRecovery(!recovery)} aria-pressed={recovery} style={{ minHeight: 38 }}>Modo recuperação</button>
       </div>
-      {recovery && planned.length === 0 && <p className="notice calm">Você ainda não montou a lista de recuperação. Configure em Pele, corpo e cabelo, aba Recuperação.</p>}
+      {recovery && planned.length === 0 && <p className="notice calm">Você ainda não montou a lista de recuperação. Configure em Rotina de cuidados, aba Recuperação.</p>}
 
       {planned.length > 0 && (
         <>
-          <div className="row between" style={{ marginBottom: 8 }}>
+          <div className="row between" style={{ marginBottom: 4 }}>
             <span className="small muted">{recovery ? 'Lista de recuperação' : 'Do seu plano para hoje'}</span>
             <button className="link" onClick={() => setUsed((u) => Array.from(new Set([...u, ...planned])))} data-testid="skin-use-all">Usei tudo</button>
           </div>
-          {planned.map((id) => <ProductPick key={id} p={byId.get(id)!} on={used.includes(id)} onClick={() => toggle(id)} />)}
+          {SECTIONS.map((sec) => {
+            const ids = planned.filter((id) => areaOfId(id) === sec.area);
+            if (!ids.length) return null;
+            return (
+              <div key={sec.area} data-testid={`skin-sec-${sec.area}`}>
+                <h3 className="sec-cap">{sec.label}</h3>
+                {ids.map((id) => <ProductPick key={id} p={byId.get(id)!} on={used.includes(id)} onClick={() => toggle(id)} />)}
+              </div>
+            );
+          })}
         </>
       )}
-      {face && planned.length === 0 && !recovery && (
+      {planned.length === 0 && !recovery && (
         <p className="notice calm">Sem plano para este dia. Escolha os produtos da sua lista ou <button className="link" style={{ minHeight: 0 }} onClick={() => nav('/plano/skin')}>monte o plano</button>.</p>
       )}
-      {!face && planned.length === 0 && (
-        <>
-          {areaPlan
-            ? <p className="small muted" style={{ margin: '0 0 8px' }}>Nada planejado para hoje.{' '}<button className="link" style={{ minHeight: 0 }} onClick={() => nav('/plano/skin')}>Ver plano</button></p>
-            : <p className="small muted" style={{ margin: '0 0 8px' }}>Seus produtos de {PERIOD_LABEL[period]} em uso. <button className="link" style={{ minHeight: 0 }} onClick={() => nav('/plano/skin')}>Monte a rotina</button> para o app sugerir o que usar em cada dia.</p>}
-          {areaProducts.filter((p) => !planned.includes(p.id)).map((p) => <ProductPick key={p.id} p={p} on={used.includes(p.id)} onClick={() => toggle(p.id)} />)}
-        </>
-      )}
 
-      {shownExtras.length > 0 && (
+      {extras.length > 0 && (
         <>
           <span className="label">Fora do plano</span>
-          {shownExtras.map((id) => byId.get(id) && <ProductPick key={id} p={byId.get(id)!} on onClick={() => toggle(id)} />)}
+          {extras.map((id) => byId.get(id) && <ProductPick key={id} p={byId.get(id)!} on onClick={() => toggle(id)} />)}
         </>
       )}
       <button className="btn btn-soft btn-block" style={{ marginTop: 10 }} onClick={() => setPicker(true)} data-testid="skin-add-from-list"><Plus size={18} />Da minha lista</button>
@@ -174,14 +158,14 @@ export function SkinScreen() {
 
       <div className="row" style={{ marginTop: 24, gap: 10 }}>
         {log ? (
-          <button className="btn btn-soft" onClick={async () => { await deleteRecord(skinId(date, period), 'Registro de pele apagado'); back(); }}>Apagar</button>
+          <button className="btn btn-soft" onClick={async () => { await deleteRecord(skinId(date, period), 'Registro apagado'); back(); }}>Apagar</button>
         ) : (
           <button className="btn btn-soft" onClick={() => save(true)}>Pular</button>
         )}
         <button className="btn btn-ink grow" onClick={() => save(false)} data-testid="skin-save">Salvar {PERIOD_LABEL[period]}</button>
       </div>
 
-      <ProductPicker open={picker} onClose={() => setPicker(false)} selected={used} onToggle={toggle} area={area} />
+      <ProductPicker open={picker} onClose={() => setPicker(false)} selected={used} onToggle={toggle} />
     </div>
   );
 }

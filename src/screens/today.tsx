@@ -1,19 +1,19 @@
 // O dia como linha do tempo: "Agora" no topo e o resto em ordem de horário.
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check as CheckIcon, Droplets, Dumbbell, Flame, Moon, NotebookPen, Sunrise, Utensils, ShowerHead } from 'lucide-react';
+import { Check as CheckIcon, Droplets, Dumbbell, Flame, Moon, NotebookPen, Sunrise, Utensils } from 'lucide-react';
 import { useAll, useByDate, useSettings } from '../db/hooks';
 import { planFor, plannedFood, plannedSkin, plannedTraining } from '../domain/rules';
 import { mealFromTemplate, saveSkin, workoutFromTemplate, addWater } from '../domain/actions';
 import { fmt, totals } from '../domain/nutrition';
 import { watts } from '../domain/ai';
-import { addDays, isoWeekday, todayKey, type DateKey } from '../lib/dates';
+import { addDays, todayKey, type DateKey } from '../lib/dates';
 import { sleepPlan, wakeFor, bedFor, hoursLabel } from '../domain/sleep';
 import type { MealItem } from '../db/types';
 import { WaterSheet } from './WaterSheet';
 
 export const DEFAULT_MEAL_TIMES: Record<string, string> = { cafe: '07:30', almoco: '12:30', lanche: '16:00', jantar: '20:00', ceia: '22:00' };
-export const DEFAULT_SKIN_TIMES = { am: '07:00', pm: '21:30', corpo: '21:00', cabelo: '20:30' };
+export const DEFAULT_SKIN_TIMES = { am: '07:00', pm: '21:30' };
 
 type Mod = 'skin' | 'food' | 'training' | 'journal' | 'sleep';
 export interface TLItem {
@@ -72,26 +72,10 @@ export function useTimeline(date: DateKey): TLItem[] | undefined {
     const planned = plannedSkin(skinPlan, date, period, products);
     items.push({
       key: `skin-${period}`, time: sTimes[period], mod: 'skin', icon: period === 'am' ? <Sunrise size={18} /> : <Moon size={18} />,
-      title: period === 'am' ? 'Pele da manhã' : 'Pele da noite',
+      title: period === 'am' ? 'Rotina da manhã' : 'Rotina da noite',
       detail: log ? (log.skipped ? 'Pulado' : (log.productIds.length === 1 ? '1 produto usado' : `${log.productIds.length} produtos usados`)) : planned.length ? short(planned) : 'Sem plano para hoje',
       done: !!log,
       action: !log && planned.length ? { label: 'Usei tudo', run: () => saveSkin(date, period, { productIds: planned, plannedIds: planned }), testId: `act-skin-${period}` } : undefined,
-      open: `/pele?p=${period}`
-    });
-  }
-
-  // Corpo e cabelo entram na linha do dia só quando há algo planejado (ou já registrado).
-  for (const period of ['corpo', 'cabelo'] as const) {
-    const log = skin.find((s) => s.period === period);
-    const planned = plannedSkin(skinPlan, date, period, products);
-    if (!log && !planned.length) continue;
-    const wash = period === 'cabelo' && !!skinPlan?.skin?.hair?.washDays?.includes(isoWeekday(date));
-    items.push({
-      key: `skin-${period}`, time: (sTimes as any)[period] ?? DEFAULT_SKIN_TIMES[period], mod: 'skin', icon: period === 'corpo' ? <Droplets size={18} /> : <ShowerHead size={18} />,
-      title: period === 'corpo' ? 'Corpo' : wash ? 'Cabelo: dia de lavar' : 'Cabelo',
-      detail: log ? (log.skipped ? 'Pulado' : (log.productIds.length === 1 ? '1 produto usado' : `${log.productIds.length} produtos usados`)) : short(planned),
-      done: !!log,
-      action: !log ? { label: 'Usei tudo', run: () => saveSkin(date, period, { productIds: planned, plannedIds: planned }), testId: `act-skin-${period}` } : undefined,
       open: `/pele?p=${period}`
     });
   }

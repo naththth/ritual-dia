@@ -90,13 +90,10 @@ export async function aiSkinPlan(today: DateKey) {
   const mods = await all('modality');
   const semana_de_treino: Record<string, string[]> = {};
   for (let d = 1; d <= 7; d++) semana_de_treino[d] = (tp?.training?.[d] ?? []).map((id) => { const t = tmpls.find((x) => x.id === id); return t ? `${t.name} (${mods.find((m) => m.id === t.modalityId)?.name ?? ''})` : ''; }).filter(Boolean);
-  const byArea = (a: string) => products.filter((p) => (p.area ?? 'rosto') === a).map(short);
   const ctx = {
     perfil_de_pele: settings?.skinProfile ?? [],
     observacoes_dela: settings?.aiContext ?? '',
-    produtos: byArea('rosto'),
-    produtos_corpo: byArea('corpo'),
-    produtos_cabelo: byArea('cabelo'),
+    produtos: products.map((p) => ({ ...short(p), area: p.area ?? 'rosto' })),
     semana_de_treino,
     registros_recentes: logs.map((l) => ({ data: l.date, periodo: l.period, condicao: l.condition, sinais: l.signals, recuperacao: l.recovery }))
   };
@@ -111,12 +108,10 @@ export async function aiSkinPlan(today: DateKey) {
     }
     return { base: clean(pp?.base), days };
   };
-  const hairWash = Array.isArray(r.cabelo?.dias_de_lavar) ? r.cabelo.dias_de_lavar.map(Number).filter((n: number) => n >= 1 && n <= 7) : undefined;
   return {
     skin: {
       am: period(r.am), pm: period(r.pm), recovery: { am: clean(r.recovery?.am), pm: clean(r.recovery?.pm) },
-      body: r.corpo ? period(r.corpo) : undefined,
-      hair: r.cabelo ? { ...period(r.cabelo), washDays: hairWash } : undefined
+      diagnosis: r.diagnostico ? { rosto: r.diagnostico.rosto ? String(r.diagnostico.rosto) : undefined, corpo: r.diagnostico.corpo ? String(r.diagnostico.corpo) : undefined, cabelo: r.diagnostico.cabelo ? String(r.diagnostico.cabelo) : undefined, date: today } : undefined
     } as NonNullable<Plan['skin']>,
     resumo: String(r.resumo ?? ''),
     observacoes: String(r.observacoes ?? '')
