@@ -19,10 +19,11 @@ function friendly(msg: string) {
   if (/429|rate limit|RESOURCE_EXHAUSTED/i.test(msg)) return 'A IA atingiu o limite de uso por agora. Tente de novo em alguns minutos.';
   if (/503|overloaded|high demand/i.test(msg)) return 'A IA está sobrecarregada agora. Tente de novo em instantes.';
   if (/API key not valid|invalid api key|401/i.test(msg)) return 'A chave da IA não foi aceita. Confira o segredo no Supabase.';
+  if (/Failed to send a request|Failed to fetch|NetworkError|Load failed/i.test(msg)) return 'A conexão caiu no meio do envio. Tente de novo com a internet mais estável.';
   return msg;
 }
 
-export async function askAI<T = any>(task: AITask, context: unknown, images?: { mime: string; data: string }[]): Promise<T> {
+export async function askAI<T = any>(task: AITask, context: unknown, images?: { mime: string; data: string }[], files?: { bucket: string; path: string; mime: string }[]): Promise<T> {
   if (!supabase) throw new Error('Sincronização não configurada.');
   if (!useSync.getState().session) throw new Error('Entre com Google para usar a IA.');
   if (!navigator.onLine) throw new Error('Sem conexão. A IA precisa de internet.');
@@ -41,8 +42,8 @@ export async function askAI<T = any>(task: AITask, context: unknown, images?: { 
     ctx = { ...extra, ...(ctx as object) };
   }
   const { data, error } = await Promise.race([
-    supabase.functions.invoke('ritual-ai', { body: { task, context: ctx, images } }),
-    new Promise<never>((_, rej) => setTimeout(() => rej(new Error('A IA demorou demais para responder. Tente de novo.')), 90000))
+    supabase.functions.invoke('ritual-ai', { body: { task, context: ctx, images, files } }),
+    new Promise<never>((_, rej) => setTimeout(() => rej(new Error('A IA demorou demais para responder. Tente de novo.')), files?.length ? 150000 : 90000))
   ]);
   if (error) {
     let msg = error.message;

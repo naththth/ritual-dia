@@ -392,6 +392,8 @@ export interface HealthDoc extends Base {
   summary?: string;
   values?: { name: string; value: string; unit?: string; flag?: 'baixo' | 'alto' | 'normal' }[];
   forPlanning?: string; // o que importa para nutrição, treino e pele
+  reading?: boolean;
+  readError?: string;
 }
 
 /** Um dia do ciclo menstrual: sangramento e sintomas. */

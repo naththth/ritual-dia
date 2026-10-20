@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { encodeBase64 } from "jsr:@std/encoding@1/base64";
 
 // Assistente do Ritual. Funciona com Google Gemini, OpenAI ou Anthropic; a chave fica num segredo do Supabase.
 // Ordem: AI_PROVIDER (se definido) ou a primeira chave encontrada: GEMINI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY.
@@ -150,39 +151,58 @@ function pickProvider(): { name: string; call: Call } | null {
 }
 
 // Só a usuária logada (ou o teste interno com o segredo do agendador) usa a IA; a chave pública do app não basta.
-async function allowed(req: Request) {
+const admin = () => createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
+
+/** Devolve o id da usuária logada (o JWT já foi validado pelo gateway), 'cron' para o teste interno, ou null. */
+async function allowed(req: Request): Promise<string | null> {
   const token = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '');
   try {
     const part = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
     const payload = JSON.parse(atob(part + '='.repeat((4 - (part.length % 4)) % 4)));
-    if (payload.role === 'authenticated') return true;
+    if (payload.role === 'authenticated' && payload.sub) return String(payload.sub);
   } catch { /* */ }
   const probe = req.headers.get('x-cron-secret');
-  if (!probe) return false;
-  const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
-  const { data } = await admin.from('app_secrets').select('value').eq('key', 'cron_secret').maybeSingle();
-  return !!data?.value && data.value === probe;
+  if (!probe) return null;
+  const { data } = await admin().from('app_secrets').select('value').eq('key', 'cron_secret').maybeSingle();
+  return !!data?.value && data.value === probe ? 'cron' : null;
+}
+
+/** Arquivos guardados no armazenamento privado: só os da própria pasta dela, lidos aqui para não pesar a requisição. */
+async function storageFiles(user: string, files: unknown): Promise<Img[]> {
+  if (!Array.isArray(files) || user === 'cron') return [];
+  const out: Img[] = [];
+  for (const f of files.slice(0, 2)) {
+    const bucket = String((f as any)?.bucket ?? ''), path = String((f as any)?.path ?? ''), mime = String((f as any)?.mime ?? '');
+    if (!['health-docs', 'skin-photos'].includes(bucket) || !path.startsWith(`${user}/`) || path.includes('..')) throw new Error('Arquivo fora da sua pasta.');
+    if (!/^(image\/(jpeg|png|webp)|application\/pdf)$/.test(mime)) throw new Error('Tipo de arquivo não aceito.');
+    const { data, error } = await admin().storage.from(bucket).download(path);
+    if (error || !data) throw new Error(`Não consegui abrir o arquivo guardado: ${error?.message ?? 'vazio'}`);
+    out.push({ mime, data: encodeBase64(new Uint8Array(await data.arrayBuffer())) });
+  }
+  return out;
 }
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   try {
-    if (!(await allowed(req))) return new Response(JSON.stringify({ error: 'Entre com Google para usar a IA.' }), { status: 401, headers: J });
+    const user = await allowed(req);
+    if (!user) return new Response(JSON.stringify({ error: 'Entre com Google para usar a IA.' }), { status: 401, headers: J });
     const provider = pickProvider();
     if (!provider) return new Response(JSON.stringify({ error: 'A chave da IA ainda não foi configurada no Supabase.' }), { status: 503, headers: J });
-    const { task, context, images } = await req.json();
+    const { task, context, images, files } = await req.json();
     if (!TASKS[task]) return new Response(JSON.stringify({ error: 'Tarefa desconhecida' }), { status: 400, headers: J });
     const ctx = JSON.stringify(context ?? {});
     if (ctx.length > 80000) return new Response(JSON.stringify({ error: 'Contexto grande demais' }), { status: 413, headers: J });
     const imgs: Img[] = Array.isArray(images) ? images.filter((i: any) => typeof i?.data === 'string' && /^(image\/(jpeg|png|webp)|application\/pdf)$/.test(i?.mime)).slice(0, 4) : [];
-    if (imgs.reduce((a, i) => a + i.data.length, 0) > 8_000_000) return new Response(JSON.stringify({ error: 'Imagens grandes demais' }), { status: 413, headers: J });
+    imgs.push(...(await storageFiles(user, files)));
+    if (imgs.reduce((a, i) => a + i.data.length, 0) > 19_000_000) return new Response(JSON.stringify({ error: 'Imagens grandes demais' }), { status: 413, headers: J });
     const system = BASE + '\n\n' + TASKS[task];
-    const user = `Contexto (JSON):\n${ctx}`;
+    const userMsg = `Contexto (JSON):\n${ctx}`;
     let text: string;
     if (task === 'product_read' && provider.name === 'gemini') {
-      try { text = await provider.call(system, user, imgs, { search: true }); extractJson(text); }
-      catch { text = await provider.call(system, user, imgs); }
-    } else text = await provider.call(system, user, imgs);
+      try { text = await provider.call(system, userMsg, imgs, { search: true }); extractJson(text); }
+      catch { text = await provider.call(system, userMsg, imgs); }
+    } else text = await provider.call(system, userMsg, imgs);
     return new Response(JSON.stringify({ result: extractJson(text), provider: provider.name }), { headers: J });
   } catch (e) {
     return new Response(JSON.stringify({ error: String((e as Error)?.message ?? e) }), { status: 502, headers: J });

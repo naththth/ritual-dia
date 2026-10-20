@@ -419,3 +419,20 @@ test('ficha do alimento: pão francês em unidades, macros por refeição', asyn
   await expect(page.getByTestId('qty-sheet')).toBeVisible();
   if (process.env.SHOTS) { await page.getByTestId('qty-save').click(); await page.goto('./#/alimentacao'); await page.screenshot({ path: '/tmp/claude-0/shots/dia.png' }); }
 });
+
+test('perfil alinhado: campos, opções e texto longo', async ({ page }) => {
+  await onboard(page);
+  await page.goto('./#/perfil');
+  await page.getByLabel('Altura').fill('180');
+  await page.getByLabel('Peso').fill('89');
+  await page.getByLabel('Ano de nascimento').fill('1992');
+  await page.getByLabel('Gordura, se souber').fill('35');
+  await page.getByRole('radio', { name: 'Feminino' }).click();
+  await page.getByRole('radio', { name: /Perder gordura/ }).click();
+  await page.getByLabel('Prova ou marco').fill('Tomo mounjaro e preciso chegar na meta de peso até março, com a prova de triathlon sprint no meio do caminho');
+  await noHorizontalScroll(page);
+  // os quatro campos numéricos ficam na mesma grade, com as caixas alinhadas
+  const tops = await Promise.all(['Altura', 'Peso'].map(async (l) => (await page.getByLabel(l).boundingBox())!.y));
+  expect(Math.abs(tops[0] - tops[1])).toBeLessThan(2);
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/perfil.png', fullPage: true });
+});

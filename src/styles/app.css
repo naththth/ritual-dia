@@ -540,3 +540,31 @@ button.wellness-strip { width: 100%; align-items: baseline; text-align: left; ba
 .qty-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--card); color: var(--ink); font-weight: 650; font-size: 12.5px; }
 .plate-row .macro-line { margin-top: 4px; }
 button.food-line { width: 100%; text-align: left; }
+
+/* Perfil: grade alinhada */
+.pf-lead { margin: 0 0 16px; line-height: 1.45; }
+.pf h2 { font-size: 22px; margin: 0 0 4px; }
+.pf .pf-intro { margin: 4px 0 2px; line-height: 1.45; }
+.pf .label { margin: 20px 0 8px; font-size: 14.5px; }
+.pf h2 + .label, .pf h2 + .pf-grid { margin-top: 14px; }
+.pf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
+.pf-num { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.pf-num > span:first-child { font-size: 13.5px; font-weight: 650; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pf-num-box { position: relative; display: block; }
+.pf-num-box input { width: 100%; min-height: 48px; padding: 8px 40px 8px 14px; font-size: 17px; font-variant-numeric: tabular-nums; }
+.pf-num-box i { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font-style: normal; font-weight: 650; color: var(--ink-3); font-size: 14px; pointer-events: none; }
+.pf-opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
+.pf-opts button { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 2px; min-height: 48px; padding: 10px 14px; border-radius: 14px; border: 1.5px solid var(--line-2); background: var(--card); text-align: left; color: var(--ink); line-height: 1.2; min-width: 0; }
+.pf-opts button b { font-weight: 700; font-size: 15px; }
+.pf-opts button small { font-size: 13px; color: var(--ink-2); }
+.pf-opts button.on { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.pf-opts button.on small { color: var(--paper-2); }
+.pf-opts[style*="repeat(7"] button, .pf-opts[style*="repeat(4"] button { align-items: center; padding: 10px 4px; }
+.pf-opts[style*="repeat(7"] { gap: 5px; }
+.pf-opts[style*="repeat(7"] button b { font-size: 13.5px; }
+.pf-opts[style*="repeat(3"] button { padding: 10px 10px; }
+.pf-opts[style*="repeat(3"] button b { font-size: 14px; }
+.pf-text { width: 100%; min-height: 48px; resize: none; overflow: hidden; line-height: 1.4; padding: 12px 14px; font-size: 16px; display: block; }
+.pf-med { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+.pf-med .pf-med-name, .pf-med .pf-med-add { grid-column: 1 / -1; }
+.pf-med input { min-width: 0; }
