@@ -343,3 +343,13 @@ test('treino trocado: fez outra modalidade no lugar do planejado', async ({ page
   await expect(page.getByTestId('train-done')).toHaveCount(0);
   await page.screenshot({ path: 'test-results/shots/treino-trocado.png' });
 });
+
+test('importar biblioteca do Goodreads', async ({ page }) => {
+  await onboard(page);
+  await page.goto('./#/leitura');
+  await page.getByTestId('gr-input').setInputFiles(path.resolve('tests/e2e/fixtures/goodreads-test.csv'));
+  await expect(page.getByTestId('book-row').first()).toBeVisible();
+  await expect(page.getByTestId('reading-screen')).toContainText('Livro Lendo Um');
+  await page.getByTestId('gr-input').setInputFiles(path.resolve('tests/e2e/fixtures/goodreads-test.csv'));
+  await expect(page.getByTestId('book-row')).toHaveCount(2); // lendo: 2, sem duplicar
+});

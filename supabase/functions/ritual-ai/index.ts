@@ -16,7 +16,9 @@ Escreva em português do Brasil, direto, sem clichês, sem emojis, sem frases mo
 Responda SOMENTE com um objeto JSON válido, sem texto antes ou depois, sem cercas de código.
 Use apenas os IDs que vierem no contexto. Nunca invente IDs, produtos, alimentos, números ou fatos. Não faça diagnóstico nem recomende medicamentos.
 Atue no nível das melhores práticas baseadas em evidência: em alimentação, como nutricionista esportiva (posições da ISSN, ACSM e IOC; ex.: proteína de 1,6 a 2,2 g/kg para quem treina força, carboidrato ajustado à carga de treino, déficit moderado para preservar massa magra); em treino, como treinador de endurance e força (periodização, polarização, progressão de carga, recuperação); em pele, como dermatologista (ativos com evidência, introdução gradual, barreira cutânea, fotoproteção).
-contexto.perfil_dela traz objetivo, corpo, restrições, preferências e acompanhamentos. Personalize tudo a partir dele. Quando ela tiver nutricionista, treinador ou dermatologista, o que eles definiram prevalece: você ajusta em volta, sinaliza divergências com respeito e nunca contradiz prescrição. Se faltar um dado essencial, diga qual em vez de supor.`;
+contexto.perfil_dela traz objetivo, corpo, restrições, preferências e acompanhamentos. Personalize tudo a partir dele. Quando ela tiver nutricionista, treinador ou dermatologista, o que eles definiram prevalece: você ajusta em volta, sinaliza divergências com respeito e nunca contradiz prescrição. Se faltar um dado essencial, diga qual em vez de supor.
+contexto.exames_e_documentos traz resumos de exames, bioimpedância e laudos: use os valores (massa magra, % de gordura, taxa metabólica medida, exames de sangue) quando forem relevantes e cite a data.
+Medicamentos (perfil_dela.health.meds): nunca sugira iniciar, parar ou mudar dose. Se houver agonista de GLP-1/GIP (tirzepatida/Mounjaro, semaglutida/Ozempic/Wegovy, liraglutida), aplique as condutas com evidência para quem usa: déficit moderado sem cortes agressivos (o apetite já cai), proteína no alto da faixa (1,6 a 2,2 g/kg, distribuída nas refeições) e treino de força regular para preservar massa magra, hidratação e fibras por causa de efeitos gastrointestinais, refeições menores e mais frequentes quando houver náusea, cuidado com treino intenso em jejum ou com baixa ingestão nos dias após a aplicação. Orientações do médico em perfil_dela.health.notes prevalecem.`;
 
 const TRAINING_FORMAT = `{"templates":[{"key":"t1","name":"...","modality":"musculacao|ciclismo|yoga|lpo|corrida|natacao|mobilidade|descanso","duration":minutos,"intensity":"leve|moderada|intensa","time":"HH:MM (só para aulas com horário)","steps":[{"label":"Aquecimento","minutes":10,"pct":55}],"muscles":["Pernas"]}],"week":{"1":["t1"],...}}`;
 
@@ -52,12 +54,18 @@ Formato: {"texto":"","destaques":[""],"foco":[""]}.`,
 - observacao: uma frase curta só se algo for ambíguo (ex.: os passos são parciais do dia).
 Formato: {"data":null,"sono_h":null,"sono_score":null,"dormiu":null,"acordou":null,"vfc":null,"fc_repouso":null,"body_battery":null,"passos":null,"estresse":null,"observacao":""}.`,
   targets: `Calcule as metas diárias de energia e macronutrientes dela.
-Método: gasto de repouso por Mifflin-St Jeor (use perfil_dela: sexo, idade, altura, peso; se houver % de gordura, pode usar Katch-McArdle e diga qual usou), multiplicado pelo fator de atividade fora do treino, somado ao gasto médio diário dos treinos (contexto.treino_media_semanal_4_semanas, dividido por 7). Aplique o objetivo: perder gordura com déficit de 10 a 20% (ritmo leve = 10-15%), recomposição com déficit de 5-10%, ganhar massa com superávit de 5-10%, performance e manter sem déficit.
+Método: gasto de repouso pela taxa metabólica medida em bioimpedância recente, se houver em exames_e_documentos; senão por Katch-McArdle se houver massa magra ou % de gordura; senão Mifflin-St Jeor (perfil_dela: sexo, idade, altura, peso). Diga qual usou. Prefira o peso da bioimpedância mais recente se for mais novo que o do perfil. Esse gasto de repouso é multiplicado pelo fator de atividade fora do treino, somado ao gasto médio diário dos treinos (contexto.treino_media_semanal_4_semanas, dividido por 7). Aplique o objetivo: perder gordura com déficit de 10 a 20% (ritmo leve = 10-15%), recomposição com déficit de 5-10%, ganhar massa com superávit de 5-10%, performance e manter sem déficit.
 Proteína em g/kg conforme objetivo (1,6 a 2,2; mais alto em déficit), gordura não abaixo de 0,8 g/kg, carboidrato com o restante. Água: cerca de 35 mL/kg mais a reposição do treino, arredondado.
 Se houver plano da nutricionista (plano_da_nutricionista_kcal_por_dia) e ela tiver nutricionista, compare: se sua conta divergir mais de 10% da média do plano, mantenha as metas próximas do plano e explique a diferença em 'observacoes' para ela levar à nutricionista.
 Se faltar peso, altura, idade ou sexo, não calcule: devolva kcal null e liste em 'falta'.
 'metodo': a conta em 2 a 4 frases com os números (TMB, fator, gasto do treino, ajuste do objetivo). 'dia_de_treino_forte': uma frase de como ajustar o carboidrato nos dias de pedal de qualidade ou treino longo.
 Formato: {"kcal":0,"proteina_g":0,"carbo_g":0,"gordura_g":0,"agua_ml":0,"dia_de_treino_forte":"","metodo":"","observacoes":"","falta":""}.`,
+  doc_read: `Você recebe um documento de saúde dela (PDF ou foto): bioimpedância, exame de sangue, laudo, prescrição ou outro. Extraia SOMENTE o que está escrito; não faça diagnóstico.
+- tipo: bioimpedancia | exame_sangue | laudo | prescricao | outro. titulo: curto (ex.: "Bioimpedância InBody"). data: do exame (YYYY-MM-DD), ou null.
+- valores: os dados principais com unidade. Bioimpedância: peso, % de gordura, massa de gordura, massa magra, massa muscular esquelética, água corporal, gordura visceral, taxa metabólica basal. Exame de sangue: os analitos com valor e, se o laudo trouxer a referência, situacao baixo/alto/normal.
+- resumo: 2 a 4 frases neutras do que o documento mostra.
+- para_planejamento: o que isso muda na prática para alimentação, treino ou pele (ex.: TMB medida para calcular calorias; ferritina baixa: conversar com o médico antes de aumentar volume de endurance). Sem prescrever.
+Formato: {"tipo":"","titulo":"","data":null,"valores":[{"nome":"","valor":"","unidade":"","situacao":null}],"resumo":"","para_planejamento":""}.`,
   label_read: `Você recebe a foto de um rótulo de alimento (tabela nutricional brasileira e/ou frente da embalagem). Extraia SOMENTE o que está escrito; nunca estime.
 - nome e marca do produto se aparecerem.
 - porcao_g: a porção de referência em gramas ou mL (ex.: 200 mL = 200). porcao_rotulo: como está escrito (ex.: "200 mL (1 copo)").
@@ -155,7 +163,7 @@ Deno.serve(async (req: Request) => {
     if (!TASKS[task]) return new Response(JSON.stringify({ error: 'Tarefa desconhecida' }), { status: 400, headers: J });
     const ctx = JSON.stringify(context ?? {});
     if (ctx.length > 80000) return new Response(JSON.stringify({ error: 'Contexto grande demais' }), { status: 413, headers: J });
-    const imgs: Img[] = Array.isArray(images) ? images.filter((i: any) => typeof i?.data === 'string' && /^image\/(jpeg|png|webp)$/.test(i?.mime)).slice(0, 4) : [];
+    const imgs: Img[] = Array.isArray(images) ? images.filter((i: any) => typeof i?.data === 'string' && /^(image\/(jpeg|png|webp)|application\/pdf)$/.test(i?.mime)).slice(0, 4) : [];
     if (imgs.reduce((a, i) => a + i.data.length, 0) > 8_000_000) return new Response(JSON.stringify({ error: 'Imagens grandes demais' }), { status: 413, headers: J });
     const text = await provider.call(BASE + '\n\n' + TASKS[task], `Contexto (JSON):\n${ctx}`, imgs);
     return new Response(JSON.stringify({ result: extractJson(text), provider: provider.name }), { headers: J });

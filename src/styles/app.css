@@ -478,3 +478,14 @@ button.wellness-strip { width: 100%; align-items: baseline; text-align: left; ba
 .goal-opt { display: flex; flex-direction: column; align-items: flex-start; width: 100%; text-align: left; padding: 10px 14px; border-radius: 14px; border: 1.5px solid var(--line-2); margin-bottom: 8px; background: var(--card); }
 .goal-opt.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 .goal-opt.on .small { color: var(--paper-2); }
+.doc-row { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.doc-values { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
+.doc-values span { font-size: 12.5px; background: var(--paper-2); padding: 4px 8px; border-radius: 8px; }
+.doc-values span.flag { background: var(--rose); color: var(--rose-ink); }
+.mic-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1.5px solid var(--line-2); font-weight: 700; font-size: 13.5px; margin-top: 6px; }
+.mic-btn.on { background: var(--wine); color: var(--wine-ink); border-color: var(--wine); animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .75; } }
+.feedback { margin-top: 10px; padding-top: 10px; border-top: 1px dashed rgba(0,0,0,.15); }
+.rpe { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; margin-top: 6px; }
+.rpe button { min-height: 34px; border-radius: 8px; border: 1.5px solid rgba(0,0,0,.15); font-weight: 700; font-size: 13px; background: rgba(255,255,255,.5); }
+.rpe button.on { background: var(--blue-ink); color: var(--blue); border-color: var(--blue-ink); }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Pin, Plus, Search, Trash2 } from 'lucide-react';
 import { PageHead, useBack } from './common';
+import { MicButton, appendText } from '../ui/Dictation';
 import { useAll, useByDate } from '../db/hooks';
 import { useApp, toast } from '../state/store';
 import { create, update, upsert } from '../db/db';
@@ -52,6 +53,7 @@ export function JournalScreen() {
       <div className="chips">{TAGS.map((t) => <Chip key={t} on={d.tags?.includes(t)} onClick={() => set({ tags: d.tags?.includes(t) ? d.tags.filter((x) => x !== t) : [...(d.tags ?? []), t] })}>{t}</Chip>)}</div>
       <span className="label">O dia em poucas linhas <span className="muted small">(opcional)</span></span>
       <textarea value={d.text ?? ''} onChange={(e) => set({ text: e.target.value })} aria-label="Texto do diário" style={{ minHeight: 110 }} />
+      <MicButton label="Contar por voz" onText={(t) => setD((x) => ({ ...x, text: appendText(x.text, t) }))} />
       <span className="label">Algo bom de hoje <span className="muted small">(opcional)</span></span>
       <input value={d.gratitude ?? ''} onChange={(e) => set({ gratitude: e.target.value })} aria-label="Algo bom de hoje" />
       <button className="btn btn-ink btn-block" style={{ marginTop: 16 }} onClick={save} data-testid="journal-save">Salvar o dia</button>

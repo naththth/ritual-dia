@@ -1,0 +1,11 @@
+Book Id,Title,Author,Author l-f,Additional Authors,ISBN,ISBN13,My Rating,Publisher,Binding,Number of Pages,Year Published,Original Publication Year,Date Read,Date Added,Bookshelves,Bookshelves with positions,Exclusive Shelf,My Review,Spoiler,Private Notes,Read Count,Owned Copies
+1001,Livro Lendo Um,Autora A,,,"=""0000000011""","=""9780000000011""",0,Editora,Paperback,300,2020,2020,,2025/08/26,currently-reading,,currently-reading,,,,1,0
+1002,Livro Lendo Dois,Autor B,,,"=""0000000028""","=""9780000000028""",0,Editora,Paperback,250,2020,2020,,2025/08/26,currently-reading,,currently-reading,,,,1,0
+1003,Para Ler Um,Autora C,,,"=""0000000035""","=""9780000000035""",0,Editora,Paperback,200,2020,2020,,2025/08/26,to-read,,to-read,,,,1,0
+1004,Para Ler Dois,Autor D,,,"=""0000000042""","=""9780000000042""",0,Editora,Paperback,180,2020,2020,,2025/08/26,to-read,,to-read,,,,1,0
+1005,Para Ler Três,Autora E,,,"=""0000000059""","=""9780000000059""",0,Editora,Paperback,410,2020,2020,,2025/08/26,to-read,,to-read,,,,1,0
+1006,Para Ler Quatro,Autor F,,,"=""0000000066""","=""9780000000066""",0,Editora,Paperback,330,2020,2020,,2025/08/26,to-read,,to-read,,,,1,0
+1007,Lido Um,Autora G,,,"=""0000000073""","=""9780000000073""",5,Editora,Paperback,320,2020,2020,2025/09/08,2025/08/26,,,read,,,,1,0
+1008,Lido Dois,Autor H,,,"=""0000000080""","=""9780000000080""",4,Editora,Paperback,85,2020,2020,2025/09/16,2025/08/26,,,read,,,,1,0
+1009,Lido Três,Autora I,,,"=""0000000097""","=""9780000000097""",5,Editora,Paperback,433,2020,2020,2025/08/31,2025/08/26,,,read,,,,1,0
+1010,Lido Quatro,Autor J,,,"=""0000000103""","=""9780000000103""",3,Editora,Paperback,336,2020,2020,2025/08/26,2025/08/26,,,read,,,,1,0

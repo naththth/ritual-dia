@@ -12,7 +12,8 @@ import { POWER_ZONES } from '../domain/fit';
 import { importFitFiles } from '../domain/fitImport';
 import { trainingLoad, workoutLoad, formLabel } from '../domain/load';
 import { effectiveSleep, effectiveHrv, wellnessForAI } from '../domain/wellness';
-import { db } from '../db/db';
+import { db, update } from '../db/db';
+import { MicButton, appendText } from '../ui/Dictation';
 import type { Workout, WorkoutTemplate } from '../db/types';
 import { aiAvailable, askAI, applyTrainingResult } from '../domain/ai';
 import { fmt } from '../domain/nutrition';
@@ -66,7 +67,7 @@ export function TrainingTab() {
         carga_atual: (() => { const l = trainingLoad(history ?? [], addDays(todayKey(), -120), todayKey()).slice(-1)[0]; return l ? { fitness_ctl: Math.round(l.ctl), fadiga_atl: Math.round(l.atl), forma_tsb: Math.round(l.tsb) } : null; })(),
         sono_e_recuperacao_28_dias: (await db.records.where('[kind+date]').between(['wellness', addDays(todayKey(), -28)], ['wellness', todayKey()], true, true).toArray()).filter((r: any) => !r.deleted).map((w: any) => wellnessForAI(w)),
         diario_14_dias: (await db.records.where('[kind+date]').between(['journal', addDays(todayKey(), -14)], ['journal', todayKey()], true, true).toArray()).filter((r: any) => !r.deleted).map((j: any) => ({ data: j.date, energia: j.energy, sono: j.sleep, estresse: j.stress })),
-        treinos_feitos_28_dias: recent.map((w) => ({ data: w.date, modalidade: modName(w.modalityId), minutos: w.duration, do_plano: !!w.fromPlan, metricas: w.metrics ? { ...w.metrics, laps: undefined } : undefined }))
+        treinos_feitos_28_dias: recent.map((w) => ({ data: w.date, modalidade: modName(w.modalityId), minutos: w.duration, do_plano: !!w.fromPlan, metricas: w.metrics ? { ...w.metrics, laps: undefined } : undefined, esforco_percebido: w.rpe, como_foi: w.feeling }))
       });
       setReview({ analise: String(r.analise ?? ''), proposta: r.templates?.length ? r : undefined });
     } catch (e: any) { toast(e.message, undefined, 'error'); } finally { setBusy(false); }
@@ -257,6 +258,24 @@ export function WorkoutCard({ w, name, ftp }: { w: Workout; name: string; ftp?: 
         </div>
       )}
       {!m && <div className="small">{[w.intensity, w.muscles?.join(', ')].filter(Boolean).join(', ')}</div>}
+      <WorkoutFeedback w={w} />
+    </div>
+  );
+}
+
+/** Como foi o treino: esforço percebido (1 a 10) e um comentário, digitado ou falado. A IA usa na análise. */
+function WorkoutFeedback({ w }: { w: Workout }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState(w.feeling ?? '');
+  const saveText = (t: string) => update<'workout'>(w.id, { feeling: t.trim() || undefined });
+  if (!open && !w.rpe && !w.feeling) return <button className="link" style={{ marginTop: 8 }} onClick={() => setOpen(true)} data-testid="feedback-open">Como foi? Registrar esforço e sensação</button>;
+  return (
+    <div className="feedback" data-testid="feedback">
+      <span className="small" style={{ fontWeight: 700 }}>Esforço percebido</span>
+      <div className="rpe">{[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => <button key={n} className={w.rpe === n ? 'on' : ''} aria-label={`Esforço ${n}`} onClick={() => update<'workout'>(w.id, { rpe: w.rpe === n ? undefined : n })}>{n}</button>)}</div>
+      <div className="tiny muted" style={{ display: 'flex', justifyContent: 'space-between' }}><span>muito leve</span><span>máximo</span></div>
+      <textarea value={text} onChange={(e) => setText(e.target.value)} onBlur={() => saveText(text)} placeholder="Como se sentiu, o que pesou, dores, energia…" aria-label="Como foi o treino" style={{ minHeight: 64, marginTop: 8 }} />
+      <MicButton label="Falar" onText={(t) => { const next = appendText(text, t); setText(next); saveText(next); }} />
     </div>
   );
 }

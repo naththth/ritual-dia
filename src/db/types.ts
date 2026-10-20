@@ -16,7 +16,7 @@ export type Kind =
   | 'food' | 'mtemplate' | 'meal' | 'water'
   | 'modality' | 'wtemplate' | 'workout'
   | 'plan' | 'skip' | 'brief'
-  | 'wellness' | 'journal' | 'note' | 'book' | 'readlog' | 'review';
+  | 'wellness' | 'journal' | 'note' | 'book' | 'readlog' | 'review' | 'healthdoc' | 'cycle';
 
 export type Priority = 'alta' | 'media' | 'baixa';
 export const PRIORITIES: Priority[] = ['alta', 'media', 'baixa'];
@@ -207,6 +207,8 @@ export interface Meal extends Base {
   templateId?: string;
   fromPlan?: boolean;
   note?: string;
+  rpe?: number; // esforço percebido 1 a 10
+  feeling?: string; // como foi, nas palavras dela
 }
 export interface Water extends Base {
   kind: 'water';
@@ -262,6 +264,8 @@ export interface Workout extends Base {
   templateId?: string;
   fromPlan?: boolean;
   note?: string;
+  rpe?: number; // esforço percebido 1 a 10
+  feeling?: string; // como foi, nas palavras dela
 }
 
 export type PlanDomain = 'skin' | 'training' | 'food';
@@ -343,7 +347,7 @@ export type KindMap = {
   food: Food; mtemplate: MealTemplate; meal: Meal; water: Water;
   modality: Modality; wtemplate: WorkoutTemplate; workout: Workout;
   plan: Plan; skip: Skip; brief: DayBrief;
-  wellness: Wellness; journal: Journal; note: Note; book: Book; readlog: ReadLog; review: Review;
+  wellness: Wellness; journal: Journal; note: Note; book: Book; readlog: ReadLog; review: Review; healthdoc: HealthDoc; cycle: CycleDay;
 };
 
 /** Perfil e objetivos. Tudo opcional: a IA usa o que houver e diz o que falta. */
@@ -360,5 +364,31 @@ export interface Profile {
   diet?: { restrictions: string[]; dislikes?: string; likes?: string; mealsPerDay?: number; followsNutritionist?: boolean };
   training?: { daysAvailable?: number[]; minutesPerSession?: number; equipment?: string; limitations?: string; followsCoach?: boolean };
   skin?: { type?: string; concerns: string[]; sensitive?: boolean; followsDerm?: boolean; prescriptions?: string };
+  cycle?: { hormonalContraception?: boolean; typicalLength?: number; typicalPeriod?: number; tracks?: boolean };
+  health?: { professionals: string[]; meds: { id: string; name: string; dose?: string; schedule?: string }[]; notes?: string };
   updatedAt?: number;
+}
+
+/** Exame, bioimpedância ou outro documento de saúde. O arquivo fica no armazenamento privado; a IA guarda um resumo. */
+export interface HealthDoc extends Base {
+  kind: 'healthdoc';
+  date: DateKey; // data do exame
+  title: string;
+  docType: 'bioimpedancia' | 'exame_sangue' | 'laudo' | 'prescricao' | 'outro';
+  storagePath?: string;
+  mime?: string;
+  fileName?: string;
+  summary?: string;
+  values?: { name: string; value: string; unit?: string; flag?: 'baixo' | 'alto' | 'normal' }[];
+  forPlanning?: string; // o que importa para nutrição, treino e pele
+}
+
+/** Um dia do ciclo menstrual: sangramento e sintomas. */
+export type Flow = 'spotting' | 'leve' | 'medio' | 'intenso';
+export interface CycleDay extends Base {
+  kind: 'cycle';
+  date: DateKey;
+  flow?: Flow;
+  symptoms: string[];
+  note?: string;
 }

@@ -7,7 +7,7 @@ import type { Plan, Product, WorkoutStep } from '../db/types';
 import { addDays, isoWeekday, todayKey, type DateKey } from '../lib/dates';
 import { planFor, plannedSkin, plannedTraining } from './rules';
 
-export type AITask = 'skin_plan' | 'training_plan' | 'food_plan' | 'day_brief' | 'training_review' | 'week_review' | 'wellness_read' | 'label_read' | 'targets';
+export type AITask = 'skin_plan' | 'training_plan' | 'food_plan' | 'day_brief' | 'training_review' | 'week_review' | 'wellness_read' | 'label_read' | 'targets' | 'doc_read';
 
 export function aiAvailable() {
   return !!supabase && !!useSync.getState().session && navigator.onLine;
@@ -31,9 +31,17 @@ export async function askAI<T = any>(task: AITask, context: unknown, images?: { 
   if (ctx && typeof ctx === 'object' && !Array.isArray(ctx)) {
     const st = await get<'settings'>('settings');
     const pf = st?.profile;
-    if (pf && Object.keys(pf).length) ctx = { perfil_dela: { ...pf, idade: pf.birthYear ? new Date().getFullYear() - pf.birthYear : undefined, updatedAt: undefined }, ...(ctx as object) };
+    const docs = task === 'doc_read' ? [] : (await all('healthdoc'));
+    const { docsForAI } = await import('./health');
+    const extra: Record<string, unknown> = {};
+    if (pf && Object.keys(pf).length) extra.perfil_dela = { ...pf, idade: pf.birthYear ? new Date().getFullYear() - pf.birthYear : undefined, updatedAt: undefined };
+    if (docs.length) extra.exames_e_documentos = docsForAI(docs as any);
+    ctx = { ...extra, ...(ctx as object) };
   }
-  const { data, error } = await supabase.functions.invoke('ritual-ai', { body: { task, context: ctx, images } });
+  const { data, error } = await Promise.race([
+    supabase.functions.invoke('ritual-ai', { body: { task, context: ctx, images } }),
+    new Promise<never>((_, rej) => setTimeout(() => rej(new Error('A IA demorou demais para responder. Tente de novo.')), 90000))
+  ]);
   if (error) {
     let msg = error.message;
     try { const b = await (error as any).context?.json?.(); if (b?.error) msg = b.error; } catch { /* */ }
@@ -219,7 +227,7 @@ export async function aiWeekReview(weekStartKey: DateKey) {
     semana: `${weekStartKey} a ${end}`,
     observacoes_dela: settings?.aiContext ?? '',
     habitos: habits.filter((h) => !h.archived).map((h) => ({ nome: h.title, meta: `${h.target}x ${h.freq}`, feitos: new Set([...hlogs.filter((l) => l.habitId === h.id && l.done).map((l) => l.date), ...(h.modalityId ? workouts.filter((w) => w.modalityId === h.modalityId).map((w) => w.date) : [])]).size })),
-    treinos: workouts.map((w) => ({ data: w.date, modalidade: w.modalityId.replace('mod:', ''), minutos: w.duration, do_plano: !!w.fromPlan, np: w.metrics?.np, tss: w.metrics?.tss, fc_media: w.metrics?.avgHr, kcal: w.metrics?.kcal })),
+    treinos: workouts.map((w) => ({ data: w.date, modalidade: w.modalityId.replace('mod:', ''), minutos: w.duration, do_plano: !!w.fromPlan, np: w.metrics?.np, tss: w.metrics?.tss, fc_media: w.metrics?.avgHr, kcal: w.metrics?.kcal, esforco_percebido: w.rpe, como_foi: w.feeling })),
     alimentacao_por_dia: days.map((d) => { const its = meals.filter((m) => m.date === d).flatMap((m) => m.items); const t = totals(its, foods).n; return { data: d, refeicoes: meals.filter((m) => m.date === d && m.items.length).length, kcal: Math.round(t.kcal), proteina_g: Math.round(t.p), agua_ml: water.filter((w) => w.date === d).reduce((a, w) => a + w.ml, 0) }; }),
     pele: skin.map((s) => ({ data: s.date, periodo: s.period, condicao: s.condition, sinais: Object.keys(s.signals ?? {}), recuperacao: s.recovery })),
     diario: journals.map((j) => ({ data: j.date, energia: j.energy, humor: j.mood, sono: j.sleep, estresse: j.stress, tags: j.tags, texto: j.text?.slice(0, 280) })),

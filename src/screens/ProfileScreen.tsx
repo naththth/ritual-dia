@@ -7,7 +7,13 @@ import { update } from '../db/db';
 import { Chip } from '../ui/ui';
 import { toast } from '../state/store';
 import { aiAvailable, aiTargets } from '../domain/ai';
-import type { Profile } from '../db/types';
+import type { HealthDoc, Profile } from '../db/types';
+import { useAll } from '../db/hooks';
+import { uid } from '../db/db';
+import { addHealthDoc, deleteHealthDoc, openHealthDoc } from '../domain/health';
+import { useRef } from 'react';
+import { FileUp, Trash2, ExternalLink, Plus } from 'lucide-react';
+import { shortLabel } from '../lib/dates';
 
 const GOALS: [NonNullable<Profile['goal']>, string, string][] = [
   ['perder_gordura', 'Perder gordura', 'déficit calórico, proteína alta'],
@@ -30,6 +36,12 @@ export function ProfileScreen() {
   const [busy, setBusy] = useState(false);
   const [res, setRes] = useState<any>(null);
   useEffect(() => { if (settings && !loaded) { setP(settings.profile ?? {}); setLoaded(true); } }, [settings, loaded]);
+  // salva sozinho enquanto ela preenche
+  useEffect(() => {
+    if (!loaded) return;
+    const t = setTimeout(() => { update<'settings'>('settings', { profile: { ...p, updatedAt: Date.now() } }); }, 900);
+    return () => clearTimeout(t);
+  }, [p, loaded]);
   if (!settings) return null;
   const set = (x: Partial<Profile>) => setP((o) => ({ ...o, ...x }));
   const num = (v: string) => (v.trim() ? Number(v.replace(',', '.')) : undefined);
@@ -37,6 +49,7 @@ export function ProfileScreen() {
   const diet = p.diet ?? { restrictions: [] };
   const tr = p.training ?? {};
   const skin = p.skin ?? { concerns: [] };
+  const health = p.health ?? { professionals: [], meds: [] };
   const toggleIn = (arr: string[] = [], v: string) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
 
   const calc = async () => {
@@ -118,6 +131,8 @@ export function ProfileScreen() {
         <input value={skin.prescriptions ?? ''} onChange={(e) => set({ skin: { ...skin, prescriptions: e.target.value } })} placeholder="O que a dermatologista prescreveu (opcional)" aria-label="Prescrições da dermatologista" style={{ marginTop: 8 }} />
       </section>
 
+      <HealthSection health={health} onChange={(h) => set({ health: h })} />
+
       <button className="btn btn-ink btn-block" onClick={() => save()} data-testid="profile-save">Salvar perfil</button>
 
       <section className="block b-paper" style={{ marginTop: 16 }} data-testid="targets-ai">
@@ -139,5 +154,76 @@ export function ProfileScreen() {
         {settings.targetsNote && !res && <p className="small muted" style={{ marginBottom: 0 }}>Metas atuais: {settings.targets?.kcal ?? '–'} kcal. {settings.targetsNote}</p>}
       </section>
     </div>
+  );
+}
+
+const PROS = ['Endocrinologista', 'Nutricionista', 'Dermatologista', 'Treinador ou assessoria', 'Médico do esporte', 'Fisioterapeuta'];
+const DOC_LABEL: Record<HealthDoc['docType'], string> = { bioimpedancia: 'Bioimpedância', exame_sangue: 'Exame de sangue', laudo: 'Laudo', prescricao: 'Prescrição', outro: 'Documento' };
+
+/** Saúde e acompanhamento: profissionais, medicamentos em uso e documentos (exames, bioimpedância, prescrições). */
+function HealthSection({ health, onChange }: { health: NonNullable<Profile['health']>; onChange: (h: NonNullable<Profile['health']>) => void }) {
+  const docs = useAll('healthdoc');
+  const [med, setMed] = useState({ name: '', dose: '', schedule: '' });
+  const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const toggle = (v: string) => onChange({ ...health, professionals: health.professionals.includes(v) ? health.professionals.filter((x) => x !== v) : [...health.professionals, v] });
+  const send = async (files: FileList | null) => {
+    if (!files?.length) return;
+    setBusy(true);
+    try {
+      for (const f of Array.from(files)) { const d = await addHealthDoc(f); toast(`${d.title} guardado e lido`); setOpen(d.id); }
+    } catch (e: any) { toast(e.message, undefined, 'error'); } finally { setBusy(false); if (fileRef.current) fileRef.current.value = ''; }
+  };
+  const list = [...(docs ?? [])].sort((a, b) => (a.date < b.date ? 1 : -1));
+  return (
+    <section className="block b-paper" data-testid="health">
+      <h2 style={{ fontSize: 20 }}>Saúde e acompanhamento</h2>
+      <p className="small" style={{ marginTop: 4 }}>Fica só na sua conta. A IA usa para ajustar calorias, macros, treino e pele ao seu momento, sem mexer no que seus médicos definiram.</p>
+      <span className="label">Quem te acompanha</span>
+      <div className="chips">{PROS.map((x) => <Chip key={x} on={health.professionals.includes(x)} onClick={() => toggle(x)}>{x}</Chip>)}</div>
+
+      <span className="label">Medicamentos em uso</span>
+      {health.meds.map((m) => (
+        <div key={m.id} className="plate-row" style={{ minHeight: 48 }}>
+          <span className="grow"><b>{m.name}</b>{m.dose || m.schedule ? <span className="small muted"> · {[m.dose, m.schedule].filter(Boolean).join(' · ')}</span> : null}</span>
+          <button className="icon-btn" aria-label={`Remover ${m.name}`} onClick={() => onChange({ ...health, meds: health.meds.filter((x) => x.id !== m.id) })}><Trash2 size={17} /></button>
+        </div>
+      ))}
+      <input value={med.name} onChange={(e) => setMed({ ...med, name: e.target.value })} placeholder="Nome (ex.: Mounjaro)" aria-label="Nome do medicamento" />
+      <div className="row" style={{ gap: 8, marginTop: 8 }}>
+        <input value={med.dose} onChange={(e) => setMed({ ...med, dose: e.target.value })} placeholder="Dose (como prescrito)" aria-label="Dose" />
+        <input value={med.schedule} onChange={(e) => setMed({ ...med, schedule: e.target.value })} placeholder="Quando (ex.: domingo)" aria-label="Quando" />
+        <button className="btn btn-soft" aria-label="Adicionar medicamento" onClick={() => { if (!med.name.trim()) return; onChange({ ...health, meds: [...health.meds, { id: uid(), name: med.name.trim(), dose: med.dose.trim() || undefined, schedule: med.schedule.trim() || undefined }] }); setMed({ name: '', dose: '', schedule: '' }); }}><Plus size={18} /></button>
+      </div>
+      <p className="field-hint">A IA nunca sugere mudar dose: isso é com seu médico. Ela usa a informação para ajustar o resto (por exemplo, proteína e treino de força para preservar massa magra).</p>
+      <textarea value={health.notes ?? ''} onChange={(e) => onChange({ ...health, notes: e.target.value })} placeholder="Orientações do médico que a IA deve respeitar (opcional)" aria-label="Orientações médicas" style={{ minHeight: 70, marginTop: 6 }} />
+
+      <span className="label">Exames e documentos</span>
+      <button className="btn btn-wine btn-block" disabled={busy || !aiAvailable()} onClick={() => fileRef.current?.click()} data-testid="doc-upload"><FileUp size={18} />{busy ? 'Guardando e lendo…' : 'Enviar exame, bioimpedância ou laudo'}</button>
+      <input ref={fileRef} type="file" accept="application/pdf,image/*" multiple hidden onChange={(e) => send(e.target.files)} />
+      <p className="field-hint">PDF (até 5 MB) ou foto. O arquivo fica guardado só para você; a IA tira os valores e o que importa para o seu plano.</p>
+      {list.map((d) => (
+        <div key={d.id} className="doc-row">
+          <button className="tap" onClick={() => setOpen(open === d.id ? null : d.id)} style={{ width: '100%', textAlign: 'left' }}>
+            <div className="plate-name">{d.title}</div>
+            <div className="plate-sub">{DOC_LABEL[d.docType]} · {shortLabel(d.date)}</div>
+          </button>
+          {open === d.id && (
+            <div style={{ marginTop: 8 }}>
+              {d.summary && <p className="small" style={{ whiteSpace: 'pre-line', marginTop: 0 }}>{d.summary}</p>}
+              {d.values && d.values.length > 0 && (
+                <div className="doc-values">{d.values.map((v, i) => <span key={i} className={v.flag && v.flag !== 'normal' ? 'flag' : ''}><b>{v.name}</b> {v.value}{v.unit ? ` ${v.unit}` : ''}{v.flag && v.flag !== 'normal' ? ` (${v.flag})` : ''}</span>)}</div>
+              )}
+              {d.forPlanning && <p className="small" style={{ whiteSpace: 'pre-line' }}><b>Para o seu plano.</b> {d.forPlanning}</p>}
+              <div className="row" style={{ gap: 8 }}>
+                {d.storagePath && <button className="btn btn-soft btn-sm" onClick={() => openHealthDoc(d).catch((e) => toast(e.message, undefined, 'error'))}><ExternalLink size={15} />Abrir arquivo</button>}
+                <button className="btn btn-soft btn-sm" onClick={async () => { await deleteHealthDoc(d); toast('Documento apagado'); }}><Trash2 size={15} />Apagar</button>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+    </section>
   );
 }

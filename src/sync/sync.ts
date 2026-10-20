@@ -6,8 +6,17 @@ import { create as createStore } from 'zustand';
 const URL_ = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const KEY = import.meta.env.VITE_SUPABASE_KEY as string | undefined;
 
+// Trava do login dentro da própria página, no lugar da trava do navegador (navigator.locks), que no app instalado
+// às vezes fica presa e deixa tudo esperando: abertura, IA e sincronização.
+let lockChain: Promise<unknown> = Promise.resolve();
+async function pageLock<R>(_name: string, _timeout: number, fn: () => Promise<R>): Promise<R> {
+  const run = lockChain.then(() => Promise.race([fn(), new Promise<R>((_, rej) => setTimeout(() => rej(new Error('Login demorou para responder.')), 15000))]));
+  lockChain = run.catch(() => undefined);
+  return run;
+}
+
 export const supabase: SupabaseClient | null = URL_ && KEY
-  ? createClient(URL_, KEY, { auth: { flowType: 'pkce', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } })
+  ? createClient(URL_, KEY, { auth: { flowType: 'pkce', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, lock: pageLock as any } })
   : null;
 
 export type SyncState = 'local' | 'offline' | 'syncing' | 'synced' | 'pending' | 'error';

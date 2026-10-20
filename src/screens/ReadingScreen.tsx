@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { importGoodreads, coverFromIsbn } from '../domain/goodreads';
 import { Plus, Search, Trash2, Star } from 'lucide-react';
 import { PageHead } from './common';
 import { useAll } from '../db/hooks';
@@ -30,8 +31,12 @@ const STATUS: { id: BookStatus; label: string }[] = [
   { id: 'lendo', label: 'Lendo' }, { id: 'quero_ler', label: 'Quero ler' }, { id: 'lido', label: 'Lidos' }, { id: 'abandonado', label: 'Parados' }
 ];
 
-function Cover({ b }: { b: Pick<Book, 'cover' | 'title'> }) {
-  return b.cover ? <img src={b.cover} alt="" loading="lazy" /> : <span className="nocover">{b.title.charAt(0)}</span>;
+function Cover({ b }: { b: Pick<Book, 'cover' | 'title'> & { isbn?: string } }) {
+  const [failed, setFailed] = useState(0);
+  // capa salva; se falhar, tenta a do Open Library pelo ISBN; se não houver, a inicial do título
+  const srcs = [b.cover, coverFromIsbn(b.isbn)].filter((x, i, a): x is string => !!x && a.indexOf(x) === i);
+  const src = srcs[failed];
+  return src ? <img src={src} alt="" loading="lazy" onError={() => setFailed((n) => n + 1)} /> : <span className="nocover">{b.title.charAt(0)}</span>;
 }
 
 export function ReadingScreen() {
@@ -43,6 +48,7 @@ export function ReadingScreen() {
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState<Book | null>(null);
   const ctrl = useRef<AbortController | null>(null);
+  const grRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (q.trim().length < 3) { setResults(null); return; }
     const t = setTimeout(async () => {
@@ -103,6 +109,16 @@ export function ReadingScreen() {
       {list.map((b) => <BookRow key={b.id} b={b} onOpen={() => setOpen(b)} />)}
       {list.length === 0 && <Empty text={tab === 'lendo' ? 'Nenhum livro em andamento. Busque acima para começar.' : 'Nada nesta estante.'} />}
       <BookSheet book={open} onClose={() => setOpen(null)} />
+      <div style={{ marginTop: 18 }}>
+        <button className="btn btn-soft btn-sm" onClick={() => grRef.current?.click()} data-testid="gr-import">Importar biblioteca do Goodreads (.csv)</button>
+        <input ref={grRef} type="file" accept=".csv,text/csv" hidden data-testid="gr-input" onChange={async (e) => {
+          const f = e.target.files?.[0]; e.target.value = '';
+          if (!f) return;
+          try { const r = await importGoodreads(await f.text()); toast(`${r.added} livros importados${r.updated ? `, ${r.updated} atualizados` : ''}`); }
+          catch (err: any) { toast(err.message, undefined, 'error'); }
+        }} />
+        <p className="field-hint">No Goodreads: Minha estante → Importar/exportar → Exportar biblioteca. Importar de novo não duplica.</p>
+      </div>
     </div>
   );
 }
