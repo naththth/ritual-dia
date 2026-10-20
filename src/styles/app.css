@@ -489,3 +489,20 @@ button.wellness-strip { width: 100%; align-items: baseline; text-align: left; ba
 .rpe { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; margin-top: 6px; }
 .rpe button { min-height: 34px; border-radius: 8px; border: 1.5px solid rgba(0,0,0,.15); font-weight: 700; font-size: 13px; background: rgba(255,255,255,.5); }
 .rpe button.on { background: var(--blue-ink); color: var(--blue); border-color: var(--blue-ink); }
+
+/* Ciclo */
+.cycle-strip { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 12px 14px; margin: -2px 0 14px; line-height: 1.35; }
+.cycle-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+.cycle-grid .cg-h { font-size: 12px; color: var(--ink-2); padding: 2px 0; }
+.cg-d { aspect-ratio: 1; border-radius: 50%; border: 1px solid transparent; background: none; font-size: 14px; position: relative; min-width: 0; padding: 0; color: var(--ink); }
+.cg-d:disabled { color: var(--ink-2); opacity: .9; }
+.cg-d.today { border-color: var(--ink); font-weight: 700; }
+.cg-d.fert { background: color-mix(in srgb, var(--olive-2) 35%, transparent); }
+.cg-d.pred { border: 1.5px dashed var(--wine); }
+.cg-d.spot { background: color-mix(in srgb, var(--wine) 22%, transparent); }
+.cg-d.bleed { background: var(--wine); color: var(--paper); }
+.cg-d.sym::after { content: ''; position: absolute; bottom: 3px; left: 50%; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--honey-2); }
+.cg-key { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; margin-right: 4px; }
+.cg-key.bleed { background: var(--wine); }
+.cg-key.pred { border: 1.5px dashed var(--wine); }
+.cg-key.fert { background: color-mix(in srgb, var(--olive-2) 35%, transparent); }

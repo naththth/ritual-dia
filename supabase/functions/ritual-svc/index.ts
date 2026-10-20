@@ -226,6 +226,13 @@ async function syncIntervals(userId: string, days = 14) {
     const old = prev.get(`wellness:${date}`) ?? {};
     rows.push({ id: `wellness:${date}`, user_id: userId, kind: 'wellness', deleted: false, client_updated_at: nowIso, data: { ...old, ...fresh, date, source: 'intervals', createdAt: old.createdAt ?? ts, updatedAt: ts } });
   }
+  // Menstruação registrada no Garmin/intervals vira dia de ciclo, sem sobrescrever (nem recriar) o que ela marcou ou apagou no app.
+  const periodDays = (wellness ?? []).filter((w: any) => w.menstrualPhase === 'PERIOD').map((w: any) => String(w.id ?? '').slice(0, 10)).filter(Boolean);
+  if (periodDays.length) {
+    const { data: have } = await admin.from('records').select('id').eq('user_id', userId).eq('kind', 'cycle').in('id', periodDays.map((d: string) => `cycle:${d}`));
+    const got = new Set((have ?? []).map((r: any) => r.id));
+    for (const d of periodDays) if (!got.has(`cycle:${d}`)) rows.push({ id: `cycle:${d}`, user_id: userId, kind: 'cycle', deleted: false, client_updated_at: nowIso, data: { date: d, flow: 'medio', symptoms: [], source: 'intervals', createdAt: ts, updatedAt: ts } });
+  }
   const { data: existing } = await admin.from('records').select('id, data').eq('user_id', userId).eq('kind', 'workout').eq('deleted', false).gte('data->>date', oldest);
   const fitStarts = (existing ?? []).filter((r: any) => r.data?.metrics?.source === 'fit' && r.data?.startTime).map((r: any) => new Date(r.data.startTime).getTime());
   let acts = 0;

@@ -353,3 +353,28 @@ test('importar biblioteca do Goodreads', async ({ page }) => {
   await page.getByTestId('gr-input').setInputFiles(path.resolve('tests/e2e/fixtures/goodreads-test.csv'));
   await expect(page.getByTestId('book-row')).toHaveCount(2); // lendo: 2, sem duplicar
 });
+
+test('ciclo: marcar menstruação, ver fase no Hoje e previsão', async ({ page }) => {
+  await onboard(page);
+  await page.getByTestId('cycle-setup').click();
+  const mark = async (d: string, flow: string) => {
+    await page.getByTestId('cycle-sheet').getByLabel('Dia do registro').fill(d);
+    await page.getByTestId(`flow-${flow}`).click();
+    await page.getByTestId('cycle-save').click();
+  };
+  await mark('2026-10-05', 'medio');
+  await expect(page.getByTestId('cycle-title')).toContainText('Dia 15 do ciclo');
+  await page.getByTestId('cycle-card').getByRole('button', { name: 'Registrar ciclo do dia' }).click();
+  await mark('2026-10-06', 'leve');
+  await page.getByTestId('cycle-card').getByRole('button', { name: 'Registrar ciclo do dia' }).click();
+  await mark('2026-09-07', 'intenso');
+  await expect(page.getByTestId('cycle-title')).toContainText('fase ovulatória');
+  await page.goto('./#/ciclo');
+  await expect(page.getByTestId('cycle-day')).toHaveText('Dia 15');
+  await expect(page.getByTestId('cycle-next')).toContainText('em 14 dias');
+  await expect(page.getByTestId('cycle-history')).toContainText('ciclo de 28 dias');
+  await noHorizontalScroll(page);
+  if (process.env.SHOTS) { await page.screenshot({ path: '/tmp/claude-0/shots/ciclo.png', fullPage: true }); await page.goto('./#/'); await page.getByTestId('cycle-card').waitFor(); await page.waitForTimeout(4500); await page.screenshot({ path: '/tmp/claude-0/shots/hoje.png' }); await page.goto('./#/ciclo'); }
+  await page.getByTestId('cycle-hormonal').click();
+  await expect(page.getByTestId('cycle-screen')).toContainText('não há fase natural');
+});

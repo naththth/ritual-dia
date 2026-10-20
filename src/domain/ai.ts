@@ -36,6 +36,8 @@ export async function askAI<T = any>(task: AITask, context: unknown, images?: { 
     const extra: Record<string, unknown> = {};
     if (pf && Object.keys(pf).length) extra.perfil_dela = { ...pf, idade: pf.birthYear ? new Date().getFullYear() - pf.birthYear : undefined, updatedAt: undefined };
     if (docs.length) extra.exames_e_documentos = docsForAI(docs as any);
+    const cyc = await cycleForAI(((ctx as any).data ?? (ctx as any).date ?? todayKey()) as DateKey, pf);
+    if (cyc) extra.ciclo_menstrual = cyc;
     ctx = { ...extra, ...(ctx as object) };
   }
   const { data, error } = await Promise.race([
@@ -49,6 +51,28 @@ export async function askAI<T = any>(task: AITask, context: unknown, images?: { 
   }
   if (data?.error) throw new Error(friendly(data.error));
   return data.result as T;
+}
+
+/** Fase estimada, dias até a próxima menstruação e sintomas recentes, para treino, pele e alimentação. */
+async function cycleForAI(date: DateKey, pf?: import('../db/types').Profile) {
+  if (pf?.cycle?.tracks === false || pf?.sex === 'M') return undefined;
+  const { cycleInfo, cycleStats } = await import('./cycle');
+  const days = await all('cycle');
+  if (!days.length) return undefined;
+  const stats = cycleStats(days, pf);
+  const info = cycleInfo(date, stats, pf);
+  if (!info) return undefined;
+  const recent = days.filter((d) => d.date <= date && d.date >= addDays(date, -4)).sort((a, b) => a.date.localeCompare(b.date));
+  return {
+    dia_do_ciclo: info.day,
+    fase_estimada: info.phase ?? (pf?.cycle?.hormonalContraception ? 'sem fase natural (anticoncepcional hormonal)' : undefined),
+    dias_ate_proxima_menstruacao: pf?.cycle?.hormonalContraception ? undefined : info.daysToNext,
+    atrasada: info.late || undefined,
+    ciclo_medio_dias: stats.avgLength,
+    menstruacao_media_dias: stats.avgPeriod,
+    estimativa_aproximada: info.estimated || undefined,
+    ultimos_dias: recent.map((d) => ({ data: d.date, fluxo: d.flow, sintomas: d.symptoms, obs: d.note }))
+  };
 }
 
 const short = (p: Product) => ({ id: p.id, marca: p.brand, nome: p.name, tipo: p.group, categoria: p.originalCategory, ativo: !!p.active });
