@@ -1,7 +1,10 @@
 // Montar uma refeição: o que está no prato em cima, o que adicionar embaixo, salvar sempre à mão no rodapé.
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Search, Star, Copy, Check as CheckIcon, X, Trash2, ChevronRight, Pencil } from 'lucide-react';
+import { Plus, Search, Star, Copy, Check as CheckIcon, X, Trash2, ChevronRight, Pencil, Camera } from 'lucide-react';
+import { PlateSheet, type PlateRow } from './plate';
+import { aiAvailable } from '../domain/ai';
+import { useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp, toast } from '../state/store';
 import { useAll, useByDate, useSettings } from '../db/hooks';
@@ -42,6 +45,8 @@ export function FoodScreen() {
   const [tab, setTab] = useState<Tab | null>(null);
   const [adding, setAdding] = useState(false);
   const [sheet, setSheet] = useState<{ food: Food; item?: MealItem } | null>(null);
+  const [plateFile, setPlateFile] = useState<File | null>(null);
+  const plateRef = useRef<HTMLInputElement>(null);
   const [favName, setFavName] = useState<string | null>(null);
   const [confirmEl, ask] = useConfirm();
   const key = `${date}:${type}:${meal?.updatedAt ?? 'none'}`;
@@ -80,6 +85,28 @@ export function FoodScreen() {
     const f = existing ?? (await create('food', { ...(data as Food), favorite: false }));
     setQ('');
     open(f);
+  };
+  /** Itens confirmados da foto: usa o alimento da TACO já cadastrado ou cadastra; sem TACO, cria um item estimado. */
+  const addFromPlate = async (rows: PlateRow[]) => {
+    const add: MealItem[] = [];
+    for (const r of rows) {
+      let f: Food | undefined;
+      if (r.taco) {
+        f = activeFoods.find((x) => x.source === 'taco' && x.sourceRef === String(r.taco!.id));
+        if (!f) f = await create('food', { ...(foodFromTaco(r.taco) as Food), favorite: false });
+      } else {
+        const name = `${r.name} (estimado)`;
+        f = activeFoods.find((x) => x.name === name) ?? await create('food', { name, type: 'Outros', n: r.est ? { ...r.est, fib: undefined, na: undefined } : undefined, source: 'manual', portions: [], measures: [{ label: '100 g', grams: 100 }], favorite: false } as any);
+      }
+      const prev = add.find((x) => x.foodId === f!.id) ?? items.find((x) => x.foodId === f!.id);
+      const grams = r.grams + (prev?.grams ?? 0);
+      const it: MealItem = { foodId: f.id, portion: `${grams} g`, grams };
+      const i = add.findIndex((x) => x.foodId === f!.id);
+      if (i >= 0) add[i] = it; else add.push(it);
+    }
+    for (const it of add) putItem(it);
+    setPlateFile(null);
+    toast(`${add.length} ${add.length === 1 ? 'item foi' : 'itens foram'} para o prato. Confira e salve.`);
   };
   const showN = settings?.showNutrition !== false;
   const mealTot = foods ? totals(items, foods) : undefined;
@@ -169,6 +196,16 @@ export function FoodScreen() {
       {/* Adicionar */}
       <section style={{ marginTop: 22 }}>
         <h3 className="sec-cap">Adicionar</h3>
+        {aiAvailable() && (
+          <>
+            <button className="plate-cta" onClick={() => plateRef.current?.click()} data-testid="plate-photo">
+              <span className="plate-cta-ic"><Camera size={20} /></span>
+              <span className="grow" style={{ textAlign: 'left' }}><b>Foto do prato</b><br /><span className="small">A IA reconhece os alimentos e estima as porções</span></span>
+              <ChevronRight size={18} />
+            </button>
+            <input ref={plateRef} type="file" accept="image/*" capture="environment" hidden data-testid="plate-input" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) setPlateFile(f); }} />
+          </>
+        )}
         <div style={{ position: 'relative', marginBottom: 10 }}>
           <Search size={18} style={{ position: 'absolute', left: 14, top: 15, color: 'var(--ink-2)' }} />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar alimento ou marca" style={{ paddingLeft: 40, paddingRight: 52 }} aria-label="Buscar alimento" autoComplete="off" />
@@ -233,6 +270,7 @@ export function FoodScreen() {
       {sheet && <FoodSheet food={sheet.food} item={sheet.item} mealLabel={typeLabel} onClose={() => setSheet(null)}
         onSave={(it) => { putItem(it); setSheet(null); }}
         onRemove={sheet.item ? () => { removeItem(sheet.food.id); setSheet(null); } : undefined} />}
+      <PlateSheet file={plateFile} mealLabel={typeLabel} onClose={() => setPlateFile(null)} onConfirm={addFromPlate} />
       <Sheet open={adding} onClose={() => setAdding(false)} title="Novo alimento">
         <FoodForm onDone={(f) => { setAdding(false); if (f) open(f); }} />
       </Sheet>

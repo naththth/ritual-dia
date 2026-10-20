@@ -7,7 +7,7 @@ import type { Plan, Product, WorkoutStep } from '../db/types';
 import { addDays, isoWeekday, todayKey, type DateKey } from '../lib/dates';
 import { planFor, plannedSkin, plannedTraining } from './rules';
 
-export type AITask = 'skin_plan' | 'training_plan' | 'food_plan' | 'day_brief' | 'training_review' | 'week_review' | 'wellness_read' | 'label_read' | 'targets' | 'doc_read' | 'product_read';
+export type AITask = 'skin_plan' | 'training_plan' | 'food_plan' | 'day_brief' | 'training_review' | 'week_review' | 'wellness_read' | 'label_read' | 'targets' | 'doc_read' | 'product_read' | 'plate_read';
 
 export function aiAvailable() {
   return !!supabase && !!useSync.getState().session && navigator.onLine;
@@ -313,4 +313,27 @@ export async function aiProductInfo(brand: string | undefined, name: string | un
       fromLabel: !!r.lido_da_embalagem, confidence: conf
     } as import('../db/types').ProductInfo
   };
+}
+
+/* ---------- Foto do prato ---------- */
+export interface PlateGuess { name: string; grams: number; household?: string; tacoId?: number; est?: { kcal: number; p: number; c: number; f: number }; confidence?: 'alta' | 'media' | 'baixa' }
+
+/** A IA reconhece o que está no prato e estima o peso; os nutrientes vêm da TACO pelo id que ela escolher. */
+export async function aiPlate(images: { mime: string; data: string }[], note: string, mealLabel: string) {
+  const { loadTaco } = await import('./nutrition');
+  const taco = await loadTaco();
+  const r = await askAI<any>('plate_read', {
+    refeicao: mealLabel, hora: new Date().toTimeString().slice(0, 5), o_que_ela_contou: note.trim() || undefined,
+    taco: taco.map((t) => `${t.id}|${t.name}`).join('\n')
+  }, images);
+  const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : Number(String(v ?? '').replace(',', '.')) || 0);
+  const items: PlateGuess[] = (Array.isArray(r?.itens) ? r.itens : []).map((i: any) => ({
+    name: String(i.nome ?? '').trim(),
+    grams: Math.max(0, Math.round(num(i.gramas))),
+    household: i.medida_caseira ? String(i.medida_caseira) : undefined,
+    tacoId: taco.some((t) => t.id === Number(i.taco_id)) ? Number(i.taco_id) : undefined,
+    est: i.por_100g && num(i.por_100g.kcal) > 0 ? { kcal: num(i.por_100g.kcal), p: num(i.por_100g.p), c: num(i.por_100g.c), f: num(i.por_100g.g) } : undefined,
+    confidence: ['alta', 'media', 'baixa'].includes(i.confianca) ? i.confianca : undefined
+  })).filter((i: PlateGuess) => i.name && i.grams > 0);
+  return { items, note: String(r?.observacao ?? ''), taco };
 }
