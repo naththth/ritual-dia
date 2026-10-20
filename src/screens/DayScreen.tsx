@@ -12,7 +12,7 @@ import { addDays, monthEnd, monthStart, weekStart, type DateKey } from '../lib/d
 import { logSuggestion, planTask, toggleHabit } from '../domain/actions';
 import type { Habit, Task } from '../db/types';
 import { toast } from '../state/store';
-import { DayBriefBlock } from './ai-ui';
+import { BriefTasks, DayBriefBlock } from './ai-ui';
 import { NowAndTimeline, TodayStats } from './today';
 import { WellnessCard } from './wellness';
 import { CycleCard } from './cycle';
@@ -24,15 +24,16 @@ export function DayScreen() {
     <div className="screen" data-testid="day-screen">
       <TopBar />
       <DateHeader />
-      {/* Ordem: resumo de saúde, o que a IA planejou, o dia com horários e, depois, o resto. */}
+      {/* Ordem: saúde e ciclo, leitura da IA, o dia com horários, tarefas (as do dia e as sugeridas) e hábitos. */}
       <TodayStats date={date} />
       <WellnessCard date={date} />
+      <CycleCard date={date} />
       <DayBriefBlock date={date} />
       <NowAndTimeline date={date} />
-      <CycleCard date={date} />
-      <HabitsBlock date={date} />
       <TodayTasks date={date} tasks={tasks} />
+      <BriefTasks date={date} />
       <Suggestion date={date} tasks={tasks} />
+      <HabitsBlock date={date} />
     </div>
   );
 }

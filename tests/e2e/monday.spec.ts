@@ -401,6 +401,7 @@ test('ciclo: marcar menstruação, ver fase no Hoje e previsão', async ({ page 
   await noHorizontalScroll(page);
   if (process.env.SHOTS) { await page.screenshot({ path: '/tmp/claude-0/shots/ciclo.png', fullPage: true }); await page.goto('./#/'); await page.getByTestId('cycle-card').waitFor(); await page.waitForTimeout(4500); await page.screenshot({ path: '/tmp/claude-0/shots/hoje.png' }); await page.goto('./#/ciclo'); }
   await page.getByTestId('cycle-hormonal').click();
+  if (process.env.SHOTS) { await page.getByTestId('cycle-settings').scrollIntoViewIfNeeded(); await page.screenshot({ path: '/tmp/claude-0/shots/ciclo-ajustes.png' }); }
   await expect(page.getByTestId('cycle-screen')).toContainText('não há fase natural');
 });
 

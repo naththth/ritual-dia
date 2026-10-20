@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Sparkles, RefreshCw, CalendarPlus, Check as CheckIcon } from 'lucide-react';
+import { Sparkles, RefreshCw, CalendarPlus } from 'lucide-react';
 import type { WorkoutStep } from '../db/types';
 import { useAll, useRecord, useSettings } from '../db/hooks';
 import { aiAvailable, aiDayBrief, watts } from '../domain/ai';
@@ -36,7 +36,6 @@ export function StepsView({ steps }: { steps: WorkoutStep[] }) {
 /** Orientação do dia montada pela IA, guardada na própria data. */
 export function DayBriefBlock({ date }: { date: DateKey }) {
   const brief = useRecord<'brief'>(`brief:${date}`);
-  const tasks = useAll('task');
   const [busy, setBusy] = useState(false);
   const run = async (silent = false) => {
     setBusy(true);
@@ -64,26 +63,31 @@ export function DayBriefBlock({ date }: { date: DateKey }) {
         <h2 style={{ fontSize: 20 }}>{brief.foco || 'Seu dia'}</h2>
         {aiAvailable() && <button className="icon-btn" aria-label="Refazer orientação" onClick={() => run()} disabled={busy}><RefreshCw size={18} className={busy ? 'spin' : ''} /></button>}
       </div>
-      {brief.tarefas.map((t) => {
-        const task = tasks?.find((x) => x.id === t.id);
-        if (!task) return null;
-        const inDay = task.plannedDate === date;
-        return (
-          <div key={t.id} className="row-item">
-            <div className="grow">
-              <div className="t">{task.title}</div>
-              <div className="s">{t.primeiro_passo ? `Primeiro passo: ${t.primeiro_passo}` : t.motivo}</div>
-            </div>
-            {inDay ? (
-              <button className="in-day" aria-label={`Tirar ${task.title} do dia`} onClick={() => planTask(task, null)} data-testid="brief-unplan"><CheckIcon size={14} strokeWidth={3} />No dia</button>
-            ) : (
-              <button className="icon-btn" aria-label={`Adicionar ${task.title} ao dia`} onClick={() => planTask(task, date)}><CalendarPlus size={20} /></button>
-            )}
-          </div>
-        );
-      })}
       {brief.pele && <p className="small" style={{ margin: '10px 0 0' }}><b>Pele.</b> {brief.pele}</p>}
       {brief.treino && <p className="small" style={{ margin: '6px 0 0' }}><b>Treino.</b> {brief.treino}</p>}
+    </section>
+  );
+}
+
+/** Tarefas que a IA sugeriu para o dia: ficam junto das tarefas do dia, abaixo da programação. Só as que ainda não estão no dia. */
+export function BriefTasks({ date }: { date: DateKey }) {
+  const brief = useRecord<'brief'>(`brief:${date}`);
+  const tasks = useAll('task');
+  if (!brief || !tasks) return null;
+  const list = brief.tarefas.map((t) => ({ t, task: tasks.find((x) => x.id === t.id) })).filter((x) => x.task && x.task.status === 'pendente' && x.task.plannedDate !== date);
+  if (!list.length) return null;
+  return (
+    <section style={{ margin: '0 0 18px' }} data-testid="brief-tasks" aria-label="Tarefas sugeridas pela IA">
+      <div className="section"><h2 className="section-title" style={{ fontSize: 20 }}>Sugeridas para hoje</h2></div>
+      {list.map(({ t, task }) => (
+        <div key={t.id} className="row-item">
+          <div className="grow">
+            <div className="t">{task!.title}</div>
+            <div className="s">{t.primeiro_passo ? `Primeiro passo: ${t.primeiro_passo}` : t.motivo}</div>
+          </div>
+          <button className="icon-btn" aria-label={`Adicionar ${task!.title} ao dia`} onClick={() => planTask(task!, date)}><CalendarPlus size={20} /></button>
+        </div>
+      ))}
     </section>
   );
 }

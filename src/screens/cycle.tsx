@@ -303,22 +303,21 @@ export function CycleScreen() {
         </div>
       ) : <p className="small">Nenhum ciclo registrado ainda.</p>}
 
-      <h2 className="section-title" style={{ marginTop: 18 }}>Ajustes</h2>
-      <div className="chips">
-        <Chip on={!!cyc.hormonalContraception} onClick={() => setCyc({ hormonalContraception: !cyc.hormonalContraception })} testId="cycle-hormonal">Uso anticoncepcional hormonal</Chip>
-        <Chip on={cyc.tracks !== false} onClick={() => setCyc({ tracks: cyc.tracks === false })}>Mostrar no Hoje</Chip>
-      </div>
-      <div className="row wrap" style={{ gap: 12, marginTop: 12 }}>
-        <label style={{ display: 'block', flex: 1, minWidth: 140 }}>
-          <span className="label">Ciclo típico (dias)</span>
-          <input inputMode="numeric" defaultValue={cyc.typicalLength ?? ''} placeholder="28" onBlur={(e) => setCyc({ typicalLength: Number(e.target.value) || undefined })} />
-        </label>
-        <label style={{ display: 'block', flex: 1, minWidth: 140 }}>
-          <span className="label">Menstruação típica (dias)</span>
-          <input inputMode="numeric" defaultValue={cyc.typicalPeriod ?? ''} placeholder="5" onBlur={(e) => setCyc({ typicalPeriod: Number(e.target.value) || undefined })} />
-        </label>
-      </div>
-      <p className="field-hint">Usados até haver ciclos suficientes registrados. Se o Garmin registra a menstruação, ela chega pela sincronização com o intervals.icu. As fases são estimativas pelo calendário, não confirmam ovulação.</p>
+      <section className="block b-paper pf" style={{ marginTop: 18 }} data-testid="cycle-settings">
+        <h2>Ajustes</h2>
+        <div className="pf-opts" role="group" aria-label="Ajustes do ciclo" style={{ gridTemplateColumns: '1fr' }}>
+          <button aria-pressed={!!cyc.hormonalContraception} className={cyc.hormonalContraception ? 'on' : ''} onClick={() => setCyc({ hormonalContraception: !cyc.hormonalContraception })} data-testid="cycle-hormonal"><b>Uso anticoncepcional hormonal</b></button>
+          <button aria-pressed={cyc.tracks !== false} className={cyc.tracks !== false ? 'on' : ''} onClick={() => setCyc({ tracks: cyc.tracks === false })}><b>Mostrar o ciclo no Hoje</b></button>
+        </div>
+        <span className="label">Duração típica</span>
+        <div className="pf-grid">
+          <label className="pf-num"><span>Ciclo</span><span className="pf-num-box">
+            <input inputMode="numeric" defaultValue={cyc.typicalLength ?? ''} placeholder="28" onBlur={(e) => setCyc({ typicalLength: Number(e.target.value) || undefined })} aria-label="Ciclo típico em dias" /><i>dias</i></span></label>
+          <label className="pf-num"><span>Menstruação</span><span className="pf-num-box">
+            <input inputMode="numeric" defaultValue={cyc.typicalPeriod ?? ''} placeholder="5" onBlur={(e) => setCyc({ typicalPeriod: Number(e.target.value) || undefined })} aria-label="Menstruação típica em dias" /><i>dias</i></span></label>
+        </div>
+        <p className="field-hint">Valem até haver ciclos suficientes registrados. Se o Garmin registra a menstruação, ela chega pela sincronização com o intervals.icu. As fases são estimativas pelo calendário, não confirmam ovulação.</p>
+      </section>
       <CycleSheet open={!!sheet} date={sheet ?? today} onClose={() => setSheet(null)} />
       <PeriodSheet open={!!period} period={period && period !== 'new' ? period : undefined} onClose={() => setPeriod(null)} />
     </div>
