@@ -45,7 +45,42 @@ export function typeFromTacoCat(cat: string): string {
 
 /* ---------- Open Food Facts (produtos de marca) ---------- */
 export interface OffFood { code: string; name: string; brand?: string; n: Nutr | null; serving?: Measure }
+/** Busca de marcas: pelo servidor do Ritual (sem bloqueio do navegador, Brasil primeiro); sem login, direto no Open Food Facts. */
 export async function searchOFF(q: string, signal?: AbortSignal): Promise<OffFood[]> {
+  const { supabase, useSync } = await import('../sync/sync');
+  if (supabase && useSync.getState().session) {
+    const { data, error } = await supabase.functions.invoke('ritual-food', { body: { action: 'search', q } });
+    if (signal?.aborted) throw Object.assign(new Error('abort'), { name: 'AbortError' });
+    if (!error && data?.items) return data.items as OffFood[];
+  }
+  return searchOFFDirect(q, signal);
+}
+
+/** Produto pelo código de barras. */
+export async function lookupBarcode(code: string): Promise<OffFood | null> {
+  const { supabase, useSync } = await import('../sync/sync');
+  if (supabase && useSync.getState().session) {
+    const { data, error } = await supabase.functions.invoke('ritual-food', { body: { action: 'barcode', code } });
+    if (!error) return (data?.item as OffFood) ?? null;
+  }
+  const r = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=code,product_name,product_name_pt,brands,nutriments,serving_size,serving_quantity`);
+  if (!r.ok) return null;
+  const d = await r.json();
+  return d?.product ? mapOff({ ...d.product, code }) : null;
+}
+
+function mapOff(p: any): OffFood {
+  const nu = p.nutriments ?? {};
+  const kcal = nu['energy-kcal_100g'] ?? (nu.energy_100g ? nu.energy_100g / 4.184 : undefined);
+  const sq = Number(p.serving_quantity);
+  return {
+    code: String(p.code), name: String(p.product_name_pt || p.product_name || '').trim(), brand: p.brands ? String(p.brands).split(',')[0].trim() : undefined,
+    n: kcal == null ? null : { kcal: Math.round(kcal), p: +(nu.proteins_100g ?? 0), c: +(nu.carbohydrates_100g ?? 0), f: +(nu.fat_100g ?? 0), fib: nu.fiber_100g != null ? +nu.fiber_100g : undefined, na: nu.sodium_100g != null ? Math.round(nu.sodium_100g * 1000) : undefined },
+    serving: sq > 0 ? { label: `1 porção (${p.serving_size ?? sq + ' g'})`, grams: sq } : undefined
+  };
+}
+
+async function searchOFFDirect(q: string, signal?: AbortSignal): Promise<OffFood[]> {
   const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=12&lc=pt&cc=br&fields=code,product_name,product_name_pt,brands,nutriments,serving_size,serving_quantity`;
   const r = await fetch(url, { signal });
   if (!r.ok) throw new Error('Busca de marcas indisponível agora.');

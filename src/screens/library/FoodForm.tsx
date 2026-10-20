@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Plus, Trash2, Search } from 'lucide-react';
+import { Plus, Trash2, Search, Camera } from 'lucide-react';
+import { BarcodeButton } from './Barcode';
+import { aiAvailable, askAI } from '../../domain/ai';
+import { shrinkImage } from '../../lib/image';
 import { create, update } from '../../db/db';
 import type { Food, Measure, Nutr } from '../../db/types';
 import { Chip } from '../../ui/ui';
@@ -23,18 +26,20 @@ export function FoodSuggest({ q, onPickTaco, onPickOff, onPickMine, excludeMine 
     setOff(null); setOffErr('');
     if (q.trim().length < 2) { setTaco([]); return; }
     let alive = true;
-    loadTaco().then((all) => { if (alive) setTaco(searchList(all, q, (t) => t.name, 8)); }).catch(() => setTaco([]));
-    return () => { alive = false; };
+    loadTaco().then((all) => { if (alive) setTaco(searchList(all, q, (t) => t.name, 6)); }).catch(() => setTaco([]));
+    // marcas entram sozinhas quando ela para de digitar
+    const t = q.trim().length >= 3 ? setTimeout(() => { if (alive) brands(); }, 650) : undefined;
+    return () => { alive = false; if (t) clearTimeout(t); };
   }, [q]);
   if (q.trim().length < 2) return null;
   const mine = excludeMine ? [] : searchList((foods ?? []).filter((f) => !f.archived), q, (f) => f.name, 4);
-  const brands = async () => {
+  async function brands() {
     ctrl.current?.abort();
     ctrl.current = new AbortController();
     setOffBusy(true); setOffErr('');
     try { setOff(await searchOFF(q, ctrl.current.signal)); } catch (e: any) { if (e?.name !== 'AbortError') setOffErr(navigator.onLine ? 'Busca de marcas indisponível agora.' : 'Sem internet para buscar marcas.'); }
     finally { setOffBusy(false); }
-  };
+  }
   const nLine = (n: Nutr | null) => (n ? `${fmt(n.kcal)} kcal, P ${fmt(n.p)} g, C ${fmt(n.c)} g, G ${fmt(n.f)} g por 100 g` : 'sem dados de energia');
   return (
     <div className="suggest" role="listbox" aria-label="Sugestões de alimentos" data-testid="food-suggest">
@@ -104,6 +109,28 @@ export function FoodForm({ food, onDone }: { food?: Food; onDone: (f?: Food) => 
     set({ measures: [...(d.measures ?? []), { label: mLabel.trim(), grams: g }] });
     setMLabel(''); setMGrams('');
   };
+  const labelRef = useRef<HTMLInputElement>(null);
+  const [reading, setReading] = useState(false);
+  /** A IA lê a tabela do rótulo e converte para 100 g; ela confere antes de salvar. */
+  const readLabel = async (file?: File) => {
+    if (!file) return;
+    setReading(true);
+    try {
+      const img = await shrinkImage(file);
+      const r = await askAI<any>('label_read', { nome_digitado: d.name ?? '' }, [img]);
+      const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
+      const nn: Nutr | undefined = num(r.kcal_100g) != null ? { kcal: Math.round(r.kcal_100g), p: num(r.proteina_100g) ?? 0, c: num(r.carboidrato_100g) ?? 0, f: num(r.gordura_100g) ?? 0, fib: num(r.fibra_100g), na: num(r.sodio_mg_100g) } : undefined;
+      const g = num(r.porcao_g);
+      setD((x) => ({
+        ...x,
+        name: x.name?.trim() ? x.name : [r.nome, r.marca].filter(Boolean).join(' (') + (r.marca && r.nome ? ')' : ''),
+        n: nn ?? x.n, source: 'manual',
+        measures: g && !(x.measures ?? []).some((m) => m.grams === g) ? [...(x.measures ?? [{ label: '100 g', grams: 100 }]), { label: r.porcao_rotulo ? `1 porção (${r.porcao_rotulo})` : `1 porção (${g} g)`, grams: g }] : x.measures
+      }));
+      setPicked(true);
+      toast(nn ? 'Tabela lida. Confira os números.' : 'Não consegui ler os valores. Tente uma foto mais de perto.', undefined, nn ? undefined : 'error');
+    } catch (e: any) { toast(e.message, undefined, 'error'); } finally { setReading(false); if (labelRef.current) labelRef.current.value = ''; }
+  };
   const n = d.n;
   return (
     <div data-testid="food-form">
@@ -117,6 +144,12 @@ export function FoodForm({ food, onDone }: { food?: Food; onDone: (f?: Food) => 
         )}
       </div>
       {d.source && d.source !== 'manual' && <p className="field-hint">Valores da {d.source === 'taco' ? 'tabela TACO (UNICAMP)' : 'base Open Food Facts'}. Você pode ajustar.</p>}
+
+      <div className="row wrap" style={{ gap: 8, marginTop: 12 }}>
+        <BarcodeButton label="Código de barras" onFound={(o) => { setD((x) => ({ ...x, ...foodFromOff(o) })); setPicked(true); }} />
+        <button className="btn btn-soft btn-sm" disabled={reading || !aiAvailable()} onClick={() => labelRef.current?.click()} data-testid="label-photo"><Camera size={18} />{reading ? 'Lendo a tabela…' : 'Foto da tabela nutricional'}</button>
+        <input ref={labelRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => readLabel(e.target.files?.[0])} />
+      </div>
 
       <span className="label">Valores por 100 g</span>
       <div className="nutr-grid">

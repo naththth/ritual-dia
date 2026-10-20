@@ -11,6 +11,7 @@ import { byDateRange, create, remove } from '../db/db';
 import type { Food, MealItem } from '../db/types';
 import { addDays, shortLabel } from '../lib/dates';
 import { FoodForm, FoodSuggest, foodFromTaco, foodFromOff } from './library/FoodForm';
+import { BarcodeButton } from './library/Barcode';
 import { fmt, gramsFor, itemNutr, portionOptions, totals } from '../domain/nutrition';
 import { planFor, plannedFood } from '../domain/rules';
 
@@ -150,7 +151,8 @@ export function FoodScreen() {
 
       <div style={{ position: 'relative', margin: '16px 0 10px' }}>
         <Search size={18} style={{ position: 'absolute', left: 14, top: 15, color: 'var(--ink-2)' }} />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar ou adicionar alimento" style={{ paddingLeft: 40 }} aria-label="Buscar alimento" autoComplete="off" />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar alimento ou marca" style={{ paddingLeft: 40, paddingRight: 52 }} aria-label="Buscar alimento" autoComplete="off" />
+        <span style={{ position: 'absolute', right: 4, top: 4 }}><BarcodeButton onFound={(o) => addNew(foodFromOff(o))} /></span>
         <FoodSuggest q={q} onPickMine={(f) => { if (!sel(f.id)) toggle(f); setQ(''); }} onPickTaco={(t) => addNew(foodFromTaco(t))} onPickOff={(o) => addNew(foodFromOff(o))} />
       </div>
       <div className="chips scroll" style={{ marginBottom: 10 }}>

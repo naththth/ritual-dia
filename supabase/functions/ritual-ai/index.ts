@@ -48,7 +48,13 @@ Formato: {"texto":"","destaques":[""],"foco":[""]}.`,
 - vfc: média noturna da VFC em ms (não o status nem a faixa). fc_repouso: FC de repouso em bpm.
 - body_battery: valor ao acordar (ou o maior do dia se só houver esse). passos: total de passos do dia mostrado. estresse: nível médio de estresse.
 - observacao: uma frase curta só se algo for ambíguo (ex.: os passos são parciais do dia).
-Formato: {"data":null,"sono_h":null,"sono_score":null,"dormiu":null,"acordou":null,"vfc":null,"fc_repouso":null,"body_battery":null,"passos":null,"estresse":null,"observacao":""}.`
+Formato: {"data":null,"sono_h":null,"sono_score":null,"dormiu":null,"acordou":null,"vfc":null,"fc_repouso":null,"body_battery":null,"passos":null,"estresse":null,"observacao":""}.`,
+  label_read: `Você recebe a foto de um rótulo de alimento (tabela nutricional brasileira e/ou frente da embalagem). Extraia SOMENTE o que está escrito; nunca estime.
+- nome e marca do produto se aparecerem.
+- porcao_g: a porção de referência em gramas ou mL (ex.: 200 mL = 200). porcao_rotulo: como está escrito (ex.: "200 mL (1 copo)").
+- Valores por 100 g/100 mL: se a tabela já tiver a coluna 100 g/100 mL, use-a; se só tiver por porção, converta: valor_100 = valor_porcao / porcao_g * 100, com 1 casa decimal.
+- kcal (valor energético em kcal, não kJ), proteínas, carboidratos totais, gorduras totais, fibra alimentar (g) e sódio (mg).
+Formato: {"nome":null,"marca":null,"porcao_g":null,"porcao_rotulo":null,"kcal_100g":null,"proteina_100g":null,"carboidrato_100g":null,"gordura_100g":null,"fibra_100g":null,"sodio_mg_100g":null}.`
 };
 
 type Img = { mime: string; data: string };
