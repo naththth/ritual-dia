@@ -226,7 +226,7 @@ async function syncIntervals(userId: string, days = 14) {
     const old = prev.get(`wellness:${date}`) ?? {};
     rows.push({ id: `wellness:${date}`, user_id: userId, kind: 'wellness', deleted: false, client_updated_at: nowIso, data: { ...old, ...fresh, date, source: 'intervals', createdAt: old.createdAt ?? ts, updatedAt: ts } });
   }
-  const { data: existing } = await admin.from('records').select('id, data').eq('user_id', userId).eq('kind', 'workout').gte('data->>date', oldest);
+  const { data: existing } = await admin.from('records').select('id, data').eq('user_id', userId).eq('kind', 'workout').eq('deleted', false).gte('data->>date', oldest);
   const fitStarts = (existing ?? []).filter((r: any) => r.data?.metrics?.source === 'fit' && r.data?.startTime).map((r: any) => new Date(r.data.startTime).getTime());
   let acts = 0;
   // O mesmo treino pode chegar por duas origens (MyWhoosh e Garmin): fica um só, o que tem potência.
@@ -235,6 +235,8 @@ async function syncIntervals(userId: string, days = 14) {
   const taken: number[] = [];
   for (const a of sorted) {
     if (!a?.id || !a.start_date_local) continue;
+    // Atividades vindas do Strava chegam vazias pela API (regra do Strava): não servem para nada aqui.
+    if (a.source === 'STRAVA' || !String(a.id).startsWith('i') || !(num(a.moving_time, a.elapsed_time) ?? 0)) continue;
     const start = new Date(a.start_date ?? a.start_date_local).getTime();
     if (fitStarts.some((t: number) => Math.abs(t - start) < 5 * 60_000)) continue; // já veio pelo arquivo
     if (taken.some((t) => Math.abs(t - start) < 5 * 60_000)) continue; // duplicado nesta leva
