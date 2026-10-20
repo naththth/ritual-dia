@@ -40,7 +40,7 @@ export function DayBriefBlock({ date }: { date: DateKey }) {
   const [busy, setBusy] = useState(false);
   const run = async (silent = false) => {
     setBusy(true);
-    try { await aiDayBrief(date); } catch (e: any) { if (!silent) toast(e.message, undefined, 'error'); } finally { setBusy(false); }
+    try { await aiDayBrief(date); if (!silent) toast('Orientação atualizada'); } catch (e: any) { if (!silent) toast(e.message, undefined, 'error'); } finally { setBusy(false); }
   };
   const settings = useSettings();
   useEffect(() => {
@@ -62,7 +62,7 @@ export function DayBriefBlock({ date }: { date: DateKey }) {
     <section className="block b-paper" data-testid="day-brief" aria-label="Orientação do dia">
       <div className="bh">
         <h2 style={{ fontSize: 20 }}>{brief.foco || 'Seu dia'}</h2>
-        {aiAvailable() && <button className="icon-btn" aria-label="Refazer orientação" onClick={() => run()} disabled={busy}><RefreshCw size={18} /></button>}
+        {aiAvailable() && <button className="icon-btn" aria-label="Refazer orientação" onClick={() => run()} disabled={busy}><RefreshCw size={18} className={busy ? 'spin' : ''} /></button>}
       </div>
       {brief.tarefas.map((t) => {
         const task = tasks?.find((x) => x.id === t.id);

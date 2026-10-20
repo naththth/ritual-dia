@@ -4,7 +4,7 @@ import { trainingLoad } from './load';
 import { wellnessForAI } from './wellness';
 import { all, byDateRange, create, get, upsert } from '../db/db';
 import type { Plan, Product, WorkoutStep } from '../db/types';
-import { addDays, isoWeekday, type DateKey } from '../lib/dates';
+import { addDays, isoWeekday, todayKey, type DateKey } from '../lib/dates';
 import { planFor, plannedSkin, plannedTraining } from './rules';
 
 export type AITask = 'skin_plan' | 'training_plan' | 'food_plan' | 'day_brief' | 'training_review' | 'week_review' | 'wellness_read' | 'label_read';
@@ -146,14 +146,21 @@ export async function aiFoodPlan(dietText: string) {
 
 /* ---------- Orientação do dia ---------- */
 export async function aiDayBrief(date: DateKey) {
-  const [tasks, plans, products, tmpls, mods, skinLogs, settings, workouts, journals, wellness] = await Promise.all([
+  const [tasks, plans, products, tmpls, mods, skinLogs, settings, workouts, journals, wellness, skips, meals] = await Promise.all([
     all('task'), all('plan'), all('product'), all('wtemplate'), all('modality'), byDateRange('skin', addDays(date, -7), date), get<'settings'>('settings'),
-    byDateRange('workout', addDays(date, -120), date), byDateRange('journal', addDays(date, -3), date), byDateRange('wellness', addDays(date, -7), date)
+    byDateRange('workout', addDays(date, -120), date), byDateRange('journal', addDays(date, -3), date), byDateRange('wellness', addDays(date, -7), date),
+    byDateRange('skip', date, date), byDateRange('meal', date, date)
   ]);
   const pending = tasks.filter((t) => t.status === 'pendente');
   const skinPlan = planFor(plans, 'skin', date);
   const name = (id: string) => products.find((p) => p.id === id)?.name;
-  const tr = plannedTraining(planFor(plans, 'training', date), date).map((id) => tmpls.find((t) => t.id === id)).filter(Boolean);
+  const skipped = new Set(skips.filter((x) => x.domain === 'training').map((x) => x.ref));
+  const doneToday = workouts.filter((w) => w.date === date);
+  // Planejado que ainda vale: nem pulado, nem já feito (mesma modalidade).
+  const tr = plannedTraining(planFor(plans, 'training', date), date).map((id) => tmpls.find((t) => t.id === id)).filter(Boolean)
+    .filter((t) => !skipped.has(t!.id) && !doneToday.some((w) => w.templateId === t!.id || w.modalityId === t!.modalityId));
+  const now = new Date();
+  const hora = date === todayKey() ? `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}` : undefined;
   const ctx = {
     data: date,
     dia_da_semana: ['', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'][isoWeekday(date)],
@@ -162,7 +169,14 @@ export async function aiDayBrief(date: DateKey) {
     tarefas_pendentes: pending.slice(0, 60).map((t) => ({ id: t.id, titulo: t.title, prioridade: t.priority, categoria: t.categoryId.replace('cat:', ''), subcategoria: t.subcategory, observacao: t.description, proximo_passo: t.nextStep, data_compromisso: t.appointmentDate, escolhida_para: t.plannedDate })),
     pele_plano_manha: plannedSkin(skinPlan, date, 'am', products).map(name),
     pele_plano_noite: plannedSkin(skinPlan, date, 'pm', products).map(name),
-    pele_registros_7_dias: skinLogs.map((l) => ({ data: l.date, periodo: l.period, condicao: l.condition, sinais: Object.keys(l.signals ?? {}) })),
+    hora_agora: hora,
+    pele_registros_7_dias: skinLogs.map((l) => ({ data: l.date, periodo: l.period, condicao: l.condition, sinais: Object.keys(l.signals ?? {}), produtos_usados: (l.productIds ?? []).map(name).filter(Boolean), pulou: l.skipped || undefined })),
+    feito_hoje: {
+      pele: skinLogs.filter((l) => l.date === date).map((l) => ({ periodo: l.period === 'am' ? 'manhã' : 'noite', produtos: (l.productIds ?? []).map(name).filter(Boolean) })),
+      treinos: doneToday.map((w) => ({ modalidade: mods.find((m) => m.id === w.modalityId)?.name, minutos: w.duration })),
+      refeicoes_registradas: meals.filter((m) => m.items?.length).map((m) => m.mealType)
+    },
+    treinos_pulados_hoje: [...skipped].map((id) => tmpls.find((t) => t.id === id)?.name).filter(Boolean),
     carga_de_treino: (() => { const l = trainingLoad(workouts, addDays(date, -120), date).slice(-1)[0]; return l ? { fitness: Math.round(l.ctl), fadiga: Math.round(l.atl), forma: Math.round(l.tsb) } : null; })(),
     treinos_ultimos_3_dias: workouts.filter((w) => w.date >= addDays(date, -3)).map((w) => ({ data: w.date, modalidade: mods.find((m) => m.id === w.modalityId)?.name, minutos: w.duration, tss: w.metrics?.tss, fc_media: w.metrics?.avgHr })),
     sono_e_recuperacao_7_dias: wellness.map(wellnessForAI),
