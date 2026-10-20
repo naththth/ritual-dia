@@ -20,6 +20,7 @@ import { TrainingScreen } from './screens/TrainingScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { CycleScreen } from './screens/cycle';
+import { WeightScreen } from './screens/WeightScreen';
 import { LibraryScreen } from './screens/library/LibraryScreen';
 import { PlanScreen } from './screens/PlanScreen';
 import { Onboarding } from './screens/Onboarding';
@@ -83,6 +84,7 @@ function Shell() {
         <Route path="/ajustes" element={<SettingsScreen />} />
         <Route path="/perfil" element={<ProfileScreen />} />
         <Route path="/ciclo" element={<CycleScreen />} />
+        <Route path="/peso" element={<WeightScreen />} />
         <Route path="/biblioteca/:section" element={<LibraryScreen />} />
         <Route path="/plano/:domain" element={<PlanScreen />} />
         <Route path="/revisao" element={<ProductReview />} />

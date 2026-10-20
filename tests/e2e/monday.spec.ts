@@ -387,6 +387,17 @@ test('ciclo: marcar menstruação, ver fase no Hoje e previsão', async ({ page 
   await expect(page.getByTestId('cycle-day')).toHaveText('Dia 15');
   await expect(page.getByTestId('cycle-next')).toContainText('em 14 dias');
   await expect(page.getByTestId('cycle-history')).toContainText('ciclo de 28 dias');
+  // Corrigir um ciclo inteiro pelo histórico e depois apagá-lo.
+  await page.getByRole('button', { name: /Corrigir ciclo de .*7/ }).click();
+  await page.getByTestId('period-start').fill('2026-09-10');
+  await page.getByTestId('period-days').fill('4');
+  await page.getByTestId('period-save').click();
+  await expect(page.getByTestId('cycle-history')).toContainText('ciclo de 25 dias');
+  await expect(page.getByTestId('cycle-history')).toContainText('4 dias de fluxo');
+  await page.getByRole('button', { name: /Corrigir ciclo de .*10\/09/ }).click();
+  await page.getByTestId('period-delete').click();
+  await expect(page.getByTestId('cycle-history')).not.toContainText('ciclo de 25 dias');
+  await expect(page.getByTestId('cycle-history')).not.toContainText('/09');
   await noHorizontalScroll(page);
   if (process.env.SHOTS) { await page.screenshot({ path: '/tmp/claude-0/shots/ciclo.png', fullPage: true }); await page.goto('./#/'); await page.getByTestId('cycle-card').waitFor(); await page.waitForTimeout(4500); await page.screenshot({ path: '/tmp/claude-0/shots/hoje.png' }); await page.goto('./#/ciclo'); }
   await page.getByTestId('cycle-hormonal').click();
@@ -485,4 +496,46 @@ test('rotina de cuidados: rosto, corpo e cabelo juntos na noite, com avaliação
   await page.goto('./#/');
   await expect(page.getByTestId('tl-skin-pm')).toContainText('Rotina da noite');
   await expect(page.getByTestId('tl-skin-pm')).toContainText('Shampoo suave');
+});
+
+test('peso: objetivo, ritmo e previsão calculados das pesagens', async ({ page }) => {
+  await onboard(page);
+  await page.goto('./#/peso');
+  const add = async (d: string, v: string) => {
+    await page.getByTestId('weight-add').click();
+    await page.getByTestId('weight-sheet').getByLabel('Dia da pesagem').fill(d);
+    await page.getByTestId('weight-input').fill(v);
+    await page.getByTestId('weight-save').click();
+    await expect(page.getByTestId('weight-sheet')).toBeHidden();
+  };
+  await add('2026-09-21', '91,0');
+  await add('2026-10-01', '90,2');
+  await add('2026-10-10', '89,6');
+  await add('2026-10-19', '89,0');
+  await expect(page.getByTestId('weight-current')).toHaveText('89,0 kg');
+  await page.getByTestId('weight-goal').click();
+  await page.getByTestId('weight-target').fill('81');
+  await page.getByTestId('weight-goal-sheet').getByLabel('Peso de partida').fill('91');
+  await page.getByTestId('weight-goal-sheet').getByLabel('Data de partida').fill('2026-09-21');
+  await page.getByTestId('weight-goal-save').click();
+  await expect(page.getByTestId('weight-progress')).toContainText('Faltam 8,0 kg');
+  await expect(page.getByTestId('weight-progress')).toContainText('Já foram 2,0 kg');
+  await expect(page.getByTestId('weight-pace')).toContainText('kg por semana');
+  await expect(page.getByTestId('weight-pace')).toContainText('o objetivo chega por volta de');
+  await expect(page.getByTestId('weight-chart')).toBeVisible();
+  await noHorizontalScroll(page);
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/peso.png', fullPage: true });
+});
+
+test('sessões de treino: explicação, dias do plano e exercícios', async ({ page }) => {
+  await onboard(page);
+  await page.goto('./#/biblioteca/treinos');
+  await expect(page.getByTestId('wt-intro')).toContainText('Plano de treino');
+  await page.getByRole('button', { name: 'Nova sessão' }).click();
+  await page.getByLabel('Nome do treino').fill('Musculação corpo todo');
+  await page.getByRole('button', { name: 'Musculação' }).first().click();
+  await page.getByTestId('wt-note').fill('1. Agachamento goblet 3x8-12\n2. Remada baixa 3x8-12');
+  await page.getByTestId('wt-save').click();
+  await expect(page.getByTestId('library-treinos')).toContainText('Fora do plano da semana');
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/sessoes.png', fullPage: true });
 });

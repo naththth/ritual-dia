@@ -104,7 +104,7 @@ export function TrainingScreen() {
           <button className="btn btn-ink btn-block" style={{ marginTop: 18 }} onClick={() => setDraft({ duration: 45, intensity: 'moderada' })} data-testid="workout-new"><Plus size={18} />Novo registro</button>
           <div className="row wrap" style={{ marginTop: 6, gap: 16 }}>
             <a className="link" href="#/plano/training">Plano de treino</a>
-            <a className="link" href="#/biblioteca/treinos">Treinos-modelo</a>
+            <a className="link" href="#/biblioteca/treinos">Sessões de treino</a>
           </div>
         </>
       )}

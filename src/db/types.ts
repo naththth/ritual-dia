@@ -377,7 +377,9 @@ export interface Profile {
   event?: string; // prova alvo e data, texto livre
   activity?: 'sedentario' | 'leve' | 'moderado' | 'alto' | 'muito_alto'; // fora o treino
   diet?: { restrictions: string[]; dislikes?: string; likes?: string; mealsPerDay?: number; followsNutritionist?: boolean };
-  training?: { daysAvailable?: number[]; minutesPerSession?: number; equipment?: string; limitations?: string; followsCoach?: boolean };
+  training?: { daysAvailable?: number[]; minutesPerSession?: number; equipment?: string; limitations?: string; followsCoach?: boolean; strengthSplit?: 'full_body' | 'dividido'; strengthGoal?: 'hipertrofia' | 'forca' | 'manutencao' };
+  /** Peso objetivo: o acompanhamento usa as pesagens (Garmin, intervals ou registradas no app). */
+  weightGoal?: { startKg?: number; startDate?: DateKey; targetKg?: number; deadline?: DateKey };
   skin?: { type?: string; concerns: string[]; sensitive?: boolean; followsDerm?: boolean; prescriptions?: string };
   /** Avaliação do cabelo: base para a IA diagnosticar e indicar o uso dos produtos. */
   hair?: {

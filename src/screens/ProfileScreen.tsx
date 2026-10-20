@@ -133,6 +133,7 @@ export function ProfileScreen() {
           <NumField label="Ano de nascimento" unit="" value={p.birthYear} onChange={(v) => set({ birthYear: v })} />
           <NumField label="Gordura, se souber" unit="%" value={p.bodyFatPct} onChange={(v) => set({ bodyFatPct: v })} decimal />
         </div>
+        <a className="link small" href="#/peso" style={{ display: 'inline-block', marginTop: 8 }}>Objetivo de peso e evolução</a>
         <span className="label">Sexo biológico <span className="muted small">(para o cálculo de gasto)</span></span>
         <Opts label="Sexo biológico" value={p.sex} onChange={(v) => set({ sex: v })} options={[['F', 'Feminino'], ['M', 'Masculino']]} cols={2} />
         <span className="label">Atividade fora dos treinos</span>
@@ -174,6 +175,10 @@ export function ProfileScreen() {
         <MultiOpts label="Dias disponíveis" values={(tr.daysAvailable ?? []).map(String)} onToggle={(d) => set({ training: { ...tr, daysAvailable: toggleIn((tr.daysAvailable ?? []).map(String), d).map(Number).sort() } })} cols={7} options={[1, 2, 3, 4, 5, 6, 7].map((d) => [String(d), DAYS[d]])} />
         <span className="label">Tempo por sessão</span>
         <Opts label="Tempo por sessão" value={tr.minutesPerSession} onChange={(m) => set({ training: { ...tr, minutesPerSession: m } })} cols={4} options={[30, 45, 60, 90].map((m) => [m, `${m} min`] as [number, string])} />
+        <span className="label">Musculação</span>
+        <Opts label="Divisão da musculação" value={tr.strengthSplit} onChange={(v) => set({ training: { ...tr, strengthSplit: v } })} cols={2} options={[['full_body', 'Corpo todo em toda sessão'], ['dividido', 'Dividido por grupos']]} />
+        <span className="label">Foco da musculação</span>
+        <Opts label="Foco da musculação" value={tr.strengthGoal} onChange={(v) => set({ training: { ...tr, strengthGoal: v } })} cols={3} options={[['hipertrofia', 'Ganhar massa'], ['forca', 'Força'], ['manutencao', 'Manter']]} />
         <span className="label">Equipamento</span>
         <AutoText label="Equipamento" value={tr.equipment} onChange={(v) => set({ training: { ...tr, equipment: v } })} placeholder="Academia completa, rolo com potência…" />
         <span className="label">Dores ou limitações</span>

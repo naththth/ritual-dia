@@ -84,13 +84,13 @@ function Tasks() {
 }
 
 export const LIBRARY = [
-  { id: 'produtos', label: 'Produtos de pele', icon: <Droplet size={20} />, c: 'var(--rose)' },
+  { id: 'produtos', label: 'Produtos de cuidados', icon: <Droplet size={20} />, c: 'var(--rose)' },
   { id: 'plano-pele', label: 'Rotina de cuidados', icon: <Sparkles size={20} />, c: 'var(--rose)', path: '/plano/skin' },
   { id: 'alimentos', label: 'Alimentos', icon: <Utensils size={20} />, c: 'var(--honey)' },
   { id: 'refeicoes', label: 'Refeições favoritas', icon: <BookmarkCheck size={20} />, c: 'var(--honey)' },
   { id: 'plano-alimentacao', label: 'Plano de alimentação', icon: <CalendarRange size={20} />, c: 'var(--honey)', path: '/plano/food' },
   { id: 'modalidades', label: 'Modalidades de treino', icon: <Dumbbell size={20} />, c: 'var(--blue)' },
-  { id: 'treinos', label: 'Treinos-modelo', icon: <Repeat2 size={20} />, c: 'var(--blue)' },
+  { id: 'treinos', label: 'Sessões de treino', icon: <Repeat2 size={20} />, c: 'var(--blue)' },
   { id: 'plano-treino', label: 'Plano de treino', icon: <CalendarRange size={20} />, c: 'var(--blue)', path: '/plano/training' },
   { id: 'habitos', label: 'Hábitos', icon: <Repeat2 size={20} />, c: 'var(--olive)' },
   { id: 'metas', label: 'Metas', icon: <Target size={20} />, c: 'var(--olive)' },

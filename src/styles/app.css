@@ -587,3 +587,14 @@ button.food-line { width: 100%; text-align: left; }
 .care-row { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 12px; border-radius: 12px; border: 1.5px dashed var(--line-2); text-align: left; font-weight: 700; }
 .care-row.ok { border-style: solid; border-color: var(--olive-2); }
 .care-row .small { font-weight: 500; color: var(--ink-2); }
+
+/* Sessões de treino e peso */
+.wt-note { white-space: pre-line; margin-top: 6px; line-height: 1.45; }
+.wg-bar { height: 8px; border-radius: 99px; background: rgba(0,0,0,.12); margin-top: 14px; overflow: hidden; }
+.wg-bar i { display: block; height: 100%; background: currentColor; border-radius: 99px; }
+.weight-chart { display: block; max-width: 100%; }
+.weight-chart .wc-grid { stroke: var(--line); stroke-width: 1; }
+.weight-chart .wc-target { stroke: var(--wine-ink, #6b2737); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.weight-chart .wc-line { fill: none; stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; }
+.weight-chart .wc-dot { fill: var(--ink); }
+.weight-chart .wc-lbl { font-size: 10px; fill: var(--ink-2, currentColor); opacity: .75; }

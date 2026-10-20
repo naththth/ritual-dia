@@ -133,7 +133,8 @@ export function TrainingTab() {
                 </div>
               )}
               <div className="row between"><span className="t" style={{ fontWeight: 700, fontSize: 18 }}>{t.name}</span>{t.time && <span className="small" style={{ fontWeight: 700 }}>{t.time}</span>}</div>
-              <div className="small">{modName(t.modalityId)}, {t.duration} min, {t.intensity}{t.note ? `. ${t.note}` : ''}</div>
+              <div className="small">{modName(t.modalityId)}, {t.duration} min, {t.intensity}</div>
+              {t.note ? <div className="small wt-note">{t.note}</div> : null}
               {t.muscles?.length ? <div className="small">Foco: {t.muscles.join(', ').toLowerCase()}</div> : null}
               {t.steps?.length ? <StepsView steps={t.steps} /> : null}
               <div className="row wrap" style={{ gap: 8, marginTop: 10 }}>
@@ -210,7 +211,7 @@ export function TrainingTab() {
       )}
       <div className="row wrap" style={{ gap: 16, marginTop: 8 }}>
         <a className="link" href="#/plano/training">Plano de treino</a>
-        <a className="link" href="#/biblioteca/treinos">Treinos-modelo</a>
+        <a className="link" href="#/biblioteca/treinos">Sessões de treino</a>
       </div>
     </div>
   );

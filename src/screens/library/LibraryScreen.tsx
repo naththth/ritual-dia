@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { planFor } from '../../domain/rules';
 import { Plus, Search, Star, Trash2, Archive, ArchiveRestore, Sparkles } from 'lucide-react';
 import { aiAvailable, aiProductInfo } from '../../domain/ai';
 import { PageHead } from '../common';
@@ -229,23 +230,34 @@ function Modalities() {
 function WorkoutTemplates() {
   const tmpls = useAll('wtemplate');
   const mods = useAll('modality');
+  const plans = useAll('plan');
   const [edit, setEdit] = useState<Partial<WorkoutTemplate> | null>(null);
+  const plan = planFor(plans ?? [], 'training', todayKey());
+  const DOW = ['', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
+  const daysOf = (id: string) => Object.entries(plan?.training ?? {}).filter(([, ids]) => ids.includes(id)).map(([d]) => DOW[Number(d)]);
+  const nav = useNavigate();
   const [delEl, del] = useDelete();
   const save = async () => {
     if (!edit?.name?.trim() || !edit.modalityId) { toast('Dê um nome e escolha a modalidade.', undefined, 'error'); return; }
     if (edit.id) await update<'wtemplate'>(edit.id, edit); else await create('wtemplate', edit as WorkoutTemplate);
-    toast('Treino-modelo salvo'); setEdit(null);
+    toast('Sessão salva'); setEdit(null);
   };
   return (
     <>
-      <AddButton label="Novo treino-modelo" onClick={() => setEdit({ name: '', duration: 45, intensity: 'moderada' })} />
-      {(tmpls ?? []).filter((t) => !t.archived).map((t) => (
-        <button key={t.id} className="lib-item" onClick={() => setEdit(t)}>
-          <span className="grow"><span style={{ fontWeight: 650 }}>{t.name}</span><br /><span className="small muted">{mods?.find((m) => m.id === t.modalityId)?.name}, {t.duration} min, {t.intensity}</span></span>
-        </button>
-      ))}
-      {(tmpls ?? []).length === 0 && <Empty text="Crie modelos como Musculação 45 min ou Corrida leve 30 min. Eles alimentam o plano de treino." />}
-      <Sheet open={!!edit} onClose={() => setEdit(null)} title="Treino-modelo"
+      <p className="small" style={{ margin: '0 0 12px' }} data-testid="wt-intro">Cada sessão é um treino pronto: o que fazer, quanto tempo e em que intensidade. O <button className="link" style={{ minHeight: 0, padding: 0 }} onClick={() => nav('/plano/training')}>Plano de treino</button> distribui as sessões pelos dias da semana; no dia, a sessão aparece em Treino com os exercícios e você marca como feita com um toque. Aqui você muda o conteúdo; lá, o dia.</p>
+      <AddButton label="Nova sessão" onClick={() => setEdit({ name: '', duration: 45, intensity: 'moderada' })} />
+      {(tmpls ?? []).filter((t) => !t.archived).map((t) => {
+        const ds = daysOf(t.id);
+        return (
+          <button key={t.id} className="lib-item" onClick={() => setEdit(t)}>
+            <span className="grow"><span style={{ fontWeight: 650 }}>{t.name}</span><br />
+              <span className="small muted">{mods?.find((m) => m.id === t.modalityId)?.name}, {t.duration} min, {t.intensity}</span><br />
+              <span className="small" style={{ fontWeight: 650 }}>{ds.length ? `No plano: ${ds.join(', ')}` : 'Fora do plano da semana'}</span></span>
+          </button>
+        );
+      })}
+      {(tmpls ?? []).length === 0 && <Empty text="Crie sessões como Musculação corpo todo 35 min ou Pedal Z2 60 min. Elas montam o plano de treino." />}
+      <Sheet open={!!edit} onClose={() => setEdit(null)} title="Sessão de treino"
         footer={<>{edit?.id && <button className="btn btn-soft" style={{ flex: '0 0 auto' }} aria-label="Excluir" onClick={() => del(edit as any, edit!.name!, () => setEdit(null))}><Trash2 size={18} /></button>}<button className="btn btn-ink" onClick={save} data-testid="wt-save">Salvar</button></>}>
         {edit && (
           <>
@@ -256,6 +268,10 @@ function WorkoutTemplates() {
             <div className="chips">{[15, 20, 30, 45, 60, 90, 120].map((d) => <Chip key={d} color="blue" on={edit.duration === d} onClick={() => setEdit({ ...edit, duration: d })}>{d} min</Chip>)}</div>
             <span className="label">Intensidade</span>
             <Seg<Intensity> value={edit.intensity ?? 'moderada'} onChange={(v) => setEdit({ ...edit, intensity: v })} options={[{ id: 'leve', label: 'Leve' }, { id: 'moderada', label: 'Moderada' }, { id: 'intensa', label: 'Intensa' }]} />
+            <span className="label">Exercícios e como fazer</span>
+            <textarea rows={9} value={edit.note ?? ''} onChange={(e) => setEdit({ ...edit, note: e.target.value || undefined })} aria-label="Exercícios e como fazer" data-testid="wt-note"
+              placeholder={'1. Agachamento goblet 3x8-12\n2. Remada baixa 3x8-12\n…'} />
+            {edit.steps?.length ? <><span className="label">Blocos do pedal</span><p className="small" style={{ margin: 0 }}>{edit.steps.map((x) => `${x.label} ${x.minutes} min a ${x.pct}% do FTP`).join(' · ')}</p></> : null}
           </>
         )}
       </Sheet>
@@ -335,6 +351,7 @@ function Goals() {
   const num = (v: string) => (v === '' ? undefined : Number(v.replace(',', '.')));
   return (
     <>
+      <p className="small" style={{ margin: '0 0 12px' }}>Objetivo de peso fica em <a className="link" href="#/peso">Peso</a>, onde o app acompanha as pesagens e calcula ritmo e previsão.</p>
       <AddButton label="Nova meta" onClick={() => setEdit({ title: '', type: 'quantitativa', milestones: [], status: 'ativa' })} />
       {(goals ?? []).filter((g) => g.status !== 'arquivada').map((g) => {
         const es = (entries ?? []).filter((e) => e.goalId === g.id).sort((a, b) => (a.date < b.date ? 1 : -1));

@@ -228,7 +228,7 @@ function TrainingPlan() {
       catch (e: any) { toast(e.message, undefined, 'error'); } finally { setBusy(false); }
     }} />
   );
-  if (!active.length) return <>{ai}<Empty text="Crie treinos-modelo ou peça à IA para montar a semana." action={<button className="btn btn-ink" onClick={() => nav('/biblioteca/treinos')}>Criar treino-modelo</button>} /></>;
+  if (!active.length) return <>{ai}<Empty text="Crie sessões de treino ou peça à IA para montar a semana." action={<button className="btn btn-ink" onClick={() => nav('/biblioteca/treinos')}>Criar sessão de treino</button>} /></>;
   return (
     <>
       <VersionNote current={current} />

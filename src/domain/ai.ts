@@ -18,6 +18,7 @@ function friendly(msg: string) {
   if (/402|credits are depleted|prepayment|billing|quota/i.test(msg)) return 'Os créditos da IA acabaram. Recarregue no Google AI Studio (Faturamento) ou troque a chave no Supabase.';
   if (/429|rate limit|RESOURCE_EXHAUSTED/i.test(msg)) return 'A IA atingiu o limite de uso por agora. Tente de novo em alguns minutos.';
   if (/503|overloaded|high demand/i.test(msg)) return 'A IA está sobrecarregada agora. Tente de novo em instantes.';
+  if (/cortada|MAX_TOKENS|sem JSON/i.test(msg)) return 'A resposta da IA veio incompleta. Tente de novo; se repetir, me avise.';
   if (/API key not valid|invalid api key|401/i.test(msg)) return 'A chave da IA não foi aceita. Confira o segredo no Supabase.';
   if (/Failed to send a request|Failed to fetch|NetworkError|Load failed/i.test(msg)) return 'A conexão caiu no meio do envio. Tente de novo com a internet mais estável.';
   return msg;
@@ -43,7 +44,7 @@ export async function askAI<T = any>(task: AITask, context: unknown, images?: { 
   }
   const { data, error } = await Promise.race([
     supabase.functions.invoke('ritual-ai', { body: { task, context: ctx, images, files } }),
-    new Promise<never>((_, rej) => setTimeout(() => rej(new Error('A IA demorou demais para responder. Tente de novo.')), files?.length ? 150000 : 90000))
+    new Promise<never>((_, rej) => setTimeout(() => rej(new Error('A IA demorou demais para responder. Tente de novo.')), files?.length || task === 'skin_plan' ? 150000 : 90000))
   ]);
   if (error) {
     let msg = error.message;
@@ -93,13 +94,14 @@ export async function aiSkinPlan(today: DateKey) {
   const ctx = {
     perfil_de_pele: settings?.skinProfile ?? [],
     observacoes_dela: settings?.aiContext ?? '',
-    produtos: products.map((p) => ({ ...short(p), area: p.area ?? 'rosto' })),
+    // Códigos curtos (p1, p2…) no lugar dos ids longos: a resposta fica bem menor e não corta.
+    produtos: products.map((p, i) => ({ ...short(p), id: `p${i + 1}`, area: p.area ?? 'rosto' })),
     semana_de_treino,
     registros_recentes: logs.map((l) => ({ data: l.date, periodo: l.period, condicao: l.condition, sinais: l.signals, recuperacao: l.recovery }))
   };
   const r = await askAI<any>('skin_plan', ctx);
-  const valid = new Set(products.map((p) => p.id));
-  const clean = (ids: unknown) => (Array.isArray(ids) ? ids.filter((x) => typeof x === 'string' && valid.has(x)) : []);
+  const alias = new Map(products.map((p, i) => [`p${i + 1}`, p.id]));
+  const clean = (ids: unknown) => (Array.isArray(ids) ? ids.map((x) => alias.get(String(x))).filter((x): x is string => !!x) : []);
   const period = (pp: any) => {
     const days: Record<number, { add: string[]; remove: string[] }> = {};
     for (let d = 1; d <= 7; d++) {
@@ -132,7 +134,7 @@ export async function aiTrainingPlan(): Promise<AITrainingResult> {
     ftp: settings?.ftp ?? null,
     observacoes_dela: settings?.aiContext ?? '',
     modalidades: mods.filter((m) => !m.archived).map((m) => m.name),
-    treinos_modelo_existentes: tmpls.filter((t) => !t.archived).map((t) => ({ nome: t.name, duracao: t.duration }))
+    treinos_modelo_existentes: tmpls.filter((t) => !t.archived).map((t) => ({ nome: t.name, duracao: t.duration, roteiro: t.note }))
   });
 }
 
@@ -150,6 +152,7 @@ export async function applyTrainingResult(r: AITrainingResult): Promise<Record<n
       intensity: ['leve', 'moderada', 'intensa'].includes(t.intensity) ? t.intensity : 'moderada',
       steps: Array.isArray(t.steps) ? t.steps.map((s) => ({ label: String(s.label), minutes: Number(s.minutes) || 5, pct: Number(s.pct) || 60 })) : undefined,
       muscles: t.muscles,
+      note: Array.isArray((t as any).exercicios) && (t as any).exercicios.length ? [(t as any).roteiro, (t as any).exercicios.map((e: string, i: number) => `${i + 1}. ${e}`).join('\n')].filter(Boolean).join('\n\n') : (t as any).roteiro || undefined,
       time: /^\d{2}:\d{2}$/.test(String(t.time ?? '')) ? t.time : undefined
     });
     keyToId.set(t.key, rec.id);
