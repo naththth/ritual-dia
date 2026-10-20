@@ -1,4 +1,5 @@
 // Ponte com o assistente (função privada no Supabase). O app manda só o contexto necessário.
+import { nightAdjust } from './skinAdapt';
 import { supabase, useSync } from '../sync/sync';
 import { trainingLoad } from './load';
 import { wellnessForAI } from './wellness';
@@ -223,6 +224,11 @@ export async function aiDayBrief(date: DateKey) {
     tarefas_pendentes: pending.slice(0, 60).map((t) => ({ id: t.id, titulo: t.title, prioridade: t.priority, categoria: t.categoryId.replace('cat:', ''), subcategoria: t.subcategory, observacao: t.description, proximo_passo: t.nextStep, data_compromisso: t.appointmentDate, escolhida_para: t.plannedDate })),
     pele_plano_manha: plannedSkin(skinPlan, date, 'am', products).map(name),
     pele_plano_noite: plannedSkin(skinPlan, date, 'pm', products).map(name),
+    // O app já calcula se a noite pede tirar o ativo; a frase de pele deve concordar com isso.
+    ajuste_da_rotina_da_noite_sugerido_pelo_app: (() => {
+      const adj = nightAdjust({ plannedPm: plannedSkin(skinPlan, date, 'pm', products), recoveryPm: skinPlan?.skin?.recovery?.pm ?? [], products, amLog: skinLogs.find((l) => l.date === date && l.period === 'am'), workouts: doneToday, plannedWorkouts: tr as any });
+      return adj?.kind === 'swap' ? { sugestao: adj.title, motivos: adj.reasons } : undefined;
+    })(),
     hora_agora: hora,
     pele_registros_7_dias: skinLogs.map((l) => ({ data: l.date, periodo: l.period, condicao: l.condition, sinais: Object.keys(l.signals ?? {}), produtos_usados: (l.productIds ?? []).map(name).filter(Boolean), pulou: l.skipped || undefined })),
     feito_hoje: {

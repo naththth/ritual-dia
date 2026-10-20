@@ -6,7 +6,11 @@ import { useAll, useByDate } from '../db/hooks';
 import { PageHead , useBack } from './common';
 import { Chip, Seg, Sheet, Empty } from '../ui/ui';
 import { GROUPS, SKIN_CONDITIONS, SKIN_SIGNALS, INTENSITY_LABEL, BODY_SIGNALS, HAIR_SIGNALS, PERIOD_LABEL } from '../domain/defaults';
-import { activesTogether, planFor, plannedSkin } from '../domain/rules';
+import { activesTogether, planFor, plannedSkin, plannedTraining } from '../domain/rules';
+import { nightAdjust } from '../domain/skinAdapt';
+import { effectiveSleep } from '../domain/wellness';
+import { cycleInfo } from '../domain/cycle';
+import { useCycle } from './cycle';
 import { saveSkin, skinId, deleteRecord } from '../domain/actions';
 import type { Product, ProductGroup, SkinCondition } from '../db/types';
 import { PhotoStrip } from './photos';
@@ -30,6 +34,11 @@ export function SkinScreen() {
   const plans = useAll('plan');
   const log = logs?.find((l) => l.period === period);
   const plan = planFor(plans ?? [], 'skin', date);
+  const workouts = useByDate('workout', date);
+  const wellness = useByDate('wellness', date);
+  const tmpls = useAll('wtemplate');
+  const skips = useByDate('skip', date);
+  const { stats: cStats, profile } = useCycle();
 
   const [recovery, setRecovery] = useState(false);
   const [condition, setCondition] = useState<SkinCondition | undefined>();
@@ -52,7 +61,31 @@ export function SkinScreen() {
     setShowNote(!!log?.note);
   }, [key, logs]);
 
-  const planned = useMemo(() => plannedSkin(plan, date, period, products ?? [], recovery), [plan, date, period, products, recovery]);
+  const [dropped, setDropped] = useState<string[]>([]);
+  const basePlanned = useMemo(() => plannedSkin(plan, date, period, products ?? [], recovery), [plan, date, period, products, recovery]);
+  const planned = basePlanned.filter((id) => !dropped.includes(id));
+  // Ajuste da noite: pele de hoje, ativo da manhã, treino, sono e ciclo. Só aparece antes de registrar a noite.
+  const adjustKey = `night-adjust:${date}`;
+  const [choice, setChoice] = useState<string | null>(() => { try { return localStorage.getItem(adjustKey); } catch { return null; } });
+  const adjust = useMemo(() => {
+    if (period !== 'pm' || log || !products) return undefined;
+    const skipped = new Set((skips ?? []).filter((x) => x.domain === 'training').map((x) => x.ref));
+    const plannedW = plannedTraining(planFor(plans ?? [], 'training', date), date).map((id) => (tmpls ?? []).find((t) => t.id === id)).filter((t): t is NonNullable<typeof t> => !!t && !skipped.has(t.id));
+    const w = (wellness ?? [])[0];
+    return nightAdjust({
+      plannedPm: plannedSkin(plan, date, 'pm', products), recoveryPm: plan?.skin?.recovery?.pm ?? [], products,
+      amLog: logs?.find((l) => l.period === 'am'), liveSignals: signals, liveCondition: condition,
+      workouts: workouts ?? [], plannedWorkouts: plannedW, sleepH: effectiveSleep(w)?.h, phase: cycleInfo(date, cStats, profile)?.phase
+    });
+  }, [period, log, products, plan, date, logs, signals, condition, workouts, wellness, tmpls, plans, skips, cStats, profile]);
+  const decide = (c: 'applied' | 'kept') => { setChoice(c); try { localStorage.setItem(adjustKey, c); } catch { /* */ } };
+  const applyAdjust = () => {
+    if (!adjust) return;
+    if (adjust.useRecovery) setRecovery(true); else setDropped(adjust.remove);
+    setUsed((u) => u.filter((id) => !adjust.remove.includes(id)));
+    decide('applied');
+  };
+  useEffect(() => { if (choice === 'applied' && adjust?.kind === 'swap' && !recovery && !dropped.length) { if (adjust.useRecovery) setRecovery(true); else setDropped(adjust.remove); } }, [choice, adjust?.kind]);
   const byId = new Map((products ?? []).map((p) => [p.id, p]));
   const extras = used.filter((id) => !planned.includes(id));
   const alert = activesTogether(used, products ?? []);
@@ -103,6 +136,18 @@ export function SkinScreen() {
           </div>
         </>
       )}
+
+      {adjust && choice !== 'kept' && !(choice === 'applied' && adjust.kind === 'swap') && (
+        <section className={`night-adjust ${adjust.kind}`} data-testid="night-adjust" role="note">
+          <b>{adjust.title}</b>
+          <p className="small" style={{ margin: '4px 0 0' }}>Por quê: {adjust.reasons.join('; ')}.</p>
+          <div className="row wrap" style={{ gap: 8, marginTop: 10 }}>
+            {adjust.kind === 'swap' && <button className="pill-act pa-rose" onClick={applyAdjust} data-testid="night-adjust-apply">{adjust.useRecovery ? 'Usar a recuperação hoje' : 'Tirar hoje'}</button>}
+            <button className="pill-act pa-ghost" onClick={() => decide('kept')} data-testid="night-adjust-keep">{adjust.kind === 'swap' ? 'Manter o plano' : 'Ok'}</button>
+          </div>
+        </section>
+      )}
+      {choice === 'applied' && adjust?.kind === 'swap' && <p className="small" style={{ margin: '14px 0 0' }} data-testid="night-adjust-done">Ajuste de hoje aplicado: sem ativo forte esta noite. <button className="link" style={{ minHeight: 0 }} onClick={() => { setDropped([]); setRecovery(false); decide('kept'); }}>Desfazer</button></p>}
 
       <div className="section">
         <h2 className="section-title">Produtos</h2>

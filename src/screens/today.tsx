@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Check as CheckIcon, Droplets, Dumbbell, Flame, Moon, NotebookPen, Sunrise, Utensils } from 'lucide-react';
 import { useAll, useByDate, useSettings } from '../db/hooks';
 import { planFor, plannedFood, plannedSkin, plannedTraining } from '../domain/rules';
+import { nightAdjust } from '../domain/skinAdapt';
 import { mealFromTemplate, saveSkin, workoutFromTemplate, addWater } from '../domain/actions';
 import { fmt, totals } from '../domain/nutrition';
 import { watts } from '../domain/ai';
@@ -69,13 +70,26 @@ export function useTimeline(date: DateKey): TLItem[] | undefined {
 
   for (const period of ['am', 'pm'] as const) {
     const log = skin.find((s) => s.period === period);
-    const planned = plannedSkin(skinPlan, date, period, products);
+    let planned = plannedSkin(skinPlan, date, period, products);
+    let adjustNote = '';
+    if (period === 'pm' && !log) {
+      const skipped = new Set(skips.filter((x) => x.domain === 'training').map((x) => x.ref));
+      const adj = nightAdjust({
+        plannedPm: planned, recoveryPm: skinPlan?.skin?.recovery?.pm ?? [], products, amLog: skin.find((x) => x.period === 'am'), workouts,
+        plannedWorkouts: plannedTraining(planFor(plans, 'training', date), date).map((id) => wt.find((t) => t.id === id)).filter((t): t is NonNullable<typeof t> => !!t && !skipped.has(t.id))
+      });
+      let choice: string | null = null; try { choice = localStorage.getItem(`night-adjust:${date}`); } catch { /* */ }
+      if (adj?.kind === 'swap' && choice !== 'kept') {
+        if (choice === 'applied') { planned = adj.useRecovery ? plannedSkin(skinPlan, date, 'pm', products, true) : planned.filter((id) => !adj.remove.includes(id)); adjustNote = 'Sem ativo hoje: '; }
+        else adjustNote = 'Ajuste sugerido para hoje · ';
+      }
+    }
     items.push({
       key: `skin-${period}`, time: sTimes[period], mod: 'skin', icon: period === 'am' ? <Sunrise size={18} /> : <Moon size={18} />,
       title: period === 'am' ? 'Rotina da manhã' : 'Rotina da noite',
-      detail: log ? (log.skipped ? 'Pulado' : (log.productIds.length === 1 ? '1 produto usado' : `${log.productIds.length} produtos usados`)) : planned.length ? short(planned) : 'Sem plano para hoje',
+      detail: log ? (log.skipped ? 'Pulado' : (log.productIds.length === 1 ? '1 produto usado' : `${log.productIds.length} produtos usados`)) : planned.length ? adjustNote + short(planned) : 'Sem plano para hoje',
       done: !!log,
-      action: !log && planned.length ? { label: 'Usei tudo', run: () => saveSkin(date, period, { productIds: planned, plannedIds: planned }), testId: `act-skin-${period}` } : undefined,
+      action: !log && planned.length && !adjustNote.startsWith('Ajuste') ? { label: 'Usei tudo', run: () => saveSkin(date, period, { productIds: planned, plannedIds: planned }), testId: `act-skin-${period}` } : undefined,
       open: `/pele?p=${period}`
     });
   }

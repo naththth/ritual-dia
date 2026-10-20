@@ -540,3 +540,32 @@ test('sessões de treino: explicação, dias do plano e exercícios', async ({ p
   await expect(page.getByTestId('library-treinos')).toContainText('Fora do plano da semana');
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/sessoes.png', fullPage: true });
 });
+
+test('noite se adapta: vermelhidão de manhã tira o ativo da noite', async ({ page }) => {
+  await onboard(page);
+  await page.goto('./#/plano/skin');
+  await page.getByRole('tab', { name: 'Noite' }).click();
+  await page.getByTestId('edit-base').click();
+  for (const name of ['Gel de limpeza', 'Retinol', 'Creme hidratante']) await page.locator('.sheet [data-testid=product-pick]', { hasText: name }).click();
+  await page.getByRole('button', { name: 'Pronto' }).click();
+  await page.getByTestId('plan-save').click();
+  await expect(page.getByTestId('plan-skin')).toBeHidden();
+  // manhã com vermelhidão
+  await page.goto('./#/pele?p=am');
+  await page.getByTestId('sig-vermelhidao').click();
+  await page.getByTestId('skin-save').click();
+  await expect(page.getByTestId('skin-screen')).toBeHidden();
+  await page.goto('./#/');
+  await expect(page.getByTestId('tl-skin-pm')).toContainText('Ajuste sugerido');
+  await page.goto('./#/pele?p=pm');
+  await expect(page.getByTestId('night-adjust')).toContainText('Retinol');
+  await expect(page.getByTestId('night-adjust')).toContainText('vermelhidão');
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/noite-ajuste.png' });
+  await page.getByTestId('night-adjust-apply').click();
+  await expect(page.getByTestId('night-adjust-done')).toBeVisible();
+  await expect(page.getByTestId('skin-sec-rosto')).not.toContainText('Retinol');
+  await expect(page.getByTestId('skin-sec-rosto')).toContainText('Creme hidratante');
+  await page.goto('./#/');
+  await expect(page.getByTestId('tl-skin-pm')).toContainText('Sem ativo hoje');
+  await expect(page.getByTestId('tl-skin-pm')).not.toContainText('Retinol');
+});
