@@ -295,7 +295,7 @@ test('sono: acordar 6h calcula deitar e organiza o dia', async ({ page }) => {
 
 test('registrar sono, VFC e passos à mão', async ({ page }) => {
   await onboard(page);
-  await page.getByTestId('wellness-ask').click();
+  await page.getByTestId('wellness-open').click();
   await page.getByLabel('Sono', { exact: true }).fill('7h20');
   await page.getByLabel('VFC (ms)').fill('46');
   await page.getByLabel('FC repouso').fill('52');
@@ -308,4 +308,11 @@ test('registrar sono, VFC e passos à mão', async ({ page }) => {
   await page.screenshot({ path: 'test-results/shots/hoje-sono.png' });
   await page.goto('./#/treino');
   await page.getByTestId('fit-input').setInputFiles(path.resolve('tests/e2e/fixtures/pedal.fit'));
+});
+
+test('sem relógio: estimativa de sono com um toque', async ({ page }) => {
+  await onboard(page);
+  await page.getByTestId('no-watch').getByRole('button', { name: '~7 h' }).click();
+  await expect(page.getByTestId('wellness')).toContainText('~7h00');
+  await expect(page.getByTestId('wellness')).toContainText('estimado');
 });

@@ -11,6 +11,7 @@ import { StepsView } from './ai-ui';
 import { POWER_ZONES } from '../domain/fit';
 import { importFitFiles } from '../domain/fitImport';
 import { trainingLoad, workoutLoad, formLabel } from '../domain/load';
+import { effectiveSleep, effectiveHrv, wellnessForAI } from '../domain/wellness';
 import { db } from '../db/db';
 import type { Workout, WorkoutTemplate } from '../db/types';
 import { aiAvailable, askAI, applyTrainingResult } from '../domain/ai';
@@ -63,7 +64,7 @@ export function TrainingTab() {
         observacoes_dela: settings?.aiContext ?? '',
         plano_atual: days.map((d) => ({ dia: ['', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'][isoWeekday(d)], treinos: plannedOf(d).map((t) => ({ nome: t.name, minutos: t.duration, intensidade: t.intensity, blocos: t.steps, horario: t.time })) })),
         carga_atual: (() => { const l = trainingLoad(history ?? [], addDays(todayKey(), -120), todayKey()).slice(-1)[0]; return l ? { fitness_ctl: Math.round(l.ctl), fadiga_atl: Math.round(l.atl), forma_tsb: Math.round(l.tsb) } : null; })(),
-        sono_e_recuperacao_28_dias: (await db.records.where('[kind+date]').between(['wellness', addDays(todayKey(), -28)], ['wellness', todayKey()], true, true).toArray()).filter((r: any) => !r.deleted).map((w: any) => ({ data: w.date, sono_h: w.sleepH, vfc: w.hrv, fc_repouso: w.restingHR, body_battery: w.bodyBattery, passos: w.steps })),
+        sono_e_recuperacao_28_dias: (await db.records.where('[kind+date]').between(['wellness', addDays(todayKey(), -28)], ['wellness', todayKey()], true, true).toArray()).filter((r: any) => !r.deleted).map((w: any) => wellnessForAI(w)),
         diario_14_dias: (await db.records.where('[kind+date]').between(['journal', addDays(todayKey(), -14)], ['journal', todayKey()], true, true).toArray()).filter((r: any) => !r.deleted).map((j: any) => ({ data: j.date, energia: j.energy, sono: j.sleep, estresse: j.stress })),
         treinos_feitos_28_dias: recent.map((w) => ({ data: w.date, modalidade: modName(w.modalityId), minutos: w.duration, do_plano: !!w.fromPlan, metricas: w.metrics ? { ...w.metrics, laps: undefined } : undefined }))
       });
@@ -149,7 +150,8 @@ export function TrainingTab() {
         const now = load[load.length - 1];
         const weekAgo = load[load.length - 8];
         const wk = wellness ?? [];
-        const avg = (k: 'sleepH' | 'hrv' | 'restingHR' | 'steps') => { const v = wk.map((x) => x[k]).filter((x): x is number => x != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : undefined; };
+        const pick = (k: 'sleepH' | 'hrv' | 'restingHR' | 'steps') => (x: any) => (k === 'sleepH' ? effectiveSleep(x)?.h : k === 'hrv' ? effectiveHrv(x) : x[k]);
+        const avg = (k: 'sleepH' | 'hrv' | 'restingHR' | 'steps') => { const v = wk.map(pick(k)).filter((x): x is number => x != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : undefined; };
         const sleep = avg('sleepH'), hrv = avg('hrv'), rhr = avg('restingHR'), steps = avg('steps');
         const est = history.filter((w) => w.date >= addDays(todayKey(), -42)).some((w) => workoutLoad(w).estimated);
         return (

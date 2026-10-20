@@ -1,6 +1,6 @@
 // Sono, passos e recuperação: registro manual ou lido de prints do Garmin pela IA.
 import { useEffect, useRef, useState } from 'react';
-import { Camera, Moon, Pencil } from 'lucide-react';
+import { Camera, Moon, Pencil, Watch } from 'lucide-react';
 import { useByDate } from '../db/hooks';
 import { get, upsert } from '../db/db';
 import { Sheet } from '../ui/ui';
@@ -8,9 +8,11 @@ import { toast } from '../state/store';
 import { aiAvailable, askAI } from '../domain/ai';
 import { addDays, shortLabel, todayKey, type DateKey } from '../lib/dates';
 import type { Wellness } from '../db/types';
+import { effectiveSleep, effectiveHrv, isSuspicious } from '../domain/wellness';
+import { Chip } from '../ui/ui';
 
-type Form = { sleepH: string; sleepScore: string; hrv: string; restingHR: string; bodyBattery: string; steps: string; stress: string; sleepStart: string; sleepEnd: string };
-const EMPTY: Form = { sleepH: '', sleepScore: '', hrv: '', restingHR: '', bodyBattery: '', steps: '', stress: '', sleepStart: '', sleepEnd: '' };
+type Form = { flag: '' | 'confirmado' | 'incompleto'; manual: string; sleepH: string; sleepScore: string; hrv: string; restingHR: string; bodyBattery: string; steps: string; stress: string; sleepStart: string; sleepEnd: string };
+const EMPTY: Form = { flag: '', manual: '', sleepH: '', sleepScore: '', hrv: '', restingHR: '', bodyBattery: '', steps: '', stress: '', sleepStart: '', sleepEnd: '' };
 
 const hm = (h?: number) => (h == null ? '' : `${Math.floor(h)}h${String(Math.round((h % 1) * 60)).padStart(2, '0')}`);
 /** Aceita "7,5", "7.5", "7h30", "7:30", "7 h 30 min". */
@@ -27,7 +29,7 @@ const num = (s: string) => { const n = Number(s.replace(/\./g, '').replace(',', 
 function toForm(w?: Partial<Wellness>): Form {
   if (!w) return EMPTY;
   const s = (v?: number) => (v == null ? '' : String(v));
-  return { sleepH: hm(w.sleepH), sleepScore: s(w.sleepScore), hrv: s(w.hrv), restingHR: s(w.restingHR), bodyBattery: s(w.bodyBattery), steps: s(w.steps), stress: s(w.stress), sleepStart: w.sleepStart ?? '', sleepEnd: w.sleepEnd ?? '' };
+  return { flag: w.sleepFlag ?? '', manual: w.sleepManualH != null ? hm(w.sleepManualH) : '', sleepH: hm(w.sleepH), sleepScore: s(w.sleepScore), hrv: s(w.hrv), restingHR: s(w.restingHR), bodyBattery: s(w.bodyBattery), steps: s(w.steps), stress: s(w.stress), sleepStart: w.sleepStart ?? '', sleepEnd: w.sleepEnd ?? '' };
 }
 
 /** Reduz o print para caber no envio sem perder a leitura dos números. */
@@ -41,32 +43,87 @@ async function shrink(file: File): Promise<{ mime: string; data: string }> {
   return { mime: 'image/jpeg', data: url.slice(url.indexOf(',') + 1) };
 }
 
-/** Faixa no Hoje: mostra o que foi registrado ou convida a registrar. */
+const ESTIMATES = [5, 6, 7, 8, 9];
+
+async function patchWellness(date: DateKey, data: Partial<Wellness>) {
+  const cur = (await get<'wellness'>(`wellness:${date}`)) as Partial<Wellness> | undefined;
+  await upsert('wellness', `wellness:${date}`, { ...(cur ?? {}), date, ...data } as any);
+}
+
+/** Faixa no Hoje: mostra o que foi registrado, pergunta quando a noite parece incompleta e convida a registrar quando falta. */
 export function WellnessCard({ date }: { date: DateKey }) {
   const w = useByDate('wellness', date)?.[0];
   const [open, setOpen] = useState(false);
+  const [askHours, setAskHours] = useState(false);
+  const sleep = effectiveSleep(w);
+  const hrv = effectiveHrv(w);
   const items: [string, string][] = [];
-  if (w?.sleepH != null) items.push(['de sono', hm(w.sleepH)]);
-  if (w?.sleepScore != null) items.push(['pontos de sono', String(w.sleepScore)]);
-  if (w?.hrv != null) items.push(['VFC', `${Math.round(w.hrv)} ms`]);
+  if (sleep) items.push([sleep.estimated ? 'de sono (estimado)' : 'de sono', `${sleep.estimated ? '~' : ''}${hm(sleep.h)}`]);
+  else if (w?.sleepFlag === 'incompleto') items.push(['', 'sono sem registro']);
+  if (sleep && !sleep.estimated && w?.sleepScore != null) items.push(['pontos de sono', String(w.sleepScore)]);
+  if (hrv != null) items.push(['VFC', `${Math.round(hrv)} ms`]);
   if (w?.restingHR != null) items.push(['FC repouso', String(w.restingHR)]);
   if (w?.bodyBattery != null) items.push(['Body Battery', String(w.bodyBattery)]);
   if (w?.steps != null) items.push(['passos', w.steps.toLocaleString('pt-BR')]);
+  const hasSleep = !!sleep || w?.sleepFlag === 'incompleto';
+  const estimate = (h: number) => patchWellness(date, { sleepManualH: h, sleepFlag: 'incompleto' }).then(() => { setAskHours(false); toast(`Noite registrada como ~${h} h`); });
+
+  // Noite curta vinda do relógio: pergunta antes de usar o número.
+  if (isSuspicious(w)) {
+    return (
+      <section className="wellness-ask" style={{ display: 'block' }} data-testid="sleep-check">
+        <div className="row" style={{ gap: 10, alignItems: 'flex-start' }}><Watch size={18} style={{ marginTop: 2 }} />
+          <span className="grow"><b>O relógio marcou {hm(w!.sleepH)} de sono.</b><br /><span className="small">Foi isso mesmo ou o relógio saiu do pulso?</span></span></div>
+        {!askHours ? (
+          <div className="row wrap" style={{ gap: 8, marginTop: 10 }}>
+            <button className="pill-act pa-ghost" onClick={() => patchWellness(date, { sleepFlag: 'confirmado' })} data-testid="sleep-confirm">Foi isso, dormi pouco</button>
+            <button className="pill-act pa-ghost" onClick={() => setAskHours(true)} data-testid="sleep-incomplete">O relógio saiu</button>
+          </div>
+        ) : (
+          <>
+            <p className="small" style={{ margin: '10px 0 6px' }}>Quanto você dormiu, mais ou menos?</p>
+            <div className="chips">
+              {ESTIMATES.map((h) => <Chip key={h} onClick={() => estimate(h)}>{h} h</Chip>)}
+              <Chip onClick={() => patchWellness(date, { sleepFlag: 'incompleto' }).then(() => setAskHours(false))}>Não sei</Chip>
+            </div>
+          </>
+        )}
+      </section>
+    );
+  }
+
   return (
     <>
       {items.length ? (
-        <button className="wellness-strip tap" onClick={() => setOpen(true)} data-testid="wellness" aria-label="Editar sono e passos">
-          {items.map(([l, v]) => <span key={l}><b className="num">{v}</b> {l}</span>)}
-          <Pencil size={14} style={{ marginLeft: 'auto', alignSelf: 'center' }} />
-        </button>
+        <>
+          <button className="wellness-strip tap" onClick={() => setOpen(true)} data-testid="wellness" aria-label="Editar sono e passos">
+            {items.map(([l, v]) => <span key={l + v}><b className="num">{v}</b> {l}</span>)}
+            <Pencil size={14} style={{ marginLeft: 'auto', alignSelf: 'center' }} />
+          </button>
+          {!hasSleep && date <= todayKey() && <NoWatchRow onPick={estimate} onMore={() => setOpen(true)} />}
+        </>
       ) : date <= todayKey() ? (
-        <button className="wellness-ask tap" onClick={() => setOpen(true)} data-testid="wellness-ask">
-          <Moon size={18} />
-          <span className="grow"><b>Como você dormiu?</b><br /><span className="small">Sono, VFC, FC de repouso e passos. Um print do Garmin resolve.</span></span>
-        </button>
+        <section className="wellness-ask" style={{ display: 'block' }} data-testid="wellness-ask">
+          <button className="row tap" style={{ gap: 12, width: '100%', textAlign: 'left' }} onClick={() => setOpen(true)} data-testid="wellness-open">
+            <Moon size={18} />
+            <span className="grow"><b>Como você dormiu?</b><br /><span className="small">Sono, VFC, FC de repouso e passos. Um print do Garmin resolve.</span></span>
+          </button>
+          <NoWatchRow onPick={estimate} inline />
+        </section>
       ) : null}
       <WellnessSheet open={open} date={date} onClose={() => setOpen(false)} />
     </>
+  );
+}
+
+/** Atalho para noite sem relógio: um toque com a estimativa. */
+function NoWatchRow({ onPick, onMore, inline }: { onPick: (h: number) => void; onMore?: () => void; inline?: boolean }) {
+  return (
+    <div className="row wrap" style={{ gap: 6, margin: inline ? '10px 0 0' : '-6px 0 14px', alignItems: 'center' }} data-testid="no-watch">
+      <span className="small">Dormiu sem relógio?</span>
+      {ESTIMATES.slice(1, 4).map((h) => <button key={h} className="pill-act pa-ghost" style={{ minHeight: 34, padding: '0 12px' }} onClick={() => onPick(h)}>~{h} h</button>)}
+      {onMore && <button className="pill-act pa-ghost" style={{ minHeight: 34, padding: '0 12px' }} onClick={onMore}>outro</button>}
+    </div>
   );
 }
 
@@ -108,8 +165,11 @@ export function WellnessSheet({ open, date: initial, onClose }: { open: boolean;
   };
 
   const save = async () => {
+    const cur = (await get<'wellness'>(`wellness:${date}`)) as Partial<Wellness> | undefined;
     const data = {
-      date, source: 'manual',
+      ...(cur ?? {}),
+      date, source: cur?.source ?? 'manual',
+      sleepFlag: f.flag || undefined, sleepManualH: f.flag === 'incompleto' ? parseHours(f.manual) : undefined,
       sleepH: parseHours(f.sleepH), sleepScore: num(f.sleepScore), hrv: num(f.hrv), restingHR: num(f.restingHR),
       bodyBattery: num(f.bodyBattery), steps: num(f.steps), stress: num(f.stress),
       sleepStart: f.sleepStart || undefined, sleepEnd: f.sleepEnd || undefined
@@ -147,6 +207,18 @@ export function WellnessSheet({ open, date: initial, onClose }: { open: boolean;
         <label className="nutr-cell"><span>Dormiu às</span><input type="time" value={f.sleepStart} onChange={(e) => set({ sleepStart: e.target.value })} aria-label="Dormiu às" /></label>
         <label className="nutr-cell"><span>Acordou às</span><input type="time" value={f.sleepEnd} onChange={(e) => set({ sleepEnd: e.target.value })} aria-label="Acordou às" /></label>
       </div>
+      <span className="label">Essa noite</span>
+      <div className="chips" data-testid="sleep-flag">
+        <Chip on={f.flag === ''} onClick={() => set({ flag: '' })}>Registro normal</Chip>
+        <Chip on={f.flag === 'confirmado'} onClick={() => set({ flag: 'confirmado' })}>Dormi pouco mesmo</Chip>
+        <Chip on={f.flag === 'incompleto'} onClick={() => set({ flag: 'incompleto' })}>Relógio saiu / sem relógio</Chip>
+      </div>
+      {f.flag === 'incompleto' && (
+        <div className="nutr-grid" style={{ gridTemplateColumns: '1fr 1fr', marginTop: 8 }}>
+          <label className="nutr-cell"><span>Quanto dormiu, mais ou menos</span><input value={f.manual} onChange={(e) => set({ manual: e.target.value })} placeholder="7h" aria-label="Sono estimado" /></label>
+        </div>
+      )}
+      <p className="field-hint">Noite marcada como incompleta não entra nas médias nem na leitura da IA; se você der uma estimativa, ela vale no lugar.</p>
       <span className="label">Dia</span>
       <div className="nutr-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
         {field('steps', 'Passos', 'ex.: 9500')}

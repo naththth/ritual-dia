@@ -304,6 +304,10 @@ export interface Wellness extends Base {
   kind: 'wellness'; date: DateKey; source?: string;
   steps?: number; sleepH?: number; sleepScore?: number; restingHR?: number; hrv?: number; weight?: number; ctl?: number; atl?: number; readiness?: number;
   bodyBattery?: number; stress?: number; sleepStart?: string; sleepEnd?: string; // HH:MM
+  /** 'confirmado': ela disse que dormiu pouco mesmo; 'incompleto': o relógio saiu ou ficou sem bateria. */
+  sleepFlag?: 'confirmado' | 'incompleto';
+  /** Horas estimadas por ela quando dormiu sem relógio ou o registro saiu incompleto. Prevalece sobre o do relógio. */
+  sleepManualH?: number;
 }
 export interface Journal extends Base {
   kind: 'journal'; date: DateKey;

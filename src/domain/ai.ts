@@ -1,6 +1,7 @@
 // Ponte com o assistente (função privada no Supabase). O app manda só o contexto necessário.
 import { supabase, useSync } from '../sync/sync';
 import { trainingLoad } from './load';
+import { wellnessForAI } from './wellness';
 import { all, byDateRange, create, get, upsert } from '../db/db';
 import type { Plan, Product, WorkoutStep } from '../db/types';
 import { addDays, isoWeekday, type DateKey } from '../lib/dates';
@@ -164,7 +165,7 @@ export async function aiDayBrief(date: DateKey) {
     pele_registros_7_dias: skinLogs.map((l) => ({ data: l.date, periodo: l.period, condicao: l.condition, sinais: Object.keys(l.signals ?? {}) })),
     carga_de_treino: (() => { const l = trainingLoad(workouts, addDays(date, -120), date).slice(-1)[0]; return l ? { fitness: Math.round(l.ctl), fadiga: Math.round(l.atl), forma: Math.round(l.tsb) } : null; })(),
     treinos_ultimos_3_dias: workouts.filter((w) => w.date >= addDays(date, -3)).map((w) => ({ data: w.date, modalidade: mods.find((m) => m.id === w.modalityId)?.name, minutos: w.duration, tss: w.metrics?.tss, fc_media: w.metrics?.avgHr })),
-    sono_e_recuperacao_7_dias: wellness.map((w) => ({ data: w.date, sono_h: w.sleepH, sono_pontos: w.sleepScore, vfc: w.hrv, fc_repouso: w.restingHR, body_battery: w.bodyBattery, passos: w.steps })),
+    sono_e_recuperacao_7_dias: wellness.map(wellnessForAI),
     diario_ultimos_dias: journals.map((j) => ({ data: j.date, energia: j.energy, humor: j.mood, sono: j.sleep, estresse: j.stress, tags: j.tags })),
     treino_planejado: tr.map((t) => ({ nome: t!.name, modalidade: mods.find((m) => m.id === t!.modalityId)?.name, minutos: t!.duration }))
   };
@@ -201,7 +202,7 @@ export async function aiWeekReview(weekStartKey: DateKey) {
     alimentacao_por_dia: days.map((d) => { const its = meals.filter((m) => m.date === d).flatMap((m) => m.items); const t = totals(its, foods).n; return { data: d, refeicoes: meals.filter((m) => m.date === d && m.items.length).length, kcal: Math.round(t.kcal), proteina_g: Math.round(t.p), agua_ml: water.filter((w) => w.date === d).reduce((a, w) => a + w.ml, 0) }; }),
     pele: skin.map((s) => ({ data: s.date, periodo: s.period, condicao: s.condition, sinais: Object.keys(s.signals ?? {}), recuperacao: s.recovery })),
     diario: journals.map((j) => ({ data: j.date, energia: j.energy, humor: j.mood, sono: j.sleep, estresse: j.stress, tags: j.tags, texto: j.text?.slice(0, 280) })),
-    sono_e_recuperacao: wellness.map((w) => ({ data: w.date, sono_h: w.sleepH, sono_pontos: w.sleepScore, deitou: w.sleepStart, vfc: w.hrv, fc_repouso: w.restingHR, body_battery: w.bodyBattery, passos: w.steps })),
+    sono_e_recuperacao: wellness.map(wellnessForAI),
     tarefas_concluidas: tasks.filter((t) => t.completedDate && t.completedDate >= weekStartKey && t.completedDate <= end).map((t) => t.title),
     tarefas_pendentes_alta: tasks.filter((t) => t.status === 'pendente' && t.priority === 'alta').map((t) => t.title).slice(0, 15),
     paginas_lidas: readlogs.reduce((a, r) => a + r.pages, 0)
