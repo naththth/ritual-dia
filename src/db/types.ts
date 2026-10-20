@@ -35,6 +35,8 @@ export interface Settings extends Base {
   owners: string[];
   ftp?: number;
   aiContext?: string; // observações livres para a IA (rotina, restrições)
+  profile?: Profile; // perfil e objetivos: base para nutrição, treino e pele
+  targetsNote?: string; // como a IA chegou às metas
   showNutrition?: boolean; // padrão: ligado
   mealTimes?: Record<string, string>; // 'cafe' -> '07:30'
   skinTimes?: { am: string; pm: string };
@@ -343,3 +345,20 @@ export type KindMap = {
   plan: Plan; skip: Skip; brief: DayBrief;
   wellness: Wellness; journal: Journal; note: Note; book: Book; readlog: ReadLog; review: Review;
 };
+
+/** Perfil e objetivos. Tudo opcional: a IA usa o que houver e diz o que falta. */
+export interface Profile {
+  sex?: 'F' | 'M';
+  birthYear?: number;
+  heightCm?: number;
+  weightKg?: number;
+  bodyFatPct?: number;
+  goal?: 'perder_gordura' | 'recomposicao' | 'ganhar_massa' | 'performance' | 'manter';
+  pace?: 'leve' | 'moderado';
+  event?: string; // prova alvo e data, texto livre
+  activity?: 'sedentario' | 'leve' | 'moderado' | 'alto' | 'muito_alto'; // fora o treino
+  diet?: { restrictions: string[]; dislikes?: string; likes?: string; mealsPerDay?: number; followsNutritionist?: boolean };
+  training?: { daysAvailable?: number[]; minutesPerSession?: number; equipment?: string; limitations?: string; followsCoach?: boolean };
+  skin?: { type?: string; concerns: string[]; sensitive?: boolean; followsDerm?: boolean; prescriptions?: string };
+  updatedAt?: number;
+}

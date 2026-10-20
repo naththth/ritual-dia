@@ -128,7 +128,8 @@ export function SettingsScreen() {
             <Chip on={settings.showNutrition !== false} onClick={() => update<'settings'>('settings', { showNutrition: true })}>Mostrar</Chip>
             <Chip on={settings.showNutrition === false} onClick={() => update<'settings'>('settings', { showNutrition: false })}>Ocultar</Chip>
           </div>
-          <p className="field-hint">Sem metas próprias, o app compara o dia com o seu plano alimentar.</p>
+          <p className="field-hint">Sem metas próprias, o app compara o dia com o seu plano alimentar. {settings.targetsNote ? 'Metas calculadas pela IA a partir do seu perfil.' : ''}</p>
+          <a className="btn btn-wine btn-sm" href="#/perfil" style={{ marginTop: 6, display: 'inline-flex' }}>Calcular com IA pelo meu perfil</a>
           <div className="nutr-grid" style={{ marginTop: 8 }}>
             {([['kcal', 'Meta kcal'], ['p', 'Proteína (g)'], ['c', 'Carbo (g)'], ['f', 'Gordura (g)']] as const).map(([k, l]) => (
               <label key={k} className="nutr-cell"><span>{l}</span>

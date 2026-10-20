@@ -7,7 +7,7 @@ import type { Plan, Product, WorkoutStep } from '../db/types';
 import { addDays, isoWeekday, todayKey, type DateKey } from '../lib/dates';
 import { planFor, plannedSkin, plannedTraining } from './rules';
 
-export type AITask = 'skin_plan' | 'training_plan' | 'food_plan' | 'day_brief' | 'training_review' | 'week_review' | 'wellness_read' | 'label_read';
+export type AITask = 'skin_plan' | 'training_plan' | 'food_plan' | 'day_brief' | 'training_review' | 'week_review' | 'wellness_read' | 'label_read' | 'targets';
 
 export function aiAvailable() {
   return !!supabase && !!useSync.getState().session && navigator.onLine;
@@ -26,7 +26,14 @@ export async function askAI<T = any>(task: AITask, context: unknown, images?: { 
   if (!supabase) throw new Error('Sincronização não configurada.');
   if (!useSync.getState().session) throw new Error('Entre com Google para usar a IA.');
   if (!navigator.onLine) throw new Error('Sem conexão. A IA precisa de internet.');
-  const { data, error } = await supabase.functions.invoke('ritual-ai', { body: { task, context, images } });
+  // Todo pedido leva o perfil e os objetivos dela, para a IA responder como especialista que a conhece.
+  let ctx = context;
+  if (ctx && typeof ctx === 'object' && !Array.isArray(ctx)) {
+    const st = await get<'settings'>('settings');
+    const pf = st?.profile;
+    if (pf && Object.keys(pf).length) ctx = { perfil_dela: { ...pf, idade: pf.birthYear ? new Date().getFullYear() - pf.birthYear : undefined, updatedAt: undefined }, ...(ctx as object) };
+  }
+  const { data, error } = await supabase.functions.invoke('ritual-ai', { body: { task, context: ctx, images } });
   if (error) {
     let msg = error.message;
     try { const b = await (error as any).context?.json?.(); if (b?.error) msg = b.error; } catch { /* */ }
@@ -226,5 +233,28 @@ export async function aiWeekReview(weekStartKey: DateKey) {
     date: weekStartKey, scope: 'semana', text: String(r.texto ?? ''),
     highlights: Array.isArray(r.destaques) ? r.destaques.map(String).slice(0, 5) : [],
     focus: Array.isArray(r.foco) ? r.foco.map(String).slice(0, 3) : []
+  });
+}
+
+/* ---------- Metas de calorias e macros ---------- */
+export async function aiTargets() {
+  const today = todayKey();
+  const [settings, workouts, plans, tmpls, foods, wellness] = await Promise.all([
+    get<'settings'>('settings'), byDateRange('workout', addDays(today, -28), today), all('plan'), all('mtemplate'), all('food'), byDateRange('wellness', addDays(today, -14), today)
+  ]);
+  const { totals } = await import('./nutrition');
+  const foodPlan = planFor(plans, 'food', today);
+  const dayKcal = [1, 2, 3, 4, 5, 6, 7].map((d) => {
+    const ids = Object.values(foodPlan?.food?.[d] ?? {}).filter(Boolean) as string[];
+    const items = ids.flatMap((id) => tmpls.find((t) => t.id === id)?.items ?? []);
+    return items.length ? Math.round(totals(items, foods).n.kcal) : null;
+  }).filter((x): x is number => x != null);
+  const perWeek = (k: (w: any) => number) => Math.round(workouts.reduce((a, w) => a + k(w), 0) / 4);
+  return askAI<any>('targets', {
+    metas_atuais: settings?.targets ?? null,
+    plano_da_nutricionista_kcal_por_dia: dayKcal.length ? dayKcal : null,
+    treino_media_semanal_4_semanas: { sessoes: Math.round(workouts.length / 4), minutos: perWeek((w) => w.duration ?? 0), kcal_gastas_no_treino: perWeek((w) => w.metrics?.kcal ?? 0), tss: perWeek((w) => w.metrics?.tss ?? 0) },
+    passos_media_dia: (() => { const v = wellness.map((w) => w.steps).filter((x): x is number => x != null); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null; })(),
+    observacoes_dela: settings?.aiContext ?? ''
   });
 }

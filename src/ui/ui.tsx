@@ -182,3 +182,31 @@ export function useConfirm(): [ReactNode, (opts: { title: string; text?: string;
 export function afterSheetClose(fn: () => void) {
   setTimeout(() => whenHistoryIdle(fn), 0);
 }
+
+/** Campo de horário com teclado numérico: digita "0640" e vira 06:40. Evita o relógio do sistema, que no Android
+ *  não abre o teclado direto e às vezes estoura o texto. Confirma ao sair do campo. */
+export function TimeInput({ value, onChange, label, style }: { value: string; onChange: (v: string) => void; label: string; style?: React.CSSProperties }) {
+  const [v, setV] = useState(value);
+  useEffect(() => setV(value), [value]);
+  const format = (raw: string) => {
+    const d = raw.replace(/\D/g, '').slice(0, 4);
+    return d.length <= 2 ? d : `${d.slice(0, 2)}:${d.slice(2)}`;
+  };
+  const commit = () => {
+    const d = v.replace(/\D/g, '');
+    if (!d) { setV(value); return; }
+    const h = d.length <= 2 ? Number(d) : Number(d.slice(0, d.length - 2));
+    const m = d.length <= 2 ? 0 : Number(d.slice(-2));
+    if (h > 23 || m > 59 || Number.isNaN(h)) { setV(value); return; }
+    const out = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    setV(out);
+    if (out !== value) onChange(out);
+  };
+  return (
+    <input type="text" inputMode="numeric" autoComplete="off" placeholder="hh:mm" maxLength={5} value={v} aria-label={label} style={style}
+      onFocus={(e) => e.target.select()}
+      onChange={(e) => setV(format(e.target.value))}
+      onBlur={commit}
+      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
+  );
+}

@@ -1,8 +1,9 @@
 import { useNavigate } from 'react-router-dom';
-import { CalendarDays, ChartNoAxesColumn, ListChecks, Library, Settings, ChevronRight, Sparkles, NotebookPen, StickyNote, BookOpen } from 'lucide-react';
+import { CalendarDays, ChartNoAxesColumn, ListChecks, Library, Settings, ChevronRight, Sparkles, NotebookPen, StickyNote, BookOpen, UserRound } from 'lucide-react';
 import { TopBar } from './common';
 
 const ITEMS = [
+  { to: '/perfil', label: 'Perfil e objetivos', sub: 'Corpo, objetivo, alimentação, treino e pele: a base da IA', icon: <UserRound size={20} />, c: 'var(--olive)' },
   { to: '/diario', label: 'Diário', sub: 'Energia, humor, sono e o dia em poucas linhas', icon: <NotebookPen size={20} />, c: 'var(--wine-ink)' },
   { to: '/notas', label: 'Notas', sub: 'Ideias e anotações com etiquetas', icon: <StickyNote size={20} />, c: 'var(--honey)' },
   { to: '/leitura', label: 'Leitura', sub: 'Estante, páginas lidas e meta do ano', icon: <BookOpen size={20} />, c: 'var(--rose)' },

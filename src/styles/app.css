@@ -475,3 +475,6 @@ button.wellness-strip { width: 100%; align-items: baseline; text-align: left; ba
 .spin { animation: spin 0.9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .icon-btn:disabled { opacity: .55; }
+.goal-opt { display: flex; flex-direction: column; align-items: flex-start; width: 100%; text-align: left; padding: 10px 14px; border-radius: 14px; border: 1.5px solid var(--line-2); margin-bottom: 8px; background: var(--card); }
+.goal-opt.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.goal-opt.on .small { color: var(--paper-2); }

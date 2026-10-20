@@ -5,7 +5,7 @@ import { addDays, todayKey, weekStart } from '../lib/dates';
 import { useSettings } from '../db/hooks';
 import { update, uid } from '../db/db';
 import type { Reminders } from '../db/types';
-import { Chip } from '../ui/ui';
+import { Chip, TimeInput } from '../ui/ui';
 import { toast } from '../state/store';
 import { disablePush, enablePush, pushStatus, testPush, saveIntervalsKey, syncIntervalsNow, removeIntervalsKey } from '../sync/services';
 import { useSync } from '../sync/sync';
@@ -83,7 +83,7 @@ export function RemindersSection() {
       ))}
       <div className="row" style={{ gap: 8 }}>
         <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Ex.: tomar creatina" aria-label="Novo lembrete" style={{ flex: 2 }} />
-        <input type="time" value={time} onChange={(e) => setTime(e.target.value)} aria-label="Horário" style={{ flex: 1 }} />
+        <TimeInput value={time} onChange={setTime} label="Horário" style={{ flex: 1 }} />
       </div>
       <div className="chips" style={{ marginTop: 8 }}>
         {[1, 2, 3, 4, 5, 6, 7].map((d) => <Chip key={d} on={days.includes(d)} onClick={() => setDays(days.includes(d) ? days.filter((x) => x !== d) : [...days, d])}>{WEEKDAY_SHORT[d]}</Chip>)}
@@ -149,7 +149,7 @@ function SleepSection({ r, setR }: { r: Reminders; setR: (p: Partial<Reminders>)
 
 function TimeField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
-    <label className="nutr-cell"><span>{label}</span><input type="time" value={value} onChange={(e) => e.target.value && onChange(e.target.value)} aria-label={`Horário: ${label}`} /></label>
+    <label className="nutr-cell"><span>{label}</span><TimeInput value={value} onChange={onChange} label={`Horário: ${label}`} /></label>
   );
 }
 

@@ -9,7 +9,7 @@ import { aiAvailable, askAI } from '../domain/ai';
 import { addDays, shortLabel, todayKey, type DateKey } from '../lib/dates';
 import type { Wellness } from '../db/types';
 import { effectiveSleep, effectiveHrv, isSuspicious } from '../domain/wellness';
-import { Chip } from '../ui/ui';
+import { Chip, TimeInput } from '../ui/ui';
 
 type Form = { flag: '' | 'confirmado' | 'incompleto'; manual: string; sleepH: string; sleepScore: string; hrv: string; restingHR: string; bodyBattery: string; steps: string; stress: string; sleepStart: string; sleepEnd: string };
 const EMPTY: Form = { flag: '', manual: '', sleepH: '', sleepScore: '', hrv: '', restingHR: '', bodyBattery: '', steps: '', stress: '', sleepStart: '', sleepEnd: '' };
@@ -204,8 +204,8 @@ export function WellnessSheet({ open, date: initial, onClose }: { open: boolean;
         {field('stress', 'Estresse médio', '0 a 100')}
       </div>
       <div className="nutr-grid" style={{ gridTemplateColumns: '1fr 1fr', marginTop: 8 }}>
-        <label className="nutr-cell"><span>Dormiu às</span><input type="time" value={f.sleepStart} onChange={(e) => set({ sleepStart: e.target.value })} aria-label="Dormiu às" /></label>
-        <label className="nutr-cell"><span>Acordou às</span><input type="time" value={f.sleepEnd} onChange={(e) => set({ sleepEnd: e.target.value })} aria-label="Acordou às" /></label>
+        <label className="nutr-cell"><span>Dormiu às</span><TimeInput value={f.sleepStart} onChange={(v) => set({ sleepStart: v })} label="Dormiu às" /></label>
+        <label className="nutr-cell"><span>Acordou às</span><TimeInput value={f.sleepEnd} onChange={(v) => set({ sleepEnd: v })} label="Acordou às" /></label>
       </div>
       <span className="label">Essa noite</span>
       <div className="chips" data-testid="sleep-flag">
