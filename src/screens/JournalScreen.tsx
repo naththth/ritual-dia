@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Pin, Plus, Search, Trash2 } from 'lucide-react';
-import { PageHead } from './common';
+import { PageHead, useBack } from './common';
 import { useAll, useByDate } from '../db/hooks';
 import { useApp, toast } from '../state/store';
 import { create, update, upsert } from '../db/db';
@@ -21,6 +21,7 @@ const TAGS = ['Produtiva', 'Focada', 'Cansada', 'Leve', 'Ansiosa', 'Social', 'De
 export function JournalScreen() {
   const date = useApp((s) => s.date);
   const nav = useNavigate();
+  const back = useBack();
   const entry = useByDate('journal', date)?.[0];
   const notes = useByDate('note', date);
   const [d, setD] = useState<Partial<Journal>>({ tags: [] });
@@ -32,6 +33,7 @@ export function JournalScreen() {
   const save = async () => {
     await upsert('journal', `journal:${date}`, { date, tags: d.tags ?? [], energy: d.energy, mood: d.mood, sleep: d.sleep, stress: d.stress, text: d.text?.trim() || undefined, gratitude: d.gratitude?.trim() || undefined });
     toast('Dia registrado');
+    back();
   };
   return (
     <div className="screen no-nav" data-testid="journal-screen">

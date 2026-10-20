@@ -87,7 +87,7 @@ textarea { min-height: 88px; resize: vertical; }
 .icon-btn:active { background: var(--paper-2); }
 .sync-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 
-.page-head { display: flex; align-items: center; gap: 4px; margin: 0 -8px 8px; min-height: 52px; }
+.page-head { display: flex; align-items: center; gap: 4px; margin: calc(-12px - var(--safe-t)) -16px 8px; padding: calc(6px + var(--safe-t)) 8px 6px; min-height: 52px; position: sticky; top: 0; z-index: 30; background: var(--paper); box-shadow: 0 1px 0 var(--line); }
 .page-head h1 { font-family: var(--f-display); font-weight: 500; font-size: 24px; margin: 0; line-height: 1.1; flex: 1; }
 .page-head .sub { font-size: 14px; color: var(--ink-2); font-family: var(--f-ui); display: block; margin-top: 2px; font-weight: 500; }
 
@@ -440,3 +440,4 @@ a.link { color: var(--ink); }
 .sleep-result .big-num { color: var(--paper); font-size: 40px; line-height: 1.05; }
 button.wellness-strip { width: 100%; align-items: baseline; text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 10px 12px; margin: -2px 0 14px; }
 .wellness-ask { width: 100%; display: flex; gap: 12px; align-items: center; text-align: left; background: var(--paper-2); border-radius: 18px; padding: 12px 14px; margin: -2px 0 14px; line-height: 1.35; }
+.swap-ask { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; background: var(--card); border-radius: 14px; padding: 10px 12px; margin: 4px 0 12px; }

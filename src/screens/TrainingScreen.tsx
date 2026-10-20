@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { Check as CheckIcon, Plus, Trash2, Repeat } from 'lucide-react';
 import { useApp, toast } from '../state/store';
 import { useAll, useByDate, useSettings } from '../db/hooks';
-import { PageHead } from './common';
+import { PageHead, useBack } from './common';
 import { Chip, Seg, Stepper, ArtShoe, Empty } from '../ui/ui';
 import { saveWorkout, workoutFromTemplate, deleteRecord, skipPlanned } from '../domain/actions';
 import { planFor, plannedTraining } from '../domain/rules';
@@ -45,10 +45,12 @@ export function TrainingScreen() {
   const mod = mods?.find((m) => m.id === draft?.modalityId);
   const set = (p: Draft) => setDraft((d) => ({ ...(d ?? {}), ...p }));
 
+  const back = useBack();
   const save = async () => {
     if (!draft?.modalityId) { toast('Escolha a modalidade.', undefined, 'error'); return; }
     await saveWorkout({ ...(draft as Workout), date });
     setDraft(null);
+    back();
   };
 
   return (

@@ -87,8 +87,7 @@ test('segunda-feira completa: todos os módulos na mesma data', async ({ page })
   await expect(page.getByTestId('workout-form')).toBeVisible();
   await page.getByTestId('workout-form').getByRole('button', { name: 'Musculação' }).click();
   await page.getByTestId('workout-form').getByRole('button', { name: '45 min' }).click();
-  await page.getByTestId('workout-save').click();
-  await page.getByRole('button', { name: 'Voltar' }).click();
+  await page.getByTestId('workout-save').click(); // salvar volta sozinho
   await expect(page.getByTestId('timeline')).toContainText('Musculação');
   const musc = page.getByTestId('habit-Musculação');
   await expect(musc).toContainText('1 de 3 na semana');
@@ -254,6 +253,8 @@ test('fechar o dia no diário e criar nota', async ({ page }) => {
   await page.getByRole('button', { name: 'Treino bom' }).click();
   await page.getByLabel('Texto do diário').fill('Dia produtivo, pedal rendeu.');
   await page.getByTestId('journal-save').click();
+  await expect(page.getByTestId('day-screen')).toBeVisible(); // salvar volta para o dia
+  await page.getByTestId('tl-journal').locator('.tl2-body').click();
   await page.getByRole('button', { name: 'Nova nota' }).click();
   await page.getByLabel('Texto da nota').fill('Ideia: comprar rolo de espuma');
   await page.getByTestId('note-save').click();
@@ -315,4 +316,28 @@ test('sem relógio: estimativa de sono com um toque', async ({ page }) => {
   await page.getByTestId('no-watch').getByRole('button', { name: '~7 h' }).click();
   await expect(page.getByTestId('wellness')).toContainText('~7h00');
   await expect(page.getByTestId('wellness')).toContainText('estimado');
+});
+
+test('treino trocado: fez outra modalidade no lugar do planejado', async ({ page }) => {
+  await onboard(page);
+  await page.goto('./#/biblioteca/treinos');
+  await page.getByTestId('lib-add').click();
+  await page.locator('.sheet').getByRole('button', { name: 'Ciclismo' }).click();
+  await page.getByTestId('wt-save').click();
+  await page.goto('./#/plano/training');
+  await page.getByTestId('tplan-1').getByRole('button', { name: 'Ciclismo' }).click();
+  await page.getByTestId('plan-save').click();
+  await expect(page.getByTestId('fab')).toBeVisible();
+  await page.getByTestId('fab').click();
+  await page.getByRole('button', { name: 'Treino sem arquivo' }).click();
+  await page.getByTestId('workout-form').getByRole('button', { name: 'Musculação' }).click();
+  await page.getByTestId('workout-form').getByRole('button', { name: '45 min' }).click();
+  await page.getByTestId('workout-save').click();
+  await expect(page.getByTestId('day-screen')).toBeVisible();
+  await page.getByRole('link', { name: 'Treino' }).click();
+  await expect(page.getByTestId('swap-ask')).toContainText('musculação no lugar');
+  await page.getByTestId('swap-yes').click();
+  await expect(page.getByTestId('planned-skipped')).toContainText('não hoje');
+  await expect(page.getByTestId('train-done')).toHaveCount(0);
+  await page.screenshot({ path: 'test-results/shots/treino-trocado.png' });
 });

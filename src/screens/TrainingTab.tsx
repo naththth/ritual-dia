@@ -103,27 +103,46 @@ export function TrainingTab() {
 
       <section className="block b-blue" style={{ marginTop: 12 }} data-testid="training-day">
         <div className="bh"><h2 style={{ fontSize: 20 }}>{date === todayKey() ? 'Hoje' : shortLabel(date)}</h2></div>
+
+        {/* 1) O que foi feito vem primeiro, como registro do dia. */}
+        {dayDone.length > 0 && <span className="label" style={{ marginTop: 0 }}>Feito</span>}
+        {dayDone.map((w) => <WorkoutCard key={w.id} w={w} name={modName(w.modalityId)} ftp={settings?.ftp} />)}
+
+        {/* 2) O planejado: completo só enquanto está pendente; trocado ou pulado vira uma linha. */}
         {dayPlanned.map((t) => {
           const done = dayDone.some((w) => w.templateId === t.id || w.modalityId === t.modalityId);
           const skipped = daySkips.includes(t.id);
+          if (done) return null;
+          if (skipped) {
+            return (
+              <div key={t.id} className="row between" style={{ marginTop: 10, gap: 8 }} data-testid="planned-skipped">
+                <span className="small"><s>{t.name}</s> · não hoje</span>
+                <button className="link" onClick={() => deleteRecord(`skip:${date}:training:${t.id}`, 'Planejado de volta')}>Desfazer</button>
+              </div>
+            );
+          }
+          const swapped = dayDone.find((w) => w.modalityId !== t.modalityId);
           return (
-            <div key={t.id} style={{ marginBottom: 14 }}>
+            <div key={t.id} style={{ marginTop: dayDone.length ? 14 : 0 }}>
+              <span className="label" style={{ marginTop: 0 }}>Planejado</span>
+              {swapped && (
+                <div className="swap-ask" data-testid="swap-ask">
+                  <span className="small">Você fez {modName(swapped.modalityId).toLowerCase()} no lugar de {t.name.toLowerCase()}?</span>
+                  <button className="pill-act pa-blue" onClick={() => skipPlanned(date, 'training', t.id, `${t.name} trocado por ${modName(swapped.modalityId).toLowerCase()}`)} data-testid="swap-yes">Sim, troquei</button>
+                </div>
+              )}
               <div className="row between"><span className="t" style={{ fontWeight: 700, fontSize: 18 }}>{t.name}</span>{t.time && <span className="small" style={{ fontWeight: 700 }}>{t.time}</span>}</div>
               <div className="small">{modName(t.modalityId)}, {t.duration} min, {t.intensity}{t.note ? `. ${t.note}` : ''}</div>
               {t.muscles?.length ? <div className="small">Foco: {t.muscles.join(', ').toLowerCase()}</div> : null}
               {t.steps?.length ? <StepsView steps={t.steps} /> : null}
-              {!done && !skipped && (
-                <div className="row wrap" style={{ gap: 8, marginTop: 10 }}>
-                  <button className="pill-act pa-blue" data-testid="train-done" onClick={() => workoutFromTemplate(t, date, true)}>Feito</button>
-                  <button className="pill-act pa-ghost" onClick={() => fileRef.current?.click()}>Importar o arquivo</button>
-                  <button className="pill-act pa-ghost" onClick={() => skipPlanned(date, 'training', t.id, 'Treino marcado como não hoje')}>Hoje não</button>
-                </div>
-              )}
-              {skipped && <div className="small" style={{ marginTop: 6 }}>Não hoje.</div>}
+              <div className="row wrap" style={{ gap: 8, marginTop: 10 }}>
+                <button className="pill-act pa-blue" data-testid="train-done" onClick={() => workoutFromTemplate(t, date, true)}>Feito</button>
+                <button className="pill-act pa-ghost" onClick={() => fileRef.current?.click()}>Importar o arquivo</button>
+                <button className="pill-act pa-ghost" onClick={() => skipPlanned(date, 'training', t.id, 'Treino marcado como não hoje')}>Hoje não</button>
+              </div>
             </div>
           );
         })}
-        {dayDone.map((w) => <WorkoutCard key={w.id} w={w} name={modName(w.modalityId)} ftp={settings?.ftp} />)}
         {!dayPlanned.length && !dayDone.length && <p className="small" style={{ margin: 0 }}>Sem treino planejado. Não registrado.</p>}
       </section>
 
