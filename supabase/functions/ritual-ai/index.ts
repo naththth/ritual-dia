@@ -26,6 +26,7 @@ const TRAINING_FORMAT = `{"templates":[{"key":"t1","name":"...","modality":"musc
 const TASKS: Record<string, string> = {
   skin_plan: `Monte um plano semanal de pele com os produtos que ela TEM (contexto.produtos).
 Regras: ordem de aplicação correta; manhã sempre com protetor solar; no máximo um ativo forte por período (retinoide, BHA/AHA, ácido azelaico, peróxido de benzoíla); retinoide e ácido esfoliante nunca no mesmo dia; ao menos 2 noites de recuperação por semana; considere o perfil de pele informado e os registros recentes (se a pele andou sensibilizada, reduza ativos).
+Cada produto pode trazer ativos, para_que_serve, modo_de_uso, cuidados e periodo_preferido: use isso para ordenar as etapas e evitar conflitos.
 Produtos de tratamento pontual (curativo, peróxido) ficam fora do plano.
 Não prescreva medicamento; se houver produto que costuma ser de prescrição, use com parcimônia e mencione em 'observacoes' que vale confirmar com a dermatologista.
 Formato: {"am":{"base":[ids],"days":{"1":{"add":[ids],"remove":[ids]},...}},"pm":{...},"recovery":{"am":[ids],"pm":[ids]},"resumo":"2-3 frases explicando a lógica","observacoes":"cuidados"}. Dias: 1=segunda ... 7=domingo.`,
@@ -67,6 +68,14 @@ Formato: {"kcal":0,"proteina_g":0,"carbo_g":0,"gordura_g":0,"agua_ml":0,"dia_de_
 - resumo: 2 a 4 frases neutras do que o documento mostra.
 - para_planejamento: o que isso muda na prática para alimentação, treino ou pele (ex.: TMB medida para calcular calorias; ferritina baixa: conversar com o médico antes de aumentar volume de endurance). Sem prescrever.
 Formato: {"tipo":"","titulo":"","data":null,"valores":[{"nome":"","valor":"","unidade":"","situacao":null}],"resumo":"","para_planejamento":""}.`,
+  product_read: `Você recebe fotos de um produto de cuidados com a pele (frente e/ou verso da embalagem) ou, sem foto, a marca e o nome digitados. Identifique o produto e preencha a ficha para o planejamento da rotina.
+Prioridade das fontes: 1) o que está escrito na embalagem (nome, marca, lista INCI, modo de uso, advertências); 2) a página do fabricante ou de varejistas confiáveis, se você puder pesquisar; 3) seu conhecimento do produto. Nunca invente um produto: se não reconhecer com segurança, preencha só o que leu e use confianca "baixa".
+- marca, nome (nome comercial como está na embalagem, sem a marca). tipo: um de contexto.tipos_possiveis (limpeza, seruns, tratamentos, olhos, hidratacao, fps, corpo).
+- periodo: am, pm ou ambos, pela evidência dos ativos (retinoides e ácidos esfoliantes à noite; vitamina C e protetor de manhã; hidratantes e limpeza em ambos).
+- ativos: os ativos relevantes com concentração se informada (ex.: "niacinamida 10%", "ácido salicílico 2%", "retinal 0,1%"). ativo_forte: true para retinoides, AHA/BHA/PHA em concentração de tratamento, ácido azelaico, peróxido de benzoíla, vitamina C pura em alta concentração.
+- para_que_serve: 1 a 2 frases do que o produto faz, com base nos ativos. indicacao: tipos de pele e queixas para as quais é indicado. modo_de_uso: como e quando aplicar, quantidade e etapa da rotina; use o da embalagem se houver. cuidados: incompatibilidades, introdução gradual, fotossensibilidade, gestação, quando houver.
+- lido_da_embalagem: true se a ficha veio principalmente do texto da foto. confianca: alta | media | baixa. observacao: uma frase só se algo for incerto (ex.: "Há duas versões deste sérum; confira a concentração").
+Formato: {"marca":null,"nome":null,"tipo":null,"periodo":null,"ativos":[],"ativo_forte":false,"para_que_serve":"","indicacao":"","modo_de_uso":"","cuidados":"","lido_da_embalagem":false,"confianca":"media","observacao":""}.`,
   label_read: `Você recebe a foto de um rótulo de alimento (tabela nutricional brasileira e/ou frente da embalagem). Extraia SOMENTE o que está escrito; nunca estime.
 - nome e marca do produto se aparecerem.
 - porcao_g: a porção de referência em gramas ou mL (ex.: 200 mL = 200). porcao_rotulo: como está escrito (ex.: "200 mL (1 copo)").
@@ -84,14 +93,14 @@ function extractJson(text: string) {
   return JSON.parse(text.slice(s, e + 1));
 }
 
-type Call = (system: string, user: string, images?: Img[]) => Promise<string>;
+type Call = (system: string, user: string, images?: Img[], opts?: { search?: boolean }) => Promise<string>;
 
 function pickProvider(): { name: string; call: Call } | null {
   const forced = (Deno.env.get('AI_PROVIDER') ?? '').toLowerCase();
   const g = Deno.env.get('GEMINI_API_KEY');
   const o = Deno.env.get('OPENAI_API_KEY');
   const a = Deno.env.get('ANTHROPIC_API_KEY');
-  const gemini: Call = async (system, user, images = []) => {
+  const gemini: Call = async (system, user, images = [], opts = {}) => {
     // Modelos em ordem de preferência; se um estiver sobrecarregado (503/429) ou indisponível (404), tenta o próximo.
     const models = Array.from(new Set([Deno.env.get('GEMINI_MODEL') ?? 'gemini-flash-latest', 'gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash']));
     let last = '';
@@ -99,7 +108,8 @@ function pickProvider(): { name: string; call: Call } | null {
       const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
         method: 'POST',
         headers: { 'x-goog-api-key': g!, 'content-type': 'application/json' },
-        body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: [...images.map((i) => ({ inline_data: { mime_type: i.mime, data: i.data } })), { text: user }] }], generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 8000, temperature: 0.4 } })
+        // Com pesquisa no Google (identificar produtos), a resposta vem em texto e o JSON é extraído depois.
+        body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: [...images.map((i) => ({ inline_data: { mime_type: i.mime, data: i.data } })), { text: user }] }], ...(opts.search ? { tools: [{ google_search: {} }] } : {}), generationConfig: { ...(opts.search ? {} : { responseMimeType: 'application/json' }), maxOutputTokens: 8000, temperature: opts.search ? 0.2 : 0.4 } })
       });
       const b = await r.json();
       if (r.ok) return (b.candidates?.[0]?.content?.parts ?? []).map((p: any) => p.text ?? '').join('');
@@ -166,7 +176,13 @@ Deno.serve(async (req: Request) => {
     if (ctx.length > 80000) return new Response(JSON.stringify({ error: 'Contexto grande demais' }), { status: 413, headers: J });
     const imgs: Img[] = Array.isArray(images) ? images.filter((i: any) => typeof i?.data === 'string' && /^(image\/(jpeg|png|webp)|application\/pdf)$/.test(i?.mime)).slice(0, 4) : [];
     if (imgs.reduce((a, i) => a + i.data.length, 0) > 8_000_000) return new Response(JSON.stringify({ error: 'Imagens grandes demais' }), { status: 413, headers: J });
-    const text = await provider.call(BASE + '\n\n' + TASKS[task], `Contexto (JSON):\n${ctx}`, imgs);
+    const system = BASE + '\n\n' + TASKS[task];
+    const user = `Contexto (JSON):\n${ctx}`;
+    let text: string;
+    if (task === 'product_read' && provider.name === 'gemini') {
+      try { text = await provider.call(system, user, imgs, { search: true }); extractJson(text); }
+      catch { text = await provider.call(system, user, imgs); }
+    } else text = await provider.call(system, user, imgs);
     return new Response(JSON.stringify({ result: extractJson(text), provider: provider.name }), { headers: J });
   } catch (e) {
     return new Response(JSON.stringify({ error: String((e as Error)?.message ?? e) }), { status: 502, headers: J });

@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
-import { Plus, Search, Star, Trash2, Archive, ArchiveRestore } from 'lucide-react';
+import { Plus, Search, Star, Trash2, Archive, ArchiveRestore, Sparkles } from 'lucide-react';
+import { aiAvailable, aiProductInfo } from '../../domain/ai';
 import { PageHead } from '../common';
 import { useAll } from '../../db/hooks';
 import { create, db, remove, update, uid } from '../../db/db';
@@ -83,6 +84,7 @@ function Products() {
   return (
     <>
       <AddButton label="Cadastrar produto" onClick={() => setEdit({})} />
+      <FillProductInfo />
       <div style={{ position: 'relative', marginBottom: 10 }}>
         <Search size={18} style={{ position: 'absolute', left: 14, top: 15, color: 'var(--ink-2)' }} />
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar produto" style={{ paddingLeft: 40 }} aria-label="Buscar produto" />
@@ -92,7 +94,7 @@ function Products() {
       <div className="list" style={{ marginTop: 8 }}>
         {list.map((p) => (
           <button key={p.id} className="lib-item" onClick={() => setEdit(p)}>
-            <span className="grow"><span className="tiny muted" style={{ fontWeight: 600 }}>{p.brand}</span><br /><span style={{ fontWeight: 650 }}>{p.name}</span></span>
+            <span className="grow"><span className="tiny muted" style={{ fontWeight: 600 }}>{p.brand}</span><br /><span style={{ fontWeight: 650 }}>{p.name}</span>{p.info?.purpose && <><br /><span className="small muted">{p.info.purpose.length > 90 ? p.info.purpose.slice(0, 88) + '…' : p.info.purpose}</span></>}</span>
             <span className={`prio ${p.status === 'em_uso' ? 'media' : 'baixa'}`}>{STATUS_LABEL[p.status]}</span>
           </button>
         ))}
@@ -435,5 +437,32 @@ function Categories() {
       </Sheet>
       {delEl}
     </>
+  );
+}
+
+/** Completa, em lote, a ficha dos produtos em uso que ainda não têm "para que serve" e "modo de uso". */
+function FillProductInfo() {
+  const products = useAll('product');
+  const [run, setRun] = useState<{ done: number; total: number } | null>(null);
+  const missing = (products ?? []).filter((p) => p.status === 'em_uso' && !p.info?.purpose);
+  if (!aiAvailable() || (!missing.length && !run)) return null;
+  const go = async () => {
+    setRun({ done: 0, total: missing.length });
+    let ok = 0;
+    for (const [i, p] of missing.entries()) {
+      try {
+        const r = await aiProductInfo(p.brand, p.name);
+        if (r.ok) { await update<'product'>(p.id, { info: { ...(p.info ?? {}), ...Object.fromEntries(Object.entries(r.info).filter(([, v]) => v !== undefined)) }, period: p.period ?? r.period }); ok++; }
+      } catch (e: any) { toast(e.message, undefined, 'error'); break; }
+      setRun({ done: i + 1, total: missing.length });
+    }
+    setRun(null);
+    toast(`${ok} fichas preenchidas. Confira as de certeza baixa.`);
+  };
+  return (
+    <button className="lib-item" onClick={go} disabled={!!run} data-testid="fill-product-info">
+      <span className="lib-icon" style={{ background: 'var(--rose)' }}><Sparkles size={18} /></span>
+      <span className="grow"><span style={{ fontWeight: 700 }}>{run ? `Preenchendo fichas… ${run.done} de ${run.total}` : `Completar ficha de ${missing.length} produtos em uso`}</span><br /><span className="small muted">Para que serve, modo de uso, ativos e cuidados, para a IA montar a rotina</span></span>
+    </button>
   );
 }

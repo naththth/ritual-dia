@@ -150,6 +150,17 @@ export interface Product extends Base {
   openedAt?: DateKey;
   note?: string;
   sourceId?: string;
+  info?: ProductInfo;
+}
+/** Ficha do produto: o que é, para que serve e como usar (lida da embalagem e completada pela IA). */
+export interface ProductInfo {
+  purpose?: string;
+  howToUse?: string;
+  indication?: string;
+  actives?: string[];
+  cautions?: string;
+  fromLabel?: boolean;
+  confidence?: 'alta' | 'media' | 'baixa';
 }
 
 export type SkinPeriod = 'am' | 'pm' | 'corpo';

@@ -160,8 +160,12 @@ test('cadastrar alimento e produto aparecem na hora para uso', async ({ page }) 
   await page.getByRole('button', { name: 'Cadastrar produto' }).click();
   await page.getByLabel('Marca').fill('Nova');
   await page.getByLabel('Nome do produto').fill('Bálsamo noturno');
+  await page.getByLabel('Para que serve').fill('Reforça a barreira durante a noite.');
+  await page.getByLabel('Ativos principais').fill('ceramidas, pantenol 5%');
   await page.getByTestId('product-save').click();
   await expect(page.locator('.sheet [data-testid=product-pick][aria-pressed=true]')).toContainText('Bálsamo noturno');
+  await page.goto('./#/biblioteca/produtos');
+  await expect(page.getByText('Reforça a barreira durante a noite.')).toBeVisible();
 });
 
 test('plano de treino seg/qua/sex: sugestão e check', async ({ page }) => {

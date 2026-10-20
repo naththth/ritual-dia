@@ -7,7 +7,7 @@ import type { Plan, Product, WorkoutStep } from '../db/types';
 import { addDays, isoWeekday, todayKey, type DateKey } from '../lib/dates';
 import { planFor, plannedSkin, plannedTraining } from './rules';
 
-export type AITask = 'skin_plan' | 'training_plan' | 'food_plan' | 'day_brief' | 'training_review' | 'week_review' | 'wellness_read' | 'label_read' | 'targets' | 'doc_read';
+export type AITask = 'skin_plan' | 'training_plan' | 'food_plan' | 'day_brief' | 'training_review' | 'week_review' | 'wellness_read' | 'label_read' | 'targets' | 'doc_read' | 'product_read';
 
 export function aiAvailable() {
   return !!supabase && !!useSync.getState().session && navigator.onLine;
@@ -75,7 +75,7 @@ async function cycleForAI(date: DateKey, pf?: import('../db/types').Profile) {
   };
 }
 
-const short = (p: Product) => ({ id: p.id, marca: p.brand, nome: p.name, tipo: p.group, categoria: p.originalCategory, ativo: !!p.active });
+const short = (p: Product) => ({ id: p.id, marca: p.brand, nome: p.name, tipo: p.group, categoria: p.originalCategory, ativo: !!p.active, periodo_preferido: p.period, ativos: p.info?.actives, para_que_serve: p.info?.purpose, modo_de_uso: p.info?.howToUse, cuidados: p.info?.cautions });
 
 /* ---------- Pele ---------- */
 export async function aiSkinPlan(today: DateKey) {
@@ -289,4 +289,27 @@ export async function aiTargets() {
     passos_media_dia: (() => { const v = wellness.map((w) => w.steps).filter((x): x is number => x != null); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null; })(),
     observacoes_dela: settings?.aiContext ?? ''
   });
+}
+
+/* ---------- Ficha de produto de pele ---------- */
+const PGROUPS = ['limpeza', 'seruns', 'tratamentos', 'olhos', 'hidratacao', 'fps', 'corpo'];
+/** Identifica o produto pela foto (ou pelo nome) e devolve a ficha mapeada para o cadastro. */
+export async function aiProductInfo(brand: string | undefined, name: string | undefined, images?: { mime: string; data: string }[]) {
+  const r = await askAI<any>('product_read', { marca_digitada: brand || undefined, nome_digitado: name || undefined, tipos_possiveis: PGROUPS }, images?.length ? images : undefined);
+  if (!r?.nome && !r?.para_que_serve) return { ok: false as const, note: String(r?.observacao || 'Não consegui identificar. Tente uma foto mais nítida da frente e do verso.') };
+  const conf = ['alta', 'media', 'baixa'].includes(r.confianca) ? r.confianca : undefined;
+  return {
+    ok: true as const,
+    note: String(r.observacao || ''),
+    brand: r.marca ? String(r.marca) : undefined,
+    name: r.nome ? String(r.nome) : undefined,
+    group: PGROUPS.includes(r.tipo) ? (r.tipo as Product['group']) : undefined,
+    period: ['am', 'pm', 'ambos'].includes(r.periodo) ? (r.periodo as Product['period']) : undefined,
+    strongActive: typeof r.ativo_forte === 'boolean' ? (r.ativo_forte as boolean) : undefined,
+    info: {
+      purpose: r.para_que_serve || undefined, howToUse: r.modo_de_uso || undefined, indication: r.indicacao || undefined,
+      actives: Array.isArray(r.ativos) && r.ativos.length ? r.ativos.map(String) : undefined, cautions: r.cuidados || undefined,
+      fromLabel: !!r.lido_da_embalagem, confidence: conf
+    } as import('../db/types').ProductInfo
+  };
 }
