@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Camera, Trash2 } from 'lucide-react';
 import { create, db, remove } from '../db/db';
 import type { Photo, SkinPeriod } from '../db/types';
+import { PERIOD_LABEL } from '../domain/defaults';
 import { compressImage } from '../lib/image';
 import { deletePhotoRemote, loadPhoto } from '../sync/sync';
 import { toast } from '../state/store';
@@ -57,7 +58,7 @@ export function PhotoStrip({ date, period, photos }: { date: DateKey; period: Sk
         </button>
         <input ref={input} type="file" accept="image/*" capture="user" hidden onChange={(e) => add(e.target.files?.[0])} />
       </div>
-      <Sheet open={!!view} onClose={() => setView(undefined)} title="Foto" sub={view ? `${view.date}, ${view.period === 'am' ? 'manhã' : view.period === 'pm' ? 'noite' : 'corpo'}` : ''}
+      <Sheet open={!!view} onClose={() => setView(undefined)} title="Foto" sub={view ? `${view.date}, ${PERIOD_LABEL[view.period]}` : ''}
         footer={<button className="btn btn-danger" onClick={() => view && del(view)}><Trash2 size={18} />Excluir foto</button>}>
         {view && <FullPhoto p={view} />}
       </Sheet>

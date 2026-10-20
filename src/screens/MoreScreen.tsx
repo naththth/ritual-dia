@@ -12,7 +12,7 @@ const ITEMS = [
   { to: '/evolucao', label: 'Evolução', sub: 'Semana e mês: hábitos, treino, pele, alimentação', icon: <ChartNoAxesColumn size={20} />, c: 'var(--olive)' },
   { to: '/listas', label: 'Tarefas', sub: 'Pendências por categoria e prioridade', icon: <ListChecks size={20} />, c: 'var(--wine-ink)' },
   { to: '/listas?tab=biblioteca', label: 'Biblioteca', sub: 'Produtos, alimentos, treinos, hábitos, metas', icon: <Library size={20} />, c: 'var(--rose)' },
-  { to: '/plano/skin', label: 'Plano de pele', sub: 'Manhã, noite e recuperação', icon: <Sparkles size={20} />, c: 'var(--rose)' },
+  { to: '/plano/skin', label: 'Pele, corpo e cabelo', sub: 'Rotinas de manhã, noite, corpo e cabelo', icon: <Sparkles size={20} />, c: 'var(--rose)' },
   { to: '/ajustes', label: 'Ajustes', sub: 'Conta, IA, metas, backup', icon: <Settings size={20} />, c: 'var(--card)' }
 ];
 

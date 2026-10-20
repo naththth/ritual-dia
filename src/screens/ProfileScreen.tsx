@@ -24,6 +24,11 @@ const GOALS: [NonNullable<Profile['goal']>, string, string][] = [
 const RESTR = ['Sem lactose', 'Sem glúten', 'Vegetariana', 'Pouco açúcar', 'Sem carne vermelha', 'Sem frutos do mar'];
 const CONCERNS = ['Acne', 'Cravos', 'Textura', 'Manchas', 'Oleosidade', 'Sensibilidade', 'Rosácea', 'Linhas finas', 'Desidratação'];
 const SKIN = ['Oleosa', 'Mista', 'Normal', 'Seca'];
+const HAIR_TYPE = ['Liso', 'Ondulado', 'Cacheado', 'Crespo'];
+const SCALP = ['Oleoso', 'Normal', 'Seco', 'Sensível'];
+const HAIR_CONCERNS = ['Queda', 'Frizz', 'Quebra', 'Pontas secas', 'Oleosidade', 'Caspa', 'Volume', 'Brilho'];
+const HAIR_CHEM = ['Coloração', 'Luzes ou mechas', 'Descoloração', 'Progressiva ou alisamento', 'Nenhuma'];
+const BODY_CONCERNS = ['Ressecamento', 'Foliculite', 'Acne no corpo', 'Manchas', 'Estrias', 'Celulite', 'Sensibilidade', 'Atrito no treino'];
 const DAYS = ['', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
 
 /** Escolha única em grade de botões do mesmo tamanho (alinha melhor que chips soltos). */
@@ -89,6 +94,8 @@ export function ProfileScreen() {
   const tr = p.training ?? {};
   const skin = p.skin ?? { concerns: [] };
   const health = p.health ?? { professionals: [], meds: [] };
+  const hair = p.hair ?? {};
+  const body = p.body ?? {};
   const toggleIn = (arr: string[] = [], v: string) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
 
   const calc = async () => {
@@ -172,6 +179,30 @@ export function ProfileScreen() {
           onToggle={(k) => set({ skin: k === 'd' ? { ...skin, followsDerm: !skin.followsDerm } : { ...skin, sensitive: !skin.sensitive } })} options={[['d', 'Tenho dermatologista'], ['s', 'Pele sensível']]} />
         <span className="label">Prescrição da dermatologista <span className="muted small">(opcional)</span></span>
         <AutoText label="Prescrições da dermatologista" value={skin.prescriptions} onChange={(v) => set({ skin: { ...skin, prescriptions: v } })} placeholder="O que ela prescreveu e como usar" />
+      </section>
+
+      <section className="block b-rose pf" data-testid="profile-hair">
+        <h2>Cabelo</h2>
+        <span className="label">Tipo de fio</span>
+        <Opts label="Tipo de fio" value={hair.type} onChange={(t) => set({ hair: { ...hair, type: t } })} cols={4} options={HAIR_TYPE.map((t) => [t, t] as [string, string])} />
+        <span className="label">Couro cabeludo</span>
+        <Opts label="Couro cabeludo" value={hair.scalp} onChange={(t) => set({ hair: { ...hair, scalp: t } })} cols={4} options={SCALP.map((t) => [t, t] as [string, string])} />
+        <span className="label">Queixas</span>
+        <MultiOpts label="Queixas do cabelo" values={hair.concerns ?? []} onToggle={(c) => set({ hair: { ...hair, concerns: toggleIn(hair.concerns, c) } })} cols={2} options={HAIR_CONCERNS.map((c) => [c, c])} />
+        <span className="label">Química</span>
+        <MultiOpts label="Química no cabelo" values={hair.chemical ?? []} onToggle={(c) => set({ hair: { ...hair, chemical: c === 'Nenhuma' ? ['Nenhuma'] : toggleIn((hair.chemical ?? []).filter((x) => x !== 'Nenhuma'), c) } })} cols={2} options={HAIR_CHEM.map((c) => [c, c])} />
+        <span className="label">Lavagens por semana</span>
+        <Opts label="Lavagens por semana" value={hair.washesPerWeek} onChange={(n) => set({ hair: { ...hair, washesPerWeek: n } })} cols={4} options={[2, 3, 4, 5, 6, 7].map((n) => [n, n === 7 ? 'Todo dia' : String(n)] as [number, string])} />
+        <span className="label">Observações <span className="muted small">(opcional)</span></span>
+        <AutoText label="Observações sobre o cabelo" value={hair.notes} onChange={(v) => set({ hair: { ...hair, notes: v } })} placeholder="Ex.: lavo depois do treino; tricologista indicou tônico" />
+      </section>
+
+      <section className="block b-paper pf" data-testid="profile-body">
+        <h2>Corpo</h2>
+        <span className="label">Queixas</span>
+        <MultiOpts label="Queixas do corpo" values={body.concerns ?? []} onToggle={(c) => set({ body: { ...body, concerns: toggleIn(body.concerns, c) } })} cols={2} options={BODY_CONCERNS.map((c) => [c, c])} />
+        <span className="label">Observações <span className="muted small">(opcional)</span></span>
+        <AutoText label="Observações sobre o corpo" value={body.notes} onChange={(v) => set({ body: { ...body, notes: v } })} placeholder="Ex.: natação deixa a pele ressecada" />
       </section>
 
       <HealthSection health={health} onChange={(h) => set({ health: h })} />

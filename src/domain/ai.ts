@@ -81,12 +81,23 @@ const short = (p: Product) => ({ id: p.id, marca: p.brand, nome: p.name, tipo: p
 /* ---------- Pele ---------- */
 export async function aiSkinPlan(today: DateKey) {
   const settings = await get<'settings'>('settings');
-  const products = (await all('product')).filter((p) => p.status === 'em_uso' && p.area === 'rosto');
+  const products = (await all('product')).filter((p) => p.status === 'em_uso');
   const logs = await byDateRange('skin', addDays(today, -14), today);
+  // Semana de treino: suor e cloro da piscina mudam a rotina de cabelo e corpo.
+  const plans = await all('plan');
+  const tp = planFor(plans, 'training', today);
+  const tmpls = await all('wtemplate');
+  const mods = await all('modality');
+  const semana_de_treino: Record<string, string[]> = {};
+  for (let d = 1; d <= 7; d++) semana_de_treino[d] = (tp?.training?.[d] ?? []).map((id) => { const t = tmpls.find((x) => x.id === id); return t ? `${t.name} (${mods.find((m) => m.id === t.modalityId)?.name ?? ''})` : ''; }).filter(Boolean);
+  const byArea = (a: string) => products.filter((p) => (p.area ?? 'rosto') === a).map(short);
   const ctx = {
     perfil_de_pele: settings?.skinProfile ?? [],
     observacoes_dela: settings?.aiContext ?? '',
-    produtos: products.map(short),
+    produtos: byArea('rosto'),
+    produtos_corpo: byArea('corpo'),
+    produtos_cabelo: byArea('cabelo'),
+    semana_de_treino,
     registros_recentes: logs.map((l) => ({ data: l.date, periodo: l.period, condicao: l.condition, sinais: l.signals, recuperacao: l.recovery }))
   };
   const r = await askAI<any>('skin_plan', ctx);
@@ -100,8 +111,13 @@ export async function aiSkinPlan(today: DateKey) {
     }
     return { base: clean(pp?.base), days };
   };
+  const hairWash = Array.isArray(r.cabelo?.dias_de_lavar) ? r.cabelo.dias_de_lavar.map(Number).filter((n: number) => n >= 1 && n <= 7) : undefined;
   return {
-    skin: { am: period(r.am), pm: period(r.pm), recovery: { am: clean(r.recovery?.am), pm: clean(r.recovery?.pm) } } as NonNullable<Plan['skin']>,
+    skin: {
+      am: period(r.am), pm: period(r.pm), recovery: { am: clean(r.recovery?.am), pm: clean(r.recovery?.pm) },
+      body: r.corpo ? period(r.corpo) : undefined,
+      hair: r.cabelo ? { ...period(r.cabelo), washDays: hairWash } : undefined
+    } as NonNullable<Plan['skin']>,
     resumo: String(r.resumo ?? ''),
     observacoes: String(r.observacoes ?? '')
   };
@@ -293,7 +309,7 @@ export async function aiTargets() {
 }
 
 /* ---------- Ficha de produto de pele ---------- */
-const PGROUPS = ['limpeza', 'seruns', 'tratamentos', 'olhos', 'hidratacao', 'fps', 'corpo'];
+const PGROUPS = ['limpeza', 'seruns', 'tratamentos', 'olhos', 'hidratacao', 'fps', 'corpo', 'cabelo'];
 /** Identifica o produto pela foto (ou pelo nome) e devolve a ficha mapeada para o cadastro. */
 export async function aiProductInfo(brand: string | undefined, name: string | undefined, images?: { mime: string; data: string }[]) {
   const r = await askAI<any>('product_read', { marca_digitada: brand || undefined, nome_digitado: name || undefined, tipos_possiveis: PGROUPS }, images?.length ? images : undefined);

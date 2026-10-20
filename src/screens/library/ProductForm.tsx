@@ -11,7 +11,7 @@ export function useOtherPerson(): string | undefined {
 }
 import { create, update } from '../../db/db';
 import type { Product, ProductGroup, ProductInfo, ProductStatus } from '../../db/types';
-import { GROUPS } from '../../domain/defaults';
+import { GROUPS, areaOf } from '../../domain/defaults';
 import { Chip } from '../../ui/ui';
 import { toast } from '../../state/store';
 
@@ -43,7 +43,7 @@ export function ProductForm({ product, onDone }: { product?: Product; onDone: (p
         brand: x.brand?.trim() ? x.brand : r.brand ?? '',
         name: x.name?.trim() ? x.name : r.name ?? '',
         group: r.group ?? x.group,
-        area: r.group === 'corpo' ? 'corpo' : r.group ? 'rosto' : x.area,
+        area: r.group ? areaOf(r.group) : x.area,
         period: r.period ?? x.period,
         active: r.strongActive ?? x.active,
         info: { ...(x.info ?? {}), ...Object.fromEntries(Object.entries(r.info).filter(([, v]) => v !== undefined)) }
@@ -73,7 +73,7 @@ export function ProductForm({ product, onDone }: { product?: Product; onDone: (p
       <span className="label">Nome</span>
       <input value={d.name ?? ''} onChange={(e) => set({ name: e.target.value })} aria-label="Nome do produto" />
       <span className="label">Tipo</span>
-      <div className="chips">{GROUPS.map((g) => <Chip key={g.id} color="rose" on={d.group === g.id} onClick={() => set({ group: g.id as ProductGroup, area: g.id === 'corpo' ? 'corpo' : 'rosto' })}>{g.label}</Chip>)}</div>
+      <div className="chips">{GROUPS.map((g) => <Chip key={g.id} color="rose" on={d.group === g.id} onClick={() => set({ group: g.id as ProductGroup, area: areaOf(g.id as ProductGroup) })}>{g.label}</Chip>)}</div>
       <span className="label">Período preferido</span>
       <div className="chips">{([['am', 'Manhã'], ['pm', 'Noite'], ['ambos', 'Ambos']] as const).map(([id, l]) => <Chip key={id} on={d.period === id} onClick={() => set({ period: id })}>{l}</Chip>)}</div>
       <span className="label">Situação</span>

@@ -105,7 +105,7 @@ export function parseImport(raw: unknown): ParsedImport {
     recs.push({
       ...base(`product:${p.id}`, 'product'),
       brand: String(p.marca ?? ''), name: String(p.nome ?? ''), group, active,
-      originalCategory: p.categoria, area: p.area === 'corpo' ? 'corpo' : 'rosto',
+      originalCategory: p.categoria, area: p.area === 'corpo' ? 'corpo' : p.area === 'cabelo' ? 'cabelo' : 'rosto',
       period: 'ambos', status: 'conferir', sourceId: p.id
     } as AnyRecord);
   }

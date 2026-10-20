@@ -70,7 +70,7 @@ export function EvolutionScreen() {
   (workouts ?? []).forEach((w) => byMod.set(w.modalityId, (byMod.get(w.modalityId) ?? 0) + 1));
 
   // Pele
-  const skinDays = new Set((skin ?? []).filter((s) => s.period !== 'corpo').map((s) => s.date));
+  const skinDays = new Set((skin ?? []).filter((s) => s.period === 'am' || s.period === 'pm').map((s) => s.date));
   const sig = SKIN_SIGNALS.map((s) => ({ label: s.label, value: (skin ?? []).filter((l) => l.signals?.[s.id]).length })).filter((r) => r.value > 0);
   const cond = SKIN_CONDITIONS.map((c) => ({ label: c.label, value: (skin ?? []).filter((l) => l.condition === c.id).length })).filter((r) => r.value > 0);
 

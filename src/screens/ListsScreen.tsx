@@ -85,7 +85,7 @@ function Tasks() {
 
 export const LIBRARY = [
   { id: 'produtos', label: 'Produtos de pele', icon: <Droplet size={20} />, c: 'var(--rose)' },
-  { id: 'plano-pele', label: 'Plano de pele', icon: <Sparkles size={20} />, c: 'var(--rose)', path: '/plano/skin' },
+  { id: 'plano-pele', label: 'Pele, corpo e cabelo', icon: <Sparkles size={20} />, c: 'var(--rose)', path: '/plano/skin' },
   { id: 'alimentos', label: 'Alimentos', icon: <Utensils size={20} />, c: 'var(--honey)' },
   { id: 'refeicoes', label: 'Refeições favoritas', icon: <BookmarkCheck size={20} />, c: 'var(--honey)' },
   { id: 'plano-alimentacao', label: 'Plano de alimentação', icon: <CalendarRange size={20} />, c: 'var(--honey)', path: '/plano/food' },

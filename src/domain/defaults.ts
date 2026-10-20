@@ -52,9 +52,10 @@ export const GROUPS: { id: ProductGroup; label: string }[] = [
   { id: 'olhos', label: 'Olhos' },
   { id: 'hidratacao', label: 'Hidratação' },
   { id: 'fps', label: 'FPS' },
-  { id: 'corpo', label: 'Corpo' }
+  { id: 'corpo', label: 'Corpo' },
+  { id: 'cabelo', label: 'Cabelo' }
 ];
-export const GROUP_RANK: Record<ProductGroup, number> = { limpeza: 1, tratamentos: 2, seruns: 3, olhos: 4, hidratacao: 5, fps: 6, corpo: 7 };
+export const GROUP_RANK: Record<ProductGroup, number> = { limpeza: 1, tratamentos: 2, seruns: 3, olhos: 4, hidratacao: 5, fps: 6, corpo: 7, cabelo: 8 };
 
 export function groupFromCategory(cat: string): { group: ProductGroup; active: boolean } {
   const c = cat.toLowerCase();
@@ -65,6 +66,7 @@ export function groupFromCategory(cat: string): { group: ProductGroup; active: b
   if (c.includes('olho')) return { group: 'olhos', active: false };
   if (c.includes('solar') || c.includes('fps')) return { group: 'fps', active: false };
   if (c.includes('corpo')) return { group: 'corpo', active: false };
+  if (/cabelo|capilar|shampoo|xampu|condicionador|leave|couro cabeludo/.test(c)) return { group: 'cabelo', active: false };
   return { group: 'hidratacao', active: false }; // hidratação, conforto, reparação
 }
 
@@ -98,3 +100,16 @@ export async function ensureDefaults() {
   for (const c of DEFAULT_CATEGORIES) await seed(c.id, 'category', c);
   for (const m of DEFAULT_MODALITIES) await seed(m.id, 'modality', m);
 }
+
+/** Área do produto a partir do tipo: corpo e cabelo têm rotina própria; o resto é rosto. */
+export const areaOf = (g: ProductGroup): 'rosto' | 'corpo' | 'cabelo' => (g === 'corpo' ? 'corpo' : g === 'cabelo' ? 'cabelo' : 'rosto');
+
+export const BODY_SIGNALS = [
+  { id: 'b_ressecamento', label: 'Ressecamento' }, { id: 'b_coceira', label: 'Coceira' }, { id: 'b_foliculite', label: 'Foliculite' },
+  { id: 'b_acne', label: 'Acne no corpo' }, { id: 'b_manchas', label: 'Manchas' }, { id: 'b_atrito', label: 'Assadura ou atrito' }
+];
+export const HAIR_SIGNALS = [
+  { id: 'h_oleoso', label: 'Raiz oleosa' }, { id: 'h_ressecado', label: 'Pontas ressecadas' }, { id: 'h_frizz', label: 'Frizz' },
+  { id: 'h_queda', label: 'Queda' }, { id: 'h_caspa', label: 'Caspa ou descamação' }, { id: 'h_coceira', label: 'Coceira no couro' }, { id: 'h_quebra', label: 'Quebra' }
+];
+export const PERIOD_LABEL: Record<'am' | 'pm' | 'corpo' | 'cabelo', string> = { am: 'manhã', pm: 'noite', corpo: 'corpo', cabelo: 'cabelo' };

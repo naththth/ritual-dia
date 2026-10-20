@@ -18,10 +18,18 @@ export function planFor(plans: Plan[], domain: PlanDomain, date: DateKey): Plan 
 export function plannedSkin(
   plan: Plan | undefined, date: DateKey, period: SkinPeriod, products: Product[], recovery = false
 ): string[] {
-  if (!plan?.skin || period === 'corpo') return [];
+  if (!plan?.skin) return [];
   const byId = new Map(products.map((p) => [p.id, p]));
   let ids: string[];
-  if (recovery) {
+  if (period === 'corpo' || period === 'cabelo') {
+    const pp = period === 'corpo' ? plan.skin.body : plan.skin.hair;
+    if (!pp) return [];
+    const wd = isoWeekday(date);
+    const day = pp.days?.[wd] ?? { add: [], remove: [] };
+    // Cabelo: a rotina-base só entra nos dias de lavar; nos outros, só o que foi marcado para o dia.
+    const base = period === 'cabelo' && pp.washDays && !pp.washDays.includes(wd) ? [] : pp.base;
+    ids = [...base.filter((id) => !day.remove.includes(id)), ...day.add.filter((id) => !base.includes(id))];
+  } else if (recovery) {
     ids = plan.skin.recovery[period] ?? [];
   } else {
     const pp = plan.skin[period];

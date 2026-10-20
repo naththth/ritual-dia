@@ -436,3 +436,47 @@ test('perfil alinhado: campos, opções e texto longo', async ({ page }) => {
   expect(Math.abs(tops[0] - tops[1])).toBeLessThan(2);
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/perfil.png', fullPage: true });
 });
+
+test('cabelo e corpo: categoria, plano com dias de lavar e linha do dia', async ({ page }) => {
+  await onboard(page);
+  // cadastra um shampoo e um hidratante corporal pela biblioteca
+  await page.goto('./#/biblioteca/produtos');
+  for (const [brand, name, group] of [['Marca A', 'Shampoo suave', 'Cabelo'], ['Marca B', 'Loção de ureia 10%', 'Corpo']]) {
+    await page.getByRole('button', { name: 'Cadastrar produto' }).first().click();
+    await page.getByLabel('Marca').fill(brand);
+    await page.getByLabel('Nome do produto').fill(name);
+    await page.getByTestId('product-form').getByRole('button', { name: group, exact: true }).click();
+    await page.getByTestId('product-save').click();
+  }
+  await page.getByRole('button', { name: 'Cabelo', exact: true }).first().click();
+  await expect(page.getByText('Shampoo suave')).toBeVisible();
+  await expect(page.getByText('Loção de ureia 10%')).toBeHidden();
+
+  // plano: cabelo lavando na segunda; corpo todo dia
+  await page.goto('./#/plano/skin');
+  await page.setViewportSize({ width: 360, height: 780 });
+  await page.getByRole('tab', { name: 'Cabelo' }).click();
+  await noHorizontalScroll(page);
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/plano-cabelo.png' });
+  await page.getByTestId('wash-days').getByRole('button', { name: 'Seg' }).click();
+  await page.getByTestId('edit-base').click();
+  await page.locator('.sheet [data-testid=product-pick]', { hasText: 'Shampoo suave' }).click();
+  await page.getByRole('button', { name: 'Pronto' }).click();
+  await page.getByRole('tab', { name: 'Corpo' }).click();
+  await page.getByTestId('edit-base').click();
+  await page.locator('.sheet [data-testid=product-pick]', { hasText: 'Loção de ureia' }).click();
+  await page.getByRole('button', { name: 'Pronto' }).click();
+  await page.getByTestId('plan-save').click();
+
+  // segunda-feira: aparece na linha do dia
+  await page.goto('./#/');
+  await expect(page.getByTestId('tl-skin-cabelo')).toContainText('dia de lavar');
+  await expect(page.getByTestId('tl-skin-corpo')).toContainText('Loção de ureia');
+  await page.goto('./#/pele?p=cabelo');
+  await expect(page.getByTestId('hair-day')).toContainText('Hoje é dia de lavar');
+  await expect(page.getByTestId('product-pick').filter({ hasText: 'Shampoo suave' })).toBeVisible();
+  await page.getByTestId('skin-use-all').click();
+  await page.getByTestId('skin-save').click();
+  await expect(page.getByTestId('tl-skin-cabelo')).toContainText('1 produto usado');
+  await noHorizontalScroll(page);
+});

@@ -70,6 +70,8 @@ export function RemindersSection() {
         {(settings.mealTypes ?? []).map((m) => <TimeField key={m.id} label={m.label} value={meals[m.id] ?? ''} onChange={(v) => update<'settings'>('settings', { mealTimes: { ...meals, [m.id]: v } })} />)}
         <TimeField label="Pele da manhã" value={skin.am} onChange={(v) => update<'settings'>('settings', { skinTimes: { ...skin, am: v } })} />
         <TimeField label="Pele da noite" value={skin.pm} onChange={(v) => update<'settings'>('settings', { skinTimes: { ...skin, pm: v } })} />
+        <TimeField label="Corpo" value={skin.corpo ?? '21:00'} onChange={(v) => update<'settings'>('settings', { skinTimes: { ...skin, corpo: v } })} />
+        <TimeField label="Cabelo" value={skin.cabelo ?? '20:30'} onChange={(v) => update<'settings'>('settings', { skinTimes: { ...skin, cabelo: v } })} />
         {r.evening ? <TimeField label="Fechar o dia" value={r.evening} onChange={(v) => setR({ evening: v })} /> : null}
       </div>
       <p className="field-hint">Esses horários também organizam a linha do tempo do dia. Lembrete de refeição ou pele não chega se você já registrou.</p>
@@ -115,7 +117,7 @@ function SleepSection({ r, setR }: { r: Reminders; setR: (p: Partial<Reminders>)
   const organize = async () => {
     const t = scheduleFromSleep(sp, ref);
     const meals = { ...DEFAULT_MEAL_TIMES, ...(settings.mealTimes ?? {}), cafe: t.cafe };
-    await update<'settings'>('settings', { mealTimes: meals, skinTimes: { am: t.skinAm, pm: t.skinPm }, reminders: { ...r, sleep: sp, morning: sp.alarm ? '' : t.morning, evening: t.evening } });
+    await update<'settings'>('settings', { mealTimes: meals, skinTimes: { ...(settings.skinTimes ?? {}), am: t.skinAm, pm: t.skinPm }, reminders: { ...r, sleep: sp, morning: sp.alarm ? '' : t.morning, evening: t.evening } });
     toast(`Pronto: pele ${t.skinAm}, café ${t.cafe}, fechar o dia ${t.evening}, pele da noite ${t.skinPm}, deitar ${bed}`);
   };
   return (

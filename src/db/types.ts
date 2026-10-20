@@ -39,7 +39,7 @@ export interface Settings extends Base {
   targetsNote?: string; // como a IA chegou às metas
   showNutrition?: boolean; // padrão: ligado
   mealTimes?: Record<string, string>; // 'cafe' -> '07:30'
-  skinTimes?: { am: string; pm: string };
+  skinTimes?: { am: string; pm: string; corpo?: string; cabelo?: string };
   reminders?: Reminders;
   readingGoal?: number; // livros por ano
   autoBrief?: boolean; // prepara o dia sozinho ao abrir
@@ -135,7 +135,7 @@ export interface GoalEntry extends Base {
   note?: string;
 }
 
-export type ProductGroup = 'limpeza' | 'seruns' | 'tratamentos' | 'olhos' | 'hidratacao' | 'fps' | 'corpo';
+export type ProductGroup = 'limpeza' | 'seruns' | 'tratamentos' | 'olhos' | 'hidratacao' | 'fps' | 'corpo' | 'cabelo';
 export type ProductStatus = 'em_uso' | 'guardado' | 'acabou' | 'quero_comprar' | 'conferir' | 'de_outra' | 'arquivado';
 export interface Product extends Base {
   kind: 'product';
@@ -143,7 +143,7 @@ export interface Product extends Base {
   name: string;
   group: ProductGroup;
   originalCategory?: string;
-  area: 'rosto' | 'corpo';
+  area: 'rosto' | 'corpo' | 'cabelo';
   period: 'am' | 'pm' | 'ambos';
   status: ProductStatus;
   active?: boolean; // ativo potencialmente irritante, marcado por ela
@@ -163,7 +163,7 @@ export interface ProductInfo {
   confidence?: 'alta' | 'media' | 'baixa';
 }
 
-export type SkinPeriod = 'am' | 'pm' | 'corpo';
+export type SkinPeriod = 'am' | 'pm' | 'corpo' | 'cabelo';
 export type SkinCondition = 'otima' | 'boa' | 'regular' | 'sensibilizada';
 export interface SkinLog extends Base {
   kind: 'skin';
@@ -283,12 +283,14 @@ export type PlanDomain = 'skin' | 'training' | 'food';
 export interface SkinPeriodPlan {
   base: string[]; // produtos da rotina-base
   days: Record<number, { add: string[]; remove: string[] }>; // 1..7
+  /** Só no cabelo: dias de lavar (1..7). Nesses dias entra a rotina-base; nos outros, só o que for do dia. */
+  washDays?: number[];
 }
 export interface Plan extends Base {
   kind: 'plan';
   domain: PlanDomain;
   validFrom: DateKey;
-  skin?: { am: SkinPeriodPlan; pm: SkinPeriodPlan; recovery: { am: string[]; pm: string[] } };
+  skin?: { am: SkinPeriodPlan; pm: SkinPeriodPlan; recovery: { am: string[]; pm: string[] }; body?: SkinPeriodPlan; hair?: SkinPeriodPlan };
   training?: Record<number, string[]>; // weekday -> wtemplate ids
   food?: Record<number, Record<string, string | null>>; // weekday -> mealType -> mtemplate id
 }
@@ -375,6 +377,8 @@ export interface Profile {
   diet?: { restrictions: string[]; dislikes?: string; likes?: string; mealsPerDay?: number; followsNutritionist?: boolean };
   training?: { daysAvailable?: number[]; minutesPerSession?: number; equipment?: string; limitations?: string; followsCoach?: boolean };
   skin?: { type?: string; concerns: string[]; sensitive?: boolean; followsDerm?: boolean; prescriptions?: string };
+  hair?: { type?: string; scalp?: string; concerns?: string[]; chemical?: string[]; washesPerWeek?: number; notes?: string };
+  body?: { concerns?: string[]; notes?: string };
   cycle?: { hormonalContraception?: boolean; typicalLength?: number; typicalPeriod?: number; tracks?: boolean };
   health?: { professionals: string[]; meds: { id: string; name: string; dose?: string; schedule?: string }[]; notes?: string };
   updatedAt?: number;
