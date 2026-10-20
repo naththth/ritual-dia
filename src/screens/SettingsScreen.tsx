@@ -183,6 +183,13 @@ export function SettingsScreen() {
             }}>Instalar</button>
           </div>
         )}
+        <button className="btn btn-soft btn-sm" style={{ marginTop: 10 }} data-testid="check-update" onClick={async () => {
+          const reg = await navigator.serviceWorker?.getRegistration();
+          if (!reg) { location.reload(); return; }
+          await reg.update().catch(() => undefined);
+          if (reg.waiting || reg.installing) { toast('Atualizando…'); reg.waiting?.postMessage({ type: 'SKIP_WAITING' }); setTimeout(() => location.reload(), 900); }
+          else toast('Você já está na versão mais recente.');
+        }}>Procurar atualização</button>
         <p className="small" style={{ marginBottom: 0 }}>Armazenamento {persisted ? 'protegido contra limpeza automática' : 'comum (o navegador pode limpar se faltar espaço; mantenha a sincronização ou faça backups)'}.</p>
         <button className="btn btn-danger btn-sm" style={{ marginTop: 14 }} onClick={async () => {
           const ok = await ask({ title: 'Apagar os dados deste aparelho?', text: session ? 'Seus dados continuam na nuvem e voltam quando você entrar de novo. Alterações ainda não enviadas serão perdidas.' : 'Sem conta conectada, isso apaga tudo de forma definitiva. Faça um backup antes.', ok: 'Apagar daqui', danger: true });

@@ -6,13 +6,18 @@ export interface Toast {
   text: string;
   undo?: () => void | Promise<void>;
   tone?: 'default' | 'error';
+  /** Texto do botão (padrão: "Desfazer"). */
+  label?: string;
+  /** Fica na tela até ela tocar. */
+  sticky?: boolean;
 }
+type ToastOpts = { label?: string; sticky?: boolean };
 
 interface AppState {
   date: DateKey;
   setDate: (d: DateKey) => void;
   toasts: Toast[];
-  toast: (text: string, undo?: Toast['undo'], tone?: Toast['tone']) => void;
+  toast: (text: string, undo?: Toast['undo'], tone?: Toast['tone'], opts?: ToastOpts) => void;
   dismiss: (id: number) => void;
 }
 
@@ -22,15 +27,15 @@ export const useApp = create<AppState>((set, get) => ({
   date: todayKey(),
   setDate: (date) => set({ date }),
   toasts: [],
-  toast: (text, undo, tone = 'default') => {
+  toast: (text, undo, tone = 'default', opts = {}) => {
     const id = seq++;
-    set({ toasts: [...get().toasts.slice(-1), { id, text, undo, tone }] });
-    setTimeout(() => get().dismiss(id), undo ? 6000 : 3200);
+    set({ toasts: [...get().toasts.slice(-1), { id, text, undo, tone, ...opts }] });
+    if (!opts.sticky) setTimeout(() => get().dismiss(id), undo ? 6000 : 3200);
   },
   dismiss: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) })
 }));
 
-export const toast = (text: string, undo?: Toast['undo'], tone?: Toast['tone']) => useApp.getState().toast(text, undo, tone);
+export const toast = (text: string, undo?: Toast['undo'], tone?: Toast['tone'], opts?: ToastOpts) => useApp.getState().toast(text, undo, tone, opts);
 
 export function haptic(ms = 12) {
   try { navigator.vibrate?.(ms); } catch { /* sem vibração */ }

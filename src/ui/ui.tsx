@@ -73,8 +73,9 @@ export function Toasts() {
         <div key={t.id} className={`toast ${t.tone === 'error' ? 'error' : ''}`} role="status">
           <span className="grow">{t.text}</span>
           {t.undo && (
-            <button onClick={async () => { dismiss(t.id); await t.undo!(); }}>Desfazer</button>
+            <button onClick={async () => { dismiss(t.id); await t.undo!(); }}>{t.label ?? 'Desfazer'}</button>
           )}
+          {t.sticky && <button aria-label="Fechar aviso" onClick={() => dismiss(t.id)} style={{ opacity: .7 }}>✕</button>}
         </div>
       ))}
     </div>

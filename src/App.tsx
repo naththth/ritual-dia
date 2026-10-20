@@ -40,7 +40,7 @@ export function App() {
     })();
     const update = registerSW({
       // Se a versão nova chegar enquanto o app ainda abre, troca na hora; depois de aberto, pergunta.
-      onNeedRefresh() { if (!bootedRef.current) update(true); else toast('Nova versão disponível', () => update(true)); }
+      onNeedRefresh() { if (!bootedRef.current) update(true); else toast('Versão nova do Ritual pronta', () => update(true), 'default', { label: 'Atualizar', sticky: true }); }
     });
   }, []);
   if (!booted) return <div className="app" style={{ display: 'grid', placeItems: 'center', minHeight: '100dvh' }}><span className="wordmark">Ritual</span></div>;
