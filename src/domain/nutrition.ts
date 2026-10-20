@@ -190,3 +190,108 @@ export function portionText(food: Food | undefined, item: MealItem) {
   if (/^[PMG]$/.test(item.portion)) return `porção ${item.portion}${g ? ` (${fmt(g)} g)` : ''}`;
   return g && !item.portion.includes('(') && !item.portion.endsWith(' g') ? `${item.portion} (${fmt(g)} g)` : item.portion;
 }
+
+/* ---------- Medidas caseiras ---------- */
+export interface Unit { key: string; label: string; grams?: number; approx?: boolean }
+
+/** Medidas caseiras usuais (aproximadas, referência: tabelas brasileiras de medidas caseiras) para quando o alimento só tem gramas. */
+const COMMON: [RegExp, [string, number][]][] = [
+  [/^pao.*frances/, [['unidade', 50]]],
+  [/^pao de queijo/, [['unidade', 25]]],
+  [/^pao/, [['fatia', 25]]],
+  [/^torrada/, [['unidade', 10]]],
+  [/^ovo.*clara/, [['clara', 33]]],
+  [/^ovo/, [['unidade', 50]]],
+  [/^tapioca/, [['unidade', 70]]],
+  [/^arroz/, [['colher de sopa cheia', 25], ['escumadeira', 45]]],
+  [/^feijao/, [['concha', 80], ['colher de sopa', 20]]],
+  [/^(macarrao|massa)/, [['pegador', 110]]],
+  [/^(frango|peito de frango|sobrecoxa)/, [['filé', 100]]],
+  [/^carne/, [['bife médio', 100]]],
+  [/^(peixe|tilapia|salmao|merluza)/, [['filé', 120]]],
+  [/^batata.*doce/, [['unidade média', 150]]],
+  [/^batata/, [['unidade média', 130]]],
+  [/^mandioca|^aipim/, [['pedaço', 100]]],
+  [/^banana/, [['unidade', 70]]],
+  [/^maca/, [['unidade', 130]]],
+  [/^laranja/, [['unidade', 180]]],
+  [/^mamao/, [['meia unidade', 150]]],
+  [/^morango/, [['unidade', 12]]],
+  [/^abacate/, [['colher de sopa', 30]]],
+  [/^(tomate)/, [['unidade', 100]]],
+  [/^cenoura/, [['unidade', 80]]],
+  [/^leite.*po/, [['colher de sopa', 15]]],
+  [/^leite/, [['copo (200 mL)', 200], ['xícara (240 mL)', 240]]],
+  [/^(bebida lactea|kefir)/, [['copo (200 mL)', 200]]],
+  [/^iogurte/, [['pote', 170]]],
+  [/^requeijao/, [['colher de sopa', 30]]],
+  [/^queijo.*(parmesao|ralado)/, [['colher de sopa', 5]]],
+  [/^queijo/, [['fatia', 20]]],
+  [/^(manteiga|margarina)/, [['colher de chá', 5]]],
+  [/^(azeite|oleo)/, [['colher de sopa', 13]]],
+  [/^aveia/, [['colher de sopa', 15]]],
+  [/^granola/, [['colher de sopa', 10]]],
+  [/^acucar/, [['colher de chá', 5], ['colher de sopa', 12]]],
+  [/^mel/, [['colher de sopa', 20]]],
+  [/^(pasta de amendoim|manteiga de amendoim)/, [['colher de sopa', 15]]],
+  [/^(castanha|amendoa|nozes|amendoim)/, [['punhado', 30]]],
+  [/^(whey|proteina.*soro|suplemento.*protei)/, [['scoop', 30]]],
+  [/^cafe/, [['xícara (50 mL)', 50]]],
+  [/^(suco)/, [['copo (200 mL)', 200]]],
+  [/^(chia|linhaca)/, [['colher de sopa', 10]]]
+];
+
+export function pluralize(label: string): string {
+  const [w, ...rest] = label.split(' ');
+  const p = w.endsWith('ão') ? w.slice(0, -2) + 'ões' : w.endsWith('s') || w.endsWith('.') ? w : /[rzl]$/.test(w) ? w + 'es' : w + 's';
+  return [p, ...rest].join(' ');
+}
+export const fmtQ = (v: number) => v.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+
+/** Medidas para escolher a quantidade: as do alimento, as caseiras usuais e sempre gramas no fim. */
+export function unitsFor(food: Food | undefined): Unit[] {
+  const out: Unit[] = [];
+  for (const m of food?.measures ?? []) {
+    if (norm(m.label) === '100 g') continue;
+    out.push({ key: m.label, label: m.label.replace(/^1\s+/, ''), grams: m.grams });
+  }
+  const hasUnit = out.some((u) => !/^\d+\s*(g|ml)$/i.test(u.label));
+  if (food && !hasUnit) {
+    const name = norm(displayFood(food).name);
+    const rule = COMMON.find(([re]) => re.test(name));
+    for (const [label, grams] of rule?.[1] ?? []) out.push({ key: `1 ${label}`, label, grams, approx: true });
+  }
+  for (const p of food?.portions ?? []) if (!out.some((u) => norm(u.key) === norm(p)) && !/^\d+\s*g$/.test(p)) out.push({ key: p, label: /^[PMG]$/.test(p) ? `porção ${p}` : p });
+  out.push({ key: 'g', label: 'gramas', grams: 1 });
+  return out;
+}
+
+/** A medida e o número a mostrar para um item já no prato. */
+export function unitOfItem(food: Food | undefined, item: MealItem, units: Unit[]): { unit: Unit; qty: number } {
+  const g = units.find((u) => u.key === 'g')!;
+  const exact = units.find((u) => u.key !== 'g' && norm(u.key) === norm(item.portion));
+  if (exact) return { unit: exact, qty: 1 };
+  const m = item.portion.match(/^(\d+(?:[.,]\d+)?)\s*(?:×\s*)?(.+)$/);
+  if (m && !/^g$/i.test(m[2].trim())) {
+    const q = Number(m[1].replace(',', '.'));
+    const lbl = norm(m[2]);
+    const u = units.find((x) => x.key !== 'g' && (norm(x.label) === lbl || norm(pluralize(x.label)) === lbl));
+    if (u && q > 0) return { unit: u, qty: q };
+  }
+  const grams = gramsFor(food, item.portion, item.grams);
+  return grams != null ? { unit: g, qty: Math.round(grams) } : { unit: units[0], qty: 1 };
+}
+
+/** Monta o item a partir da medida escolhida e do número digitado. */
+export function itemFromUnit(foodId: string, unit: Unit, qty: number): MealItem {
+  if (unit.key === 'g') return { foodId, portion: `${fmtQ(qty)} g`, grams: qty };
+  if (!unit.grams) return { foodId, portion: unit.key };
+  const portion = qty === 1 ? `1 ${unit.label}` : `${fmtQ(qty)} ${qty > 1 ? pluralize(unit.label) : unit.label}`;
+  return { foodId, portion, grams: Math.round(unit.grams * qty * 10) / 10 };
+}
+
+/** Item padrão ao escolher um alimento: a primeira medida caseira, senão 100 g. */
+export function defaultItem(food: Food): MealItem {
+  const u = unitsFor(food).find((x) => x.key !== 'g' && x.grams);
+  return u ? itemFromUnit(food.id, u, 1) : { foodId: food.id, portion: '100 g', grams: 100 };
+}

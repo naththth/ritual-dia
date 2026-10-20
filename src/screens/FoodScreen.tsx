@@ -1,19 +1,20 @@
 // Montar uma refeição: o que está no prato em cima, o que adicionar embaixo, salvar sempre à mão no rodapé.
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Search, Star, Copy, Check as CheckIcon, X, Trash2, ChevronRight } from 'lucide-react';
+import { Plus, Search, Star, Copy, Check as CheckIcon, X, Trash2, ChevronRight, Pencil } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp, toast } from '../state/store';
 import { useAll, useByDate, useSettings } from '../db/hooks';
 import { PageHead, useBack } from './common';
-import { Chip, Sheet, useConfirm, Empty } from '../ui/ui';
+import { Sheet, useConfirm, Empty, whenHistoryIdle } from '../ui/ui';
 import { copyMealsFrom, deleteRecord, mealId, saveMeal } from '../domain/actions';
 import { byDateRange, create } from '../db/db';
 import type { Food, MealItem, MealTemplate } from '../db/types';
 import { addDays, shortLabel } from '../lib/dates';
 import { FoodForm, FoodSuggest, foodFromTaco, foodFromOff } from './library/FoodForm';
 import { BarcodeButton } from './library/Barcode';
-import { displayFood, fmt, gramsFor, itemNutr, portionOptions, portionText, totals } from '../domain/nutrition';
+import { defaultItem, displayFood, fmt, itemNutr, portionText, totals } from '../domain/nutrition';
+import { FoodSheet, MacroLine, MacroRing } from './food-ui';
 import { planFor, plannedFood } from '../domain/rules';
 
 function defaultMeal() {
@@ -40,7 +41,7 @@ export function FoodScreen() {
   const [q, setQ] = useState('');
   const [tab, setTab] = useState<Tab | null>(null);
   const [adding, setAdding] = useState(false);
-  const [editing, setEditing] = useState<string | null>(null);
+  const [sheet, setSheet] = useState<{ food: Food; item?: MealItem } | null>(null);
   const [favName, setFavName] = useState<string | null>(null);
   const [confirmEl, ask] = useConfirm();
   const key = `${date}:${type}:${meal?.updatedAt ?? 'none'}`;
@@ -64,15 +65,21 @@ export function FoodScreen() {
     : activeFoods).slice().sort((a, b) => (curTab === 'rec' ? 0 : displayFood(a).name.localeCompare(displayFood(b).name)));
 
   const sel = (id: string) => items.find((i) => i.foodId === id);
-  const add = (f: Food) => setItems((xs) => (xs.some((x) => x.foodId === f.id) ? xs : [...xs, { foodId: f.id, portion: portionOptions(f)[0] }]));
+  /** Tocar num alimento abre a ficha: no prato, para ajustar; fora, para escolher a quantidade antes de adicionar. */
+  // Espera a folha anterior (cadastro, código de barras) terminar de fechar para não fechar esta junto.
+  const open = (f: Food) => setTimeout(() => whenHistoryIdle(() => setSheet({ food: f, item: items.find((x) => x.foodId === f.id) })), 60);
+  const putItem = (it: MealItem) => setItems((xs) => (xs.some((x) => x.foodId === it.foodId) ? xs.map((x) => (x.foodId === it.foodId ? it : x)) : [...xs, it]));
   const removeItem = (id: string) => setItems((xs) => xs.filter((x) => x.foodId !== id));
-  const setItem = (id: string, it: MealItem) => setItems((xs) => xs.map((x) => (x.foodId === id ? it : x)));
-  const useTemplate = (t: MealTemplate) => setItems((xs) => [...xs, ...t.items.filter((i) => !xs.some((x) => x.foodId === i.foodId))]);
+  const useTemplate = (t: MealTemplate) => {
+    const add = t.items.filter((i) => !items.some((x) => x.foodId === i.foodId));
+    setItems((xs) => [...xs, ...add]);
+    toast(add.length ? `${add.length} ${add.length === 1 ? 'item foi' : 'itens foram'} para o prato. Toque em um para ajustar a quantidade.` : 'Esses itens já estão no prato.');
+  };
   const addNew = async (data: Partial<Food>) => {
     const existing = activeFoods.find((f) => f.sourceRef && f.sourceRef === data.sourceRef);
     const f = existing ?? (await create('food', { ...(data as Food), favorite: false }));
-    add(f);
     setQ('');
+    open(f);
   };
   const showN = settings?.showNutrition !== false;
   const mealTot = foods ? totals(items, foods) : undefined;
@@ -90,8 +97,15 @@ export function FoodScreen() {
     const n = await copyMealsFrom(addDays(date, -1), date);
     toast(n ? `${n} ${n === 1 ? 'refeição copiada' : 'refeições copiadas'}` : 'Nada para copiar');
   };
-  const editingItem = editing ? items.find((i) => i.foodId === editing) : undefined;
-  const editingFood = editing ? foods?.find((f) => f.id === editing) : undefined;
+  // Vindo do resumo do dia com ?edit=ID: abre direto a ficha daquele item.
+  const editParam = params.get('edit');
+  const [editOpened, setEditOpened] = useState(false);
+  useEffect(() => {
+    if (!editParam || editOpened || !foods || loaded !== key) return;
+    const f = foods.find((x) => x.id === editParam);
+    if (f) setSheet({ food: f, item: items.find((x) => x.foodId === f.id) });
+    setEditOpened(true);
+  }, [editParam, foods, loaded, items]);
 
   return (
     <div className="screen no-nav meal-screen" data-testid="food-screen">
@@ -110,13 +124,16 @@ export function FoodScreen() {
       </div>
 
       <div className="meal-head" data-testid="meal-totals">
-        <h2>{typeLabel}</h2>
-        {showN && mealTot && (
-          <div className="meal-head-n">
-            <span className="big-num num">{fmt(mealTot.n.kcal)}<small> kcal</small></span>
-            <span className="small">P {fmt(mealTot.n.p)} g · C {fmt(mealTot.n.c)} g · G {fmt(mealTot.n.f)} g{mealTot.missing > 0 ? ` · ${mealTot.missing} sem dados` : ''}</span>
-          </div>
-        )}
+        {showN && mealTot && items.length > 0 ? <MacroRing n={mealTot.n} size={84} stroke={9} /> : null}
+        <div className="grow" style={{ minWidth: 0 }}>
+          <h2>{typeLabel}</h2>
+          {showN && mealTot && items.length > 0 && (
+            <>
+              <MacroLine n={mealTot.n} />
+              {mealTot.missing > 0 && <div className="tiny">{mealTot.missing} sem dados nutricionais</div>}
+            </>
+          )}
+        </div>
       </div>
 
       {/* No prato */}
@@ -126,14 +143,15 @@ export function FoodScreen() {
         {items.map((i) => {
           const f = foods?.find((x) => x.id === i.foodId);
           const d = displayFood(f);
-          const k = f ? kcalOf(f, i) : undefined;
+          const n = f ? itemNutr(f, i) : undefined;
           return (
             <div key={i.foodId} className="plate-row">
-              <button className="plate-main tap" onClick={() => setEditing(i.foodId)} aria-label={`Quantidade de ${f?.name}`}>
+              <button className="plate-main tap" onClick={() => f && open(f)} aria-label={`Quantidade de ${f?.name}`}>
                 <span className="plate-name">{d.name}</span>
-                <span className="plate-sub">{[d.brand, portionText(f, i)].filter(Boolean).join(' · ')}</span>
+                <span className="plate-sub">{d.brand ? `${d.brand} · ` : ''}<span className="qty-pill"><Pencil size={12} />{portionText(f, i)}</span></span>
+                {showN && n && <MacroLine n={n} className="tiny" />}
               </button>
-              {showN && <span className="plate-kcal num">{k != null ? `${fmt(k)} kcal` : f?.n ? 'informe o peso' : ''}</span>}
+              {showN && <span className="plate-kcal num">{n ? `${fmt(n.kcal)} kcal` : f?.n ? 'informe o peso' : ''}</span>}
               <button className="icon-btn" aria-label={`Remover ${f?.name}`} onClick={() => removeItem(i.foodId)}><X size={18} /></button>
             </div>
           );
@@ -155,7 +173,7 @@ export function FoodScreen() {
           <Search size={18} style={{ position: 'absolute', left: 14, top: 15, color: 'var(--ink-2)' }} />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar alimento ou marca" style={{ paddingLeft: 40, paddingRight: 52 }} aria-label="Buscar alimento" autoComplete="off" />
           <span style={{ position: 'absolute', right: 4, top: 4 }}><BarcodeButton onFound={(o) => addNew(foodFromOff(o))} /></span>
-          <FoodSuggest q={q} onPickMine={(f) => { add(f); setQ(''); }} onPickTaco={(t) => addNew(foodFromTaco(t))} onPickOff={(o) => addNew(foodFromOff(o))} />
+          <FoodSuggest q={q} onPickMine={(f) => { setQ(''); open(f); }} onPickTaco={(t) => addNew(foodFromTaco(t))} onPickOff={(o) => addNew(foodFromOff(o))} />
         </div>
 
         {!q && (
@@ -176,16 +194,16 @@ export function FoodScreen() {
               <div data-testid="food-list">
                 {listFoods.map((f) => {
                   const d = displayFood(f);
-                  const it: MealItem = { foodId: f.id, portion: portionOptions(f)[0] };
+                  const inPlate = sel(f.id);
+                  const it = inPlate ?? defaultItem(f);
                   const k = kcalOf(f, it);
-                  const inPlate = !!sel(f.id);
                   return (
                     <div key={f.id} className="add-row">
-                      <div className="grow">
+                      <button className="grow tap" style={{ textAlign: 'left', minWidth: 0 }} onClick={() => open(f)} aria-label={`Ver ${f.name}`}>
                         <div className="plate-name">{f.favorite ? '★ ' : ''}{d.name}</div>
                         <div className="plate-sub">{[d.brand, portionText(f, it), showN && k != null ? `${fmt(k)} kcal` : ''].filter(Boolean).join(' · ')}</div>
-                      </div>
-                      <button className={`add-btn ${inPlate ? 'in' : ''}`} aria-label={inPlate ? `${f.name} no prato` : `Adicionar ${f.name}`} aria-pressed={inPlate} onClick={() => (inPlate ? removeItem(f.id) : add(f))}>
+                      </button>
+                      <button className={`add-btn ${inPlate ? 'in' : ''}`} aria-label={inPlate ? `${f.name} no prato` : `Adicionar ${f.name}`} aria-pressed={!!inPlate} onClick={() => open(f)}>
                         {inPlate ? <CheckIcon size={18} strokeWidth={3} /> : <Plus size={20} />}
                       </button>
                     </div>
@@ -212,9 +230,11 @@ export function FoodScreen() {
         <button className="btn btn-ink grow" onClick={save} data-testid="meal-save">Salvar {typeLabel.toLowerCase()}{showN && mealTot && items.length && mealTot.n.kcal > 0 ? ` · ${fmt(mealTot.n.kcal)} kcal` : ''}</button>
       </div>
 
-      <QuantitySheet food={editingFood} item={editingItem} onClose={() => setEditing(null)} onSave={(it) => { setItem(it.foodId, it); setEditing(null); }} onRemove={() => { if (editing) removeItem(editing); setEditing(null); }} />
+      {sheet && <FoodSheet food={sheet.food} item={sheet.item} mealLabel={typeLabel} onClose={() => setSheet(null)}
+        onSave={(it) => { putItem(it); setSheet(null); }}
+        onRemove={sheet.item ? () => { removeItem(sheet.food.id); setSheet(null); } : undefined} />}
       <Sheet open={adding} onClose={() => setAdding(false)} title="Novo alimento">
-        <FoodForm onDone={(f) => { setAdding(false); if (f) add(f); }} />
+        <FoodForm onDone={(f) => { setAdding(false); if (f) open(f); }} />
       </Sheet>
       {confirmEl}
     </div>
@@ -235,56 +255,3 @@ function TemplateRow({ t, foods, label, onUse, showN }: { t: MealTemplate; foods
   );
 }
 
-/** Quantidade de um item: um número e a unidade (g ou as medidas daquele alimento). */
-function QuantitySheet({ food, item, onClose, onSave, onRemove }: { food?: Food; item?: MealItem; onClose: () => void; onSave: (it: MealItem) => void; onRemove: () => void }) {
-  const units = useMemo(() => {
-    const out: { key: string; label: string; grams?: number }[] = [{ key: 'g', label: 'gramas', grams: 1 }];
-    for (const m of food?.measures ?? []) {
-      if (m.label === '100 g') continue;
-      out.push({ key: m.label, label: m.label.replace(/^1\s+/, ''), grams: m.grams });
-    }
-    for (const p of food?.portions ?? []) if (!out.some((u) => u.key === p)) out.push({ key: p, label: /^[PMG]$/.test(p) ? `porção ${p}` : p });
-    return out;
-  }, [food]);
-  const [unit, setUnit] = useState('g');
-  const [qty, setQty] = useState('');
-  useEffect(() => {
-    if (!item || !food) return;
-    const m = units.find((u) => u.key !== 'g' && u.key === item.portion);
-    if (m) { setUnit(m.key); setQty('1'); return; }
-    const g = gramsFor(food, item.portion, item.grams);
-    setUnit('g'); setQty(g != null ? String(Math.round(g)) : '');
-  }, [item?.foodId, food?.id]);
-  if (!item || !food) return null;
-  const u = units.find((x) => x.key === unit) ?? units[0];
-  const n = Number(qty.replace(',', '.'));
-  const grams = u.grams && n > 0 ? n * u.grams : undefined;
-  const kcal = food.n && grams ? (food.n.kcal * grams) / 100 : undefined;
-  const d = displayFood(food);
-  const apply = () => {
-    if (u.key === 'g') { if (!(n > 0)) return; onSave({ foodId: food.id, portion: `${fmt(n)} g`, grams: n }); return; }
-    if (!u.grams) { onSave({ foodId: food.id, portion: u.key }); return; }
-    const label = n === 1 ? u.key : `${fmt(n)} × ${u.label}`;
-    onSave({ foodId: food.id, portion: label, grams });
-  };
-  return (
-    <Sheet open onClose={onClose} title={d.name} sub={d.brand} testId="qty-sheet"
-      footer={<>
-        <button className="btn btn-soft" style={{ flex: '0 0 auto' }} aria-label="Tirar do prato" onClick={onRemove}><Trash2 size={18} /></button>
-        <button className="btn btn-ink" onClick={apply} data-testid="qty-save">Pronto{kcal != null ? ` · ${fmt(kcal)} kcal` : ''}</button>
-      </>}>
-      {u.grams ? (
-        <div className="qty-big">
-          <input inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} aria-label="Quantidade" autoFocus />
-          <span>{u.key === 'g' ? 'g' : u.label}</span>
-        </div>
-      ) : <p style={{ textAlign: 'center', fontWeight: 700, fontSize: 18, margin: '14px 0' }}>{u.label}</p>}
-      {grams != null && u.key !== 'g' && <p className="small" style={{ textAlign: 'center', margin: '0 0 8px' }}>{fmt(grams)} g</p>}
-      <span className="label">Medida</span>
-      <div className="chips">
-        {units.map((x) => <Chip key={x.key} on={unit === x.key} onClick={() => { setUnit(x.key); setQty(x.key === 'g' ? String(Math.round(grams ?? 100)) : '1'); }}>{x.label}</Chip>)}
-      </div>
-      {!food.n && <p className="field-hint">Este alimento não tem calorias cadastradas. Edite em Biblioteca → Alimentos para incluir.</p>}
-    </Sheet>
-  );
-}

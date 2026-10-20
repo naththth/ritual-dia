@@ -506,3 +506,37 @@ button.wellness-strip { width: 100%; align-items: baseline; text-align: left; ba
 .cg-key.bleed { background: var(--wine); }
 .cg-key.pred { border: 1.5px dashed var(--wine); }
 .cg-key.fert { background: color-mix(in srgb, var(--olive-2) 35%, transparent); }
+
+/* Alimentação: ficha do alimento e macros */
+.macro-ring .mr-num { font-family: var(--f-display); font-weight: 600; fill: var(--ink); }
+.macro-ring .mr-lbl { font-weight: 700; fill: var(--ink-2); }
+.macro-line { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; color: var(--ink-2); }
+.macro-line > span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.macro-line i, .fs-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.macro-line b { color: var(--ink); }
+.macro-split { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: var(--paper-2); margin-top: 6px; }
+.macro-split i { display: block; height: 100%; }
+.meal-macros { margin: -2px 0 6px; }
+.meal-head { align-items: center; justify-content: flex-start; }
+.meal-head .macro-line { margin-top: 4px; }
+.fs-top { display: flex; align-items: center; gap: 16px; margin: 2px 0 6px; }
+.fs-macros { flex: 1; display: grid; gap: 8px; min-width: 0; }
+.fs-m { display: grid; grid-template-columns: 10px 1fr auto 40px; align-items: center; gap: 2px 8px; font-size: 14.5px; }
+.fs-m .fs-ml { font-weight: 650; }
+.fs-m .fs-pct { text-align: right; color: var(--ink-2); font-size: 13px; }
+.fs-m .fs-goal { grid-column: 2 / -1; font-size: 12px; color: var(--ink-2); margin-top: -3px; }
+.fs-qty { display: flex; align-items: baseline; gap: 10px; }
+.fs-qty input { width: 120px; text-align: center; font-family: var(--f-display); font-size: 34px; font-weight: 600; min-height: 58px; border: 2px solid var(--ink); }
+.fs-unit { font-size: 18px; font-weight: 700; color: var(--ink-2); }
+.fs-quick { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.fs-q { min-width: 48px; min-height: 38px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--card); font-weight: 700; }
+.fs-q.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.fs-units { display: flex; flex-wrap: wrap; gap: 8px; }
+.fs-u { display: inline-flex; flex-direction: column; align-items: flex-start; padding: 8px 14px; border-radius: 14px; border: 1px solid var(--line-2); background: var(--card); text-align: left; line-height: 1.2; }
+.fs-u span { font-weight: 700; font-size: 14.5px; }
+.fs-u small { font-size: 12px; color: var(--ink-2); }
+.fs-u.on { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.fs-u.on small { color: var(--paper-2); }
+.qty-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--card); color: var(--ink); font-weight: 650; font-size: 12.5px; }
+.plate-row .macro-line { margin-top: 4px; }
+button.food-line { width: 100%; text-align: left; }

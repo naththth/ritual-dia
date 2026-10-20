@@ -72,7 +72,10 @@ test('segunda-feira completa: todos os módulos na mesma data', async ({ page })
   await page.getByRole('link', { name: 'Alimentação' }).click();
   await page.getByTestId('add-almoco').click();
   await page.getByRole('tab', { name: 'Todos' }).click();
-  for (const f of ['Frango', 'Arroz', 'Feijão', 'Salada de folhas']) await page.getByTestId('food-list').getByRole('button', { name: `Adicionar ${f}`, exact: true }).click();
+  for (const f of ['Frango', 'Arroz', 'Feijão', 'Salada de folhas']) {
+    await page.getByTestId('food-list').getByRole('button', { name: `Adicionar ${f}`, exact: true }).click();
+    await page.getByTestId('qty-save').click();
+  }
   await expect(page.getByTestId('meal-selected')).toContainText('4 itens');
   await page.getByTestId('meal-save').click();
   await expect(page.getByTestId('meal-sec-almoco')).toContainText('Frango');
@@ -151,6 +154,7 @@ test('cadastrar alimento e produto aparecem na hora para uso', async ({ page }) 
   await page.getByRole('button', { name: /Cadastrar alimento/ }).click();
   await page.getByLabel('Nome do alimento').fill('Patinho');
   await page.getByTestId('food-save').click();
+  await page.getByTestId('qty-save').click();
   await expect(page.getByTestId('meal-selected')).toContainText('Patinho');
   await page.getByTestId('meal-save').click();
   await expect(page.getByTestId('day-screen')).toBeVisible();
@@ -221,9 +225,15 @@ test('buscar alimento na tabela TACO e ver calorias da refeição', async ({ pag
   await page.goto('./#/alimentacao/refeicao?m=almoco');
   await page.getByLabel('Buscar alimento').fill('frango peito grelhado');
   await page.getByTestId('taco-option').first().click();
+  // A ficha abre antes de ir para o prato: medida caseira (1 filé ≈ 100 g) e macros.
+  await expect(page.getByTestId('qty-sheet')).toBeVisible();
+  await expect(page.getByTestId('food-macros')).toContainText('Proteína');
+  await expect(page.getByTestId('qty-save')).toContainText('159 kcal');
+  await page.getByTestId('qty-save').click();
   await expect(page.getByTestId('meal-selected')).toContainText('Frango, peito, sem pele, grelhado');
   await expect(page.getByTestId('meal-totals')).toContainText('159');
   await page.getByRole('button', { name: 'Quantidade de Frango, peito, sem pele, grelhado' }).click();
+  await page.getByRole('radio', { name: /gramas/ }).click();
   await page.getByLabel('Quantidade', { exact: true }).fill('140');
   await page.getByTestId('qty-save').click();
   await expect(page.getByTestId('meal-totals')).toContainText('223');
@@ -381,4 +391,31 @@ test('ciclo: marcar menstruação, ver fase no Hoje e previsão', async ({ page 
   if (process.env.SHOTS) { await page.screenshot({ path: '/tmp/claude-0/shots/ciclo.png', fullPage: true }); await page.goto('./#/'); await page.getByTestId('cycle-card').waitFor(); await page.waitForTimeout(4500); await page.screenshot({ path: '/tmp/claude-0/shots/hoje.png' }); await page.goto('./#/ciclo'); }
   await page.getByTestId('cycle-hormonal').click();
   await expect(page.getByTestId('cycle-screen')).toContainText('não há fase natural');
+});
+
+test('ficha do alimento: pão francês em unidades, macros por refeição', async ({ page }) => {
+  await onboard(page);
+  await page.goto('./#/alimentacao/refeicao?m=cafe');
+  await page.getByLabel('Buscar alimento').fill('pão francês');
+  await page.getByTestId('taco-option').filter({ hasText: 'Pão, trigo, francês' }).first().click();
+  await expect(page.getByRole('radio', { name: /unidade/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByTestId('qty-grams')).toContainText('50 g');
+  await page.getByRole('button', { name: '2', exact: true }).click();
+  await expect(page.getByTestId('qty-grams')).toContainText('100 g');
+  await expect(page.getByTestId('qty-save')).toContainText('300 kcal');
+  await page.getByTestId('qty-save').click();
+  await expect(page.getByTestId('meal-selected')).toContainText('2 unidades (100 g)');
+  await expect(page.getByTestId('meal-totals')).toContainText('P');
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/refeicao.png' });
+  await page.getByRole('button', { name: /Quantidade de Pão/ }).click();
+  await expect(page.getByLabel('Quantidade', { exact: true })).toHaveValue('2');
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/ficha.png' });
+  await page.getByTestId('qty-save').click();
+  await page.getByTestId('meal-save').click();
+  await expect(page.getByTestId('food-screen')).toBeHidden();
+  await page.goto('./#/alimentacao');
+  await expect(page.getByTestId('meal-macros-cafe')).toContainText('P');
+  await page.getByRole('button', { name: /Ajustar Pão/ }).click();
+  await expect(page.getByTestId('qty-sheet')).toBeVisible();
+  if (process.env.SHOTS) { await page.getByTestId('qty-save').click(); await page.goto('./#/alimentacao'); await page.screenshot({ path: '/tmp/claude-0/shots/dia.png' }); }
 });

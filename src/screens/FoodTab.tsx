@@ -6,7 +6,8 @@ import { useApp, toast } from '../state/store';
 import { planFor, plannedFood } from '../domain/rules';
 import { addDays, shortLabel, todayKey } from '../lib/dates';
 import { addWater, mealFromTemplate, skipPlanned } from '../domain/actions';
-import { fmt, itemNutr, totals } from '../domain/nutrition';
+import { fmt, itemNutr, portionText, totals } from '../domain/nutrition';
+import { MACRO_COLORS, MacroBar, MacroLine } from './food-ui';
 import { remove } from '../db/db';
 import { DEFAULT_MEAL_TIMES } from './today';
 import type { MealItem } from '../db/types';
@@ -60,7 +61,7 @@ export function FoodTab() {
           <div className="macro-bar" style={{ height: 10 }}><i style={{ width: `${pct(eaten.n.kcal, goal.kcal)}%` }} /></div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginTop: 10 }}>
             {([['Proteína', eaten.n.p, goal.p], ['Carboidrato', eaten.n.c, goal.c], ['Gordura', eaten.n.f, goal.f]] as [string, number, number | undefined][]).map(([l, v, m]) => (
-              <div key={l} className="small"><div style={{ fontWeight: 700 }}>{l}</div><div className="num">{fmt(v)}{m ? ` de ${fmt(m)}` : ''} g</div>
+              <div key={l} className="small"><div style={{ fontWeight: 700 }}><i className="fs-dot" style={{ background: l === 'Proteína' ? MACRO_COLORS.p : l === 'Carboidrato' ? MACRO_COLORS.c : MACRO_COLORS.f, marginRight: 6 }} />{l}</div><div className="num">{fmt(v)}{m ? ` de ${fmt(m)}` : ''} g</div>
                 {m ? <div className="macro-bar"><i style={{ width: `${pct(v, m)}%` }} /></div> : null}</div>
             ))}
           </div>
@@ -81,13 +82,15 @@ export function FoodTab() {
               <h2 className="section-title" style={{ fontSize: 20 }}>{mt.label} <span className="small muted" style={{ fontFamily: 'var(--f-ui)', fontWeight: 600 }}>{times[mt.id] ?? ''}</span></h2>
               {showN && <span className="num" style={{ fontWeight: 700 }}>{mtot ? `${fmt(mtot.kcal)} kcal` : ''}</span>}
             </div>
+            {showN && mtot && <div className="meal-macros" data-testid={`meal-macros-${mt.id}`}><MacroLine n={mtot} /><MacroBar n={mtot} /></div>}
             {meal ? meal.items.map((i, k) => {
               const n = itemNutr(foods.find((f) => f.id === i.foodId), i);
               return (
-                <div key={k} className="food-line">
-                  <span className="grow"><span style={{ fontWeight: 650 }}>{fname(i.foodId)}</span> <span className="small muted">{i.portion}</span></span>
+                <button key={k} className="food-line tap" onClick={() => nav(`/alimentacao/refeicao?m=${mt.id}&edit=${encodeURIComponent(i.foodId)}`)} aria-label={`Ajustar ${fname(i.foodId)}`}>
+                  <span className="grow" style={{ textAlign: 'left' }}><span style={{ fontWeight: 650 }}>{fname(i.foodId)}</span> <span className="small muted">{portionText(foods.find((f) => f.id === i.foodId), i)}</span>
+                    {showN && n && <><br /><span className="tiny muted num">P {fmt(n.p)} · C {fmt(n.c)} · G {fmt(n.f)} g</span></>}</span>
                   {showN && <span className="small num">{n ? `${fmt(n.kcal)} kcal` : 'sem dados'}</span>}
-                </div>
+                </button>
               );
             }) : tpl && !skipped ? (
               <div className="food-plan">
