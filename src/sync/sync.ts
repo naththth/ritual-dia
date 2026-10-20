@@ -77,10 +77,13 @@ export async function syncNow(): Promise<void> {
     await uploadPhotos(userId);
 
     // 3) recebe o que mudou no servidor
-    const since = (await getMeta<string>(`pull:${userId}`)) ?? '1970-01-01T00:00:00Z';
-    let cursor = since;
+    // Cursor composto (horário + id): linhas gravadas no mesmo instante não ficam para trás entre páginas.
+    const saved = (await getMeta<string>(`pull:${userId}`)) ?? '1970-01-01T00:00:00Z';
+    let [cursor, lastId] = saved.includes('|') ? saved.split('|') : [saved, ''];
     for (;;) {
-      const { data, error } = await supabase.from('records').select('*').gt('server_updated_at', cursor).order('server_updated_at', { ascending: true }).limit(500);
+      let q = supabase.from('records').select('*');
+      q = lastId ? q.or(`server_updated_at.gt."${cursor}",and(server_updated_at.eq."${cursor}",id.gt."${lastId}")`) : q.gt('server_updated_at', cursor);
+      const { data, error } = await q.order('server_updated_at', { ascending: true }).order('id', { ascending: true }).limit(500);
       if (error) throw error;
       if (!data?.length) break;
       const incoming: AnyRecord[] = [];
@@ -91,9 +94,10 @@ export async function syncNow(): Promise<void> {
       }
       if (incoming.length) await putClean(incoming);
       cursor = data[data.length - 1].server_updated_at;
+      lastId = data[data.length - 1].id;
       if (data.length < 500) break;
     }
-    await setMeta(`pull:${userId}`, cursor);
+    await setMeta(`pull:${userId}`, lastId ? `${cursor}|${lastId}` : cursor);
 
     const left = await db.records.where('dirty').equals(1).count();
     useSync.setState({ state: left ? 'pending' : 'synced', lastSync: Date.now() });
