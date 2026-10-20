@@ -120,9 +120,9 @@ export function WellnessCard({ date }: { date: DateKey }) {
 function NoWatchRow({ onPick, onMore, inline }: { onPick: (h: number) => void; onMore?: () => void; inline?: boolean }) {
   return (
     <div className="row wrap" style={{ gap: 6, margin: inline ? '10px 0 0' : '-6px 0 14px', alignItems: 'center' }} data-testid="no-watch">
-      <span className="small">Dormiu sem relógio?</span>
+      <span className="small" style={{ flexBasis: '100%' }}>Dormiu sem relógio? Quanto, mais ou menos:</span>
       {ESTIMATES.slice(1, 4).map((h) => <button key={h} className="pill-act pa-ghost" style={{ minHeight: 34, padding: '0 12px' }} onClick={() => onPick(h)}>~{h} h</button>)}
-      {onMore && <button className="pill-act pa-ghost" style={{ minHeight: 34, padding: '0 12px' }} onClick={onMore}>outro</button>}
+      {onMore && <button className="pill-act pa-ghost" style={{ minHeight: 34, padding: '0 12px' }} onClick={onMore}>Outro</button>}
     </div>
   );
 }
