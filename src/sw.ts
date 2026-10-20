@@ -27,12 +27,14 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = event.notification.data?.url ?? self.registration.scope;
+  // Abre sempre na janela do app instalado (marcada com ?app=1), nunca numa aba do Chrome.
+  const raw: string = event.notification.data?.url ?? self.registration.scope;
+  const hash = raw.includes('#') ? raw.slice(raw.indexOf('#')) : '#/';
+  const target = self.registration.scope + '?app=1' + hash;
   event.waitUntil((async () => {
     const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    for (const c of all) {
-      if (c.url.startsWith(self.registration.scope)) { await (c as WindowClient).navigate(url).catch(() => undefined); return (c as WindowClient).focus(); }
-    }
-    return self.clients.openWindow(url);
+    const app = all.find((c) => c.url.startsWith(self.registration.scope) && c.url.includes('app=1')) as WindowClient | undefined;
+    if (app) { await app.navigate(target).catch(() => undefined); return app.focus(); }
+    return self.clients.openWindow(target);
   })());
 });

@@ -25,7 +25,7 @@ export default defineConfig(({ mode }) => {
           short_name: 'Ritual',
           description: 'Seu dia, registrado com poucos toques.',
           lang: 'pt-BR',
-          start_url: base,
+          start_url: base + '?app=1', // marca a janela do app instalado (as notificações abrem nela, não no Chrome)
           scope: base,
           display: 'standalone',
           orientation: 'portrait',

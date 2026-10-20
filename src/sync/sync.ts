@@ -152,7 +152,8 @@ export async function initSync() {
   useSync.setState({ session: data.session, state: data.session ? 'pending' : 'local', ready: true });
   // limpa ?code= da URL após o retorno do login
   if (window.location.search.includes('code=')) {
-    window.history.replaceState(window.history.state, '', window.location.pathname + window.location.hash);
+    const keepApp = new URLSearchParams(window.location.search).get('app') === '1' || window.matchMedia?.('(display-mode: standalone)').matches;
+    window.history.replaceState(window.history.state, '', window.location.pathname + (keepApp ? '?app=1' : '') + window.location.hash);
   }
   supabase.auth.onAuthStateChange((_e, session) => {
     const had = useSync.getState().session;
