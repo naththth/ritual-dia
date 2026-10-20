@@ -71,7 +71,8 @@ test('segunda-feira completa: todos os módulos na mesma data', async ({ page })
   // 4) almoço por toques
   await page.getByRole('link', { name: 'Alimentação' }).click();
   await page.getByTestId('add-almoco').click();
-  for (const f of ['Frango', 'Arroz', 'Feijão', 'Salada de folhas']) await page.getByTestId('food-list').getByRole('button', { name: f, exact: true }).click();
+  await page.getByRole('tab', { name: 'Todos' }).click();
+  for (const f of ['Frango', 'Arroz', 'Feijão', 'Salada de folhas']) await page.getByTestId('food-list').getByRole('button', { name: `Adicionar ${f}`, exact: true }).click();
   await expect(page.getByTestId('meal-selected')).toContainText('4 itens');
   await page.getByTestId('meal-save').click();
   await expect(page.getByTestId('meal-sec-almoco')).toContainText('Frango');
@@ -147,7 +148,7 @@ test('editar e desfazer registro em data anterior', async ({ page }) => {
 test('cadastrar alimento e produto aparecem na hora para uso', async ({ page }) => {
   await onboard(page);
   await page.goto('./#/alimentacao/refeicao?m=almoco');
-  await page.getByRole('button', { name: 'Novo alimento' }).click();
+  await page.getByRole('button', { name: /Cadastrar alimento/ }).click();
   await page.getByLabel('Nome do alimento').fill('Patinho');
   await page.getByTestId('food-save').click();
   await expect(page.getByTestId('meal-selected')).toContainText('Patinho');
@@ -218,8 +219,9 @@ test('buscar alimento na tabela TACO e ver calorias da refeição', async ({ pag
   await page.getByTestId('taco-option').first().click();
   await expect(page.getByTestId('meal-selected')).toContainText('Frango, peito, sem pele, grelhado');
   await expect(page.getByTestId('meal-totals')).toContainText('159');
-  await page.getByLabel('Gramas de Frango, peito, sem pele, grelhado').fill('140');
-  await page.getByLabel('Gramas de Frango, peito, sem pele, grelhado').blur();
+  await page.getByRole('button', { name: 'Quantidade de Frango, peito, sem pele, grelhado' }).click();
+  await page.getByLabel('Quantidade', { exact: true }).fill('140');
+  await page.getByTestId('qty-save').click();
   await expect(page.getByTestId('meal-totals')).toContainText('223');
   await page.getByTestId('meal-save').click();
   await expect(page.getByTestId('today-stats')).toContainText('223');

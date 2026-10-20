@@ -8,7 +8,7 @@ import type { Food, Measure, Nutr } from '../../db/types';
 import { Chip } from '../../ui/ui';
 import { toast } from '../../state/store';
 import { useAll } from '../../db/hooks';
-import { loadTaco, searchList, searchOFF, typeFromTacoCat, fmt, type OffFood, type TacoFood } from '../../domain/nutrition';
+import { loadTaco, searchList, searchOFF, typeFromTacoCat, fmt, norm, type OffFood, type TacoFood } from '../../domain/nutrition';
 
 const TYPES = ['Proteína', 'Carboidrato', 'Leguminosas', 'Vegetais', 'Fruta', 'Laticínios', 'Laticínios sem lactose', 'Complemento', 'Suplemento', 'Bebida', 'Doce', 'Outros'];
 
@@ -79,7 +79,9 @@ export function foodFromTaco(t: TacoFood): Partial<Food> {
   return { name: t.name, type: typeFromTacoCat(t.cat), n: t.n ?? undefined, source: 'taco', sourceRef: String(t.id), measures: [{ label: '100 g', grams: 100 }], portions: [] };
 }
 export function foodFromOff(o: OffFood): Partial<Food> {
-  return { name: o.brand ? `${o.name} (${o.brand})` : o.name, type: 'Outros', n: o.n ?? undefined, source: 'off', sourceRef: o.code, measures: [{ label: '100 g', grams: 100 }, ...(o.serving ? [o.serving] : [])], portions: [] };
+  const name = o.brand && !norm(o.name).includes(norm(o.brand)) ? `${o.name} (${o.brand})` : o.name;
+  const serving = o.serving && o.serving.grams !== 100 ? [{ label: `1 porção (${fmt(o.serving.grams)} g)`, grams: o.serving.grams }] : [];
+  return { name, type: 'Outros', n: o.n ?? undefined, source: 'off', sourceRef: o.code, measures: [{ label: '100 g', grams: 100 }, ...serving], portions: [] };
 }
 
 export function FoodForm({ food, onDone }: { food?: Food; onDone: (f?: Food) => void }) {

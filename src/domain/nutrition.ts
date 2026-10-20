@@ -172,3 +172,21 @@ export function portionOptions(food: Food | undefined): string[] {
   for (const p of food.portions ?? []) if (!out.some((o) => norm(o) === norm(p))) out.push(p);
   return out.length ? out : ['P', 'M', 'G'];
 }
+
+/** Nome e marca separados e sem repetição: "Toddy (Toddy)" vira "Toddy"; "Leite Zymil (Parmalat)" vira nome + marca. */
+export function displayFood(f?: { name: string } | null): { name: string; brand?: string } {
+  if (!f) return { name: '?' };
+  const m = f.name.match(/^(.*)\s+\(([^()]+)\)\s*$/);
+  if (!m) return { name: f.name };
+  const [, base, brand] = m;
+  if (norm(base).includes(norm(brand))) return { name: base.trim() };
+  return { name: base.trim(), brand: brand.trim() };
+}
+
+/** Quantidade legível: "200 g", "1 copo (200 mL)", "2 fatias". */
+export function portionText(food: Food | undefined, item: MealItem) {
+  const g = gramsFor(food, item.portion, item.grams);
+  if (item.grams && /^\d/.test(item.portion) && item.portion.endsWith(' g')) return `${fmt(item.grams)} g`;
+  if (/^[PMG]$/.test(item.portion)) return `porção ${item.portion}${g ? ` (${fmt(g)} g)` : ''}`;
+  return g && !item.portion.includes('(') && !item.portion.endsWith(' g') ? `${item.portion} (${fmt(g)} g)` : item.portion;
+}
