@@ -22,9 +22,9 @@ export async function importFitFiles(files: FileList | File[] | null, ftp?: numb
       const planned = plannedTraining(planFor(plans as any, 'training', a.date), a.date)
         .map((tid) => (tmpls as any[]).find((t) => t.id === tid)).find((t) => t?.modalityId === a.modalityId);
       await upsert('workout', id, {
-        date: a.date, modalityId: a.modalityId, duration: a.minutes, intensity: intensityFrom(a.metrics),
+        date: a.date, modalityId: (exists as any)?.classChecked ? (exists as any).modalityId : a.modalityId, duration: a.minutes, intensity: intensityFrom(a.metrics),
         distanceKm: a.metrics.distanceKm, metrics: a.metrics, startTime: a.startIso, fileName: f.name,
-        templateId: planned?.id, fromPlan: !!planned
+        templateId: (exists as any)?.classChecked ? (exists as any).templateId : planned?.id, fromPlan: (exists as any)?.classChecked ? true : !!planned
       });
       last = a.date;
       toast(exists ? `Treino de ${shortLabel(a.date)} atualizado` : `Treino de ${shortLabel(a.date)} importado`);
@@ -32,5 +32,7 @@ export async function importFitFiles(files: FileList | File[] | null, ftp?: numb
       toast(`${f.name}: ${e?.message ?? 'não consegui ler o arquivo.'}`, undefined, 'error');
     }
   }
+  // Musculação no horário de uma aula (LPO) vira a aula.
+  try { const { reconcileClasses } = await import('./classes'); await reconcileClasses(); } catch { /* */ }
   return last;
 }

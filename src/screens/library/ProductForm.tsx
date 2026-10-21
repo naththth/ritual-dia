@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
+import { usePhotoPicker } from '../../ui/PhotoPicker';
 import { Camera, Sparkles } from 'lucide-react';
 import { aiAvailable, aiProductInfo } from '../../domain/ai';
 import { shrinkImage } from '../../lib/image';
@@ -25,7 +26,6 @@ export function ProductForm({ product, onDone }: { product?: Product; onDone: (p
   const other = useOtherPerson();
   const [reading, setReading] = useState(false);
   const [readNote, setReadNote] = useState('');
-  const camRef = useRef<HTMLInputElement>(null);
   const info = d.info ?? {};
   const setInfo = (p: Partial<ProductInfo>) => setD((x) => ({ ...x, info: { ...(x.info ?? {}), ...p } }));
 
@@ -50,8 +50,9 @@ export function ProductForm({ product, onDone }: { product?: Product; onDone: (p
       }));
       setReadNote(r.note);
       toast(r.info.confidence === 'baixa' ? 'Ficha preenchida, mas com pouca certeza. Confira.' : 'Ficha preenchida. Confira antes de salvar.');
-    } catch (e: any) { toast(e.message, undefined, 'error'); } finally { setReading(false); if (camRef.current) camRef.current.value = ''; }
+    } catch (e: any) { toast(e.message, undefined, 'error'); } finally { setReading(false); }
   };
+  const camPick = usePhotoPicker({ onFiles: (fs) => identify(fs), multiple: true });
   const save = async () => {
     if (!d.name?.trim()) { toast('Informe o nome do produto.', undefined, 'error'); return; }
     const data = { ...d, name: d.name.trim(), brand: (d.brand ?? '').trim() } as Product;
@@ -62,9 +63,9 @@ export function ProductForm({ product, onDone }: { product?: Product; onDone: (p
     <div data-testid="product-form">
       {aiAvailable() && (
         <div className="row wrap" style={{ gap: 8, marginBottom: 6 }}>
-          <button className="btn btn-ink btn-sm" disabled={reading} onClick={() => camRef.current?.click()} data-testid="product-photo"><Camera size={16} /> {reading ? 'Identificando…' : 'Foto da embalagem'}</button>
+          <button className="btn btn-ink btn-sm" disabled={reading} onClick={camPick.open} data-testid="product-photo"><Camera size={16} /> {reading ? 'Identificando…' : 'Foto da embalagem'}</button>
           {(d.name?.trim() || product) && <button className="btn btn-soft btn-sm" disabled={reading} onClick={() => identify()} data-testid="product-ai"><Sparkles size={16} /> {info.purpose ? 'Refazer ficha com IA' : 'Completar ficha com IA'}</button>}
-          <input ref={camRef} type="file" accept="image/*" capture="environment" multiple hidden onChange={(e) => identify(e.target.files)} />
+          {camPick.el}
           <p className="field-hint" style={{ flexBasis: '100%', margin: 0 }}>Frente e verso ajudam: o verso traz a lista de ingredientes e o modo de uso.</p>
         </div>
       )}

@@ -552,6 +552,7 @@ test('noite se adapta: vermelhidão de manhã tira o ativo da noite', async ({ p
   await expect(page.getByTestId('plan-skin')).toBeHidden();
   // manhã com vermelhidão
   await page.goto('./#/pele?p=am');
+  await expect(page.getByTestId('skin-sec-rosto')).toBeVisible();
   await page.getByTestId('sig-vermelhidao').click();
   await page.getByTestId('skin-save').click();
   await expect(page.getByTestId('skin-screen')).toBeHidden();
@@ -568,4 +569,16 @@ test('noite se adapta: vermelhidão de manhã tira o ativo da noite', async ({ p
   await page.goto('./#/');
   await expect(page.getByTestId('tl-skin-pm')).toContainText('Sem ativo hoje');
   await expect(page.getByTestId('tl-skin-pm')).not.toContainText('Retinol');
+});
+
+test('foto: sempre oferece câmera ou galeria', async ({ page }) => {
+  await onboard(page);
+  await page.goto('./#/pele?p=am');
+  await page.getByRole('button', { name: 'Adicionar foto' }).click();
+  await expect(page.getByTestId('photo-source')).toContainText('Tirar foto');
+  await expect(page.getByTestId('photo-source')).toContainText('Escolher da galeria');
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/foto-origem.png' });
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.getByTestId('photo-gallery').click()]);
+  expect(await chooser.element().getAttribute('capture')).toBeNull();
+  await expect(page.getByTestId('photo-source')).toBeHidden();
 });

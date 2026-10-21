@@ -98,6 +98,8 @@ export async function syncNow(): Promise<void> {
       if (data.length < 500) break;
     }
     await setMeta(`pull:${userId}`, lastId ? `${cursor}|${lastId}` : cursor);
+    // Musculação do relógio no horário de uma aula vira a aula (o Garmin não tem LPO).
+    try { const { reconcileClasses } = await import('../domain/classes'); if (await reconcileClasses()) again = true; } catch (e) { console.error(e); }
 
     const left = await db.records.where('dirty').equals(1).count();
     useSync.setState({ state: left ? 'pending' : 'synced', lastSync: Date.now() });

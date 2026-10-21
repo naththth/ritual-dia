@@ -274,6 +274,9 @@ export interface Workout extends Base {
   restType?: string;
   templateId?: string;
   fromPlan?: boolean;
+  /** Musculação do relógio que virou a aula do horário (ex.: LPO). */
+  reclassifiedFrom?: string;
+  classChecked?: boolean;
   note?: string;
   rpe?: number; // esforço percebido 1 a 10
   feeling?: string; // como foi, nas palavras dela

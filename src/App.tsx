@@ -36,6 +36,7 @@ export function App() {
     (async () => {
       try { await navigator.storage?.persist?.(); } catch { /* opcional */ }
       try { await ensureDefaults(); } catch (e) { console.error(e); }
+      import('./domain/classes').then((m) => m.reconcileClasses()).catch(() => undefined);
       // O app abre com o que está no aparelho; a sincronização corre por trás e nunca segura a abertura.
       bootedRef.current = true;
       setBooted(true);

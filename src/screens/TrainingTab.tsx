@@ -241,6 +241,7 @@ export function WorkoutCard({ w, name, ftp }: { w: Workout; name: string; ftp?: 
         <span style={{ fontWeight: 700, fontSize: 17 }}><CheckIcon size={16} strokeWidth={3} style={{ verticalAlign: '-2px', marginRight: 6 }} />{name}{w.startTime ? `, ${new Date(w.startTime).toTimeString().slice(0, 5)}` : ''}</span>
         <button className="icon-btn" aria-label="Excluir treino" onClick={() => deleteRecord(w.id, 'Treino excluído')}><Trash2 size={17} /></button>
       </div>
+      {w.reclassifiedFrom && <p className="small" style={{ margin: '2px 0 6px' }} data-testid="reclassified">O relógio gravou como musculação; pelo horário da aula, contei como {name}.</p>}
       {cells.length > 0 && (
         <div className="metric-grid">
           {cells.map(([l, v]) => <div key={l}><span className="ml">{l}</span><span className="mv num">{v}</span></div>)}
@@ -268,7 +269,8 @@ export function WorkoutCard({ w, name, ftp }: { w: Workout; name: string; ftp?: 
 function WorkoutFeedback({ w }: { w: Workout }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState(w.feeling ?? '');
-  const saveText = (t: string) => update<'workout'>(w.id, { feeling: t.trim() || undefined });
+  const saved = (w.feeling ?? '') === text.trim();
+  const saveText = async (t: string, announce = false) => { await update<'workout'>(w.id, { feeling: t.trim() || undefined }); if (announce) toast('Anotado no treino'); };
   if (!open && !w.rpe && !w.feeling) return <button className="link" style={{ marginTop: 8 }} onClick={() => setOpen(true)} data-testid="feedback-open">Como foi? Registrar esforço e sensação</button>;
   return (
     <div className="feedback" data-testid="feedback">
@@ -276,7 +278,11 @@ function WorkoutFeedback({ w }: { w: Workout }) {
       <div className="rpe">{[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => <button key={n} className={w.rpe === n ? 'on' : ''} aria-label={`Esforço ${n}`} onClick={() => update<'workout'>(w.id, { rpe: w.rpe === n ? undefined : n })}>{n}</button>)}</div>
       <div className="tiny muted" style={{ display: 'flex', justifyContent: 'space-between' }}><span>muito leve</span><span>máximo</span></div>
       <textarea value={text} onChange={(e) => setText(e.target.value)} onBlur={() => saveText(text)} placeholder="Como se sentiu, o que pesou, dores, energia…" aria-label="Como foi o treino" style={{ minHeight: 64, marginTop: 8 }} />
-      <MicButton label="Falar" onText={(t) => { const next = appendText(text, t); setText(next); saveText(next); }} />
+      <div className="row between" style={{ gap: 8, marginTop: 8, alignItems: 'center' }}>
+        <MicButton label="Falar" onText={(t) => { const next = appendText(text, t); setText(next); saveText(next); }} />
+        {saved ? (text.trim() ? <span className="small saved-ok" data-testid="feedback-saved"><CheckIcon size={15} strokeWidth={3} /> Salvo</span> : null)
+          : <button className="pill-act pa-blue" onClick={() => saveText(text, true)} data-testid="feedback-save">Salvar</button>}
+      </div>
     </div>
   );
 }

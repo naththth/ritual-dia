@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { usePhotoPicker } from '../ui/PhotoPicker';
 import { Camera, Trash2 } from 'lucide-react';
 import { create, db, remove } from '../db/db';
 import type { Photo, SkinPeriod } from '../db/types';
@@ -25,7 +26,6 @@ export function PhotoThumb({ p, onClick }: { p: Photo; onClick?: () => void }) {
 }
 
 export function PhotoStrip({ date, period, photos }: { date: DateKey; period: SkinPeriod; photos: Photo[] }) {
-  const input = useRef<HTMLInputElement>(null);
   const [view, setView] = useState<Photo>();
   const [busy, setBusy] = useState(false);
   const [confirmEl, ask] = useConfirm();
@@ -39,8 +39,9 @@ export function PhotoStrip({ date, period, photos }: { date: DateKey; period: Sk
       toast('Foto salva');
     } catch (e: any) {
       toast(e?.name === 'QuotaExceededError' ? 'Sem espaço no aparelho para a foto.' : 'Não foi possível salvar a foto.', undefined, 'error');
-    } finally { setBusy(false); if (input.current) input.current.value = ''; }
+    } finally { setBusy(false); }
   };
+  const pick = usePhotoPicker({ onFiles: (fs) => add(fs[0]), facing: 'user' });
   const del = async (p: Photo) => {
     const ok = await ask({ title: 'Excluir esta foto?', text: 'Ela será apagada do aparelho e da nuvem. Não dá para desfazer.', ok: 'Excluir foto', danger: true });
     if (!ok) return;
@@ -53,10 +54,10 @@ export function PhotoStrip({ date, period, photos }: { date: DateKey; period: Sk
     <>
       <div className="photo-strip">
         {photos.map((p) => <PhotoThumb key={p.id} p={p} onClick={() => setView(p)} />)}
-        <button className="photo-add" onClick={() => input.current?.click()} disabled={busy} aria-label="Adicionar foto">
+        <button className="photo-add" onClick={pick.open} disabled={busy} aria-label="Adicionar foto">
           <Camera size={24} />
         </button>
-        <input ref={input} type="file" accept="image/*" capture="user" hidden onChange={(e) => add(e.target.files?.[0])} />
+        {pick.el}
       </div>
       <Sheet open={!!view} onClose={() => setView(undefined)} title="Foto" sub={view ? `${view.date}, ${PERIOD_LABEL[view.period]}` : ''}
         footer={<button className="btn btn-danger" onClick={() => view && del(view)}><Trash2 size={18} />Excluir foto</button>}>

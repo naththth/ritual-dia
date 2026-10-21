@@ -1,10 +1,10 @@
 // Montar uma refeição: o que está no prato em cima, o que adicionar embaixo, salvar sempre à mão no rodapé.
 import { useEffect, useMemo, useState } from 'react';
+import { usePhotoPicker } from '../ui/PhotoPicker';
 import { useSearchParams } from 'react-router-dom';
 import { Plus, Search, Star, Copy, Check as CheckIcon, X, Trash2, ChevronRight, Pencil, Camera } from 'lucide-react';
 import { PlateSheet, type PlateRow } from './plate';
 import { aiAvailable } from '../domain/ai';
-import { useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useApp, toast } from '../state/store';
 import { useAll, useByDate, useSettings } from '../db/hooks';
@@ -46,7 +46,7 @@ export function FoodScreen() {
   const [adding, setAdding] = useState(false);
   const [sheet, setSheet] = useState<{ food: Food; item?: MealItem } | null>(null);
   const [plateFile, setPlateFile] = useState<File | null>(null);
-  const plateRef = useRef<HTMLInputElement>(null);
+  const platePick = usePhotoPicker({ onFiles: (fs) => setPlateFile(fs[0]), testId: 'plate-input' });
   const [favName, setFavName] = useState<string | null>(null);
   const [confirmEl, ask] = useConfirm();
   const key = `${date}:${type}:${meal?.updatedAt ?? 'none'}`;
@@ -198,12 +198,12 @@ export function FoodScreen() {
         <h3 className="sec-cap">Adicionar</h3>
         {aiAvailable() && (
           <>
-            <button className="plate-cta" onClick={() => plateRef.current?.click()} data-testid="plate-photo">
+            <button className="plate-cta" onClick={platePick.open} data-testid="plate-photo">
               <span className="plate-cta-ic"><Camera size={20} /></span>
               <span className="grow" style={{ textAlign: 'left' }}><b>Foto do prato</b><br /><span className="small">A IA reconhece os alimentos e estima as porções</span></span>
               <ChevronRight size={18} />
             </button>
-            <input ref={plateRef} type="file" accept="image/*" capture="environment" hidden data-testid="plate-input" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) setPlateFile(f); }} />
+            {platePick.el}
           </>
         )}
         <div style={{ position: 'relative', marginBottom: 10 }}>

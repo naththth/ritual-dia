@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { usePhotoPicker } from '../../ui/PhotoPicker';
 import { Plus, Trash2, Search, Camera } from 'lucide-react';
 import { BarcodeButton } from './Barcode';
 import { aiAvailable, askAI } from '../../domain/ai';
@@ -111,8 +112,8 @@ export function FoodForm({ food, onDone }: { food?: Food; onDone: (f?: Food) => 
     set({ measures: [...(d.measures ?? []), { label: mLabel.trim(), grams: g }] });
     setMLabel(''); setMGrams('');
   };
-  const labelRef = useRef<HTMLInputElement>(null);
   const [reading, setReading] = useState(false);
+  const labelPick = usePhotoPicker({ onFiles: (fs) => readLabel(fs[0]) });
   /** A IA lê a tabela do rótulo e converte para 100 g; ela confere antes de salvar. */
   const readLabel = async (file?: File) => {
     if (!file) return;
@@ -131,7 +132,7 @@ export function FoodForm({ food, onDone }: { food?: Food; onDone: (f?: Food) => 
       }));
       setPicked(true);
       toast(nn ? 'Tabela lida. Confira os números.' : 'Não consegui ler os valores. Tente uma foto mais de perto.', undefined, nn ? undefined : 'error');
-    } catch (e: any) { toast(e.message, undefined, 'error'); } finally { setReading(false); if (labelRef.current) labelRef.current.value = ''; }
+    } catch (e: any) { toast(e.message, undefined, 'error'); } finally { setReading(false); }
   };
   const n = d.n;
   return (
@@ -149,8 +150,8 @@ export function FoodForm({ food, onDone }: { food?: Food; onDone: (f?: Food) => 
 
       <div className="row wrap" style={{ gap: 8, marginTop: 12 }}>
         <BarcodeButton label="Código de barras" onFound={(o) => { setD((x) => ({ ...x, ...foodFromOff(o) })); setPicked(true); }} />
-        <button className="btn btn-soft btn-sm" disabled={reading || !aiAvailable()} onClick={() => labelRef.current?.click()} data-testid="label-photo"><Camera size={18} />{reading ? 'Lendo a tabela…' : 'Foto da tabela nutricional'}</button>
-        <input ref={labelRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => readLabel(e.target.files?.[0])} />
+        <button className="btn btn-soft btn-sm" disabled={reading || !aiAvailable()} onClick={labelPick.open} data-testid="label-photo"><Camera size={18} />{reading ? 'Lendo a tabela…' : 'Foto da tabela nutricional'}</button>
+        {labelPick.el}
       </div>
 
       <span className="label">Valores por 100 g</span>

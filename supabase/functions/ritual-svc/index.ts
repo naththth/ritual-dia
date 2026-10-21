@@ -238,7 +238,12 @@ async function syncIntervals(userId: string, days = 14) {
   let acts = 0;
   // O mesmo treino pode chegar por duas origens (MyWhoosh e Garmin): fica um só, o que tem potência.
   const sorted = [...(activities ?? [])].sort((x: any, y: any) => Number(!!y.icu_weighted_avg_watts) - Number(!!x.icu_weighted_avg_watts));
-  const icuOthers = (existing ?? []).filter((r: any) => r.id.startsWith('workout:icu:') && r.data?.startTime).map((r: any) => ({ id: r.id, t: new Date(r.data.startTime).getTime() }));
+  // Qualquer treino já gravado com horário (do relógio, do arquivo ou uma aula que recebeu os dados do relógio).
+  const icuOthers = (existing ?? []).filter((r: any) => r.data?.startTime).map((r: any) => ({ id: r.id, t: new Date(r.data.startTime).getTime() }));
+  const existingById = new Map((existing ?? []).map((r: any) => [r.id, r.data]));
+  // Removidos por ela ou juntados a uma aula: não voltam.
+  const { data: gone } = await admin.from('records').select('id').eq('user_id', userId).eq('kind', 'workout').eq('deleted', true).like('id', 'workout:icu:%');
+  const goneIds = new Set((gone ?? []).map((r: any) => r.id));
   const taken: number[] = [];
   for (const a of sorted) {
     if (!a?.id || !a.start_date_local) continue;
@@ -247,18 +252,32 @@ async function syncIntervals(userId: string, days = 14) {
     const start = new Date(a.start_date ?? a.start_date_local).getTime();
     if (fitStarts.some((t: number) => Math.abs(t - start) < 5 * 60_000)) continue; // já veio pelo arquivo
     if (taken.some((t) => Math.abs(t - start) < 5 * 60_000)) continue; // duplicado nesta leva
+    if (goneIds.has(`workout:icu:${a.id}`)) continue;
     if (icuOthers.some((o: any) => o.id !== `workout:icu:${a.id}` && Math.abs(o.t - start) < 5 * 60_000)) continue; // já existe pela outra origem
     taken.push(start);
     const moving = num(a.moving_time, a.elapsed_time) ?? 0;
     const np = num(a.icu_weighted_avg_watts, a.weighted_average_watts);
     const ftp = num(a.icu_ftp);
     const date = String(a.start_date_local).slice(0, 10);
-    const modalityId = SPORT[a.type] ?? 'mod:musculacao';
+    let modalityId = SPORT[a.type] ?? 'mod:musculacao';
     const wd = ((new Date(date + 'T12:00:00Z').getUTCDay() + 6) % 7) + 1;
-    const planned = (planFor(plans, 'training', date)?.training?.[String(wd)] ?? []).map((id: string) => recs.find((x) => x.kind === 'wtemplate' && x.id === id)).find((t: any) => t?.modalityId === modalityId);
+    const dayTpls = (planFor(plans, 'training', date)?.training?.[String(wd)] ?? []).map((id: string) => recs.find((x) => x.kind === 'wtemplate' && x.id === id)).filter(Boolean);
+    // O relógio não tem LPO: musculação perto do horário de uma aula planejada é a aula.
+    let reclassifiedFrom: string | undefined;
+    if (modalityId === 'mod:musculacao') {
+      const hhmm = String(a.start_date_local).slice(11, 16);
+      const m = Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+      const cls = dayTpls.find((t: any) => t.time && t.modalityId !== 'mod:musculacao' && (() => { const d = m - (Number(t.time.slice(0, 2)) * 60 + Number(t.time.slice(3, 5))); return d >= -45 && d <= 90; })());
+      if (cls) { reclassifiedFrom = modalityId; modalityId = cls.modalityId; }
+    }
+    const planned = dayTpls.find((t: any) => t?.modalityId === modalityId);
+    // O que ela escreveu ou ajustou no app (esforço, comentário, modalidade corrigida) nunca é sobrescrito pela sincronização.
+    const prev: any = existingById.get(`workout:icu:${a.id}`) ?? {};
+    const keep = Object.fromEntries(['rpe', 'feeling', 'muscles', 'note', 'combo', 'restType', 'classChecked', 'reclassifiedFrom', 'createdAt'].filter((k) => prev[k] !== undefined).map((k) => [k, prev[k]]));
+    if (prev.classChecked || prev.modalityId && prev.modalityId !== (SPORT[a.type] ?? 'mod:musculacao')) { modalityId = prev.modalityId; }
     rows.push({ id: `workout:icu:${a.id}`, user_id: userId, kind: 'workout', deleted: false, client_updated_at: nowIso, data: {
-      date, createdAt: ts, updatedAt: ts, startTime: a.start_date ?? a.start_date_local,
-      modalityId, duration: Math.round(moving / 60), templateId: planned?.id, fromPlan: !!planned,
+      date, createdAt: ts, updatedAt: ts, startTime: a.start_date ?? a.start_date_local, reclassifiedFrom, classChecked: reclassifiedFrom ? true : undefined,
+      modalityId, duration: Math.round(moving / 60), templateId: prev.templateId ?? planned?.id, fromPlan: prev.fromPlan ?? !!planned,
       intensity: np && ftp ? (np / ftp < 0.7 ? 'leve' : np / ftp < 0.85 ? 'moderada' : 'intensa') : 'moderada',
       distanceKm: a.distance ? Math.round(a.distance / 10) / 100 : undefined, name: a.name,
       metrics: {
@@ -266,7 +285,8 @@ async function syncIntervals(userId: string, days = 14) {
         kcal: num(a.calories), avgHr: num(a.average_heartrate), maxHr: num(a.max_heartrate),
         avgPower: num(a.icu_average_watts, a.average_watts), np, if: np && ftp ? Math.round((np / ftp) * 100) / 100 : undefined,
         tss: num(a.icu_training_load), avgCadence: num(a.average_cadence), ascentM: num(a.total_elevation_gain), ftpUsed: ftp
-      }
+      },
+      ...keep
     } });
     acts++;
   }
