@@ -35,6 +35,8 @@ export interface Settings extends Base {
   owners: string[];
   ftp?: number;
   aiContext?: string; // observações livres para a IA (rotina, restrições)
+  /** Preferências dela por plano; a IA segue, com ressalva só para combinações claramente danosas. */
+  aiPrefs?: { skin?: string; training?: string; food?: string };
   profile?: Profile; // perfil e objetivos: base para nutrição, treino e pele
   targetsNote?: string; // como a IA chegou às metas
   showNutrition?: boolean; // padrão: ligado

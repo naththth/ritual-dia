@@ -9,7 +9,8 @@ import { todayKey, WEEKDAY_LONG, shortLabel } from '../lib/dates';
 import type { Plan, Product, SkinPeriodPlan } from '../db/types';
 import { ProductPick } from './SkinScreen';
 import { aiSkinPlan, aiTrainingPlan, applyTrainingResult, aiFoodPlan, aiAvailable, watts } from '../domain/ai';
-import { Sparkles } from 'lucide-react';
+import { Check, Sparkles } from 'lucide-react';
+import { update } from '../db/db';
 import { toast } from '../state/store';
 import { GROUP_RANK } from '../domain/defaults';
 import { careProgress } from '../domain/care';
@@ -94,6 +95,7 @@ function SkinPlan() {
     <>
       <VersionNote current={current} />
       <CareAssessment products={inUse} diagnosis={d.diagnosis} />
+      <AIPrefs domain="skin" />
       <AIButton busy={busy} label="Montar rotina com IA" onClick={async () => {
         setBusy(true);
         try { const r = await aiSkinPlan(todayKey()); setDD(r.skin); setNote({ resumo: r.resumo, observacoes: r.observacoes }); toast('Diagnóstico e rotina prontos. Revise e salve.'); }
@@ -222,11 +224,14 @@ function TrainingPlan() {
   if (!d || !tmpls) return null;
   const active = tmpls.filter((t) => !t.archived);
   const ai = (
+    <>
+    <AIPrefs domain="training" />
     <AIButton busy={busy} label="Montar semana com IA" onClick={async () => {
       setBusy(true);
       try { const r = await aiTrainingPlan(); const week = await applyTrainingResult(r); setDirty(true); setD(week); setResumo(r.resumo); toast('Rascunho pronto. Revise e salve.'); }
       catch (e: any) { toast(e.message, undefined, 'error'); } finally { setBusy(false); }
     }} />
+    </>
   );
   if (!active.length) return <>{ai}<Empty text="Crie sessões de treino ou peça à IA para montar a semana." action={<button className="btn btn-ink" onClick={() => nav('/biblioteca/treinos')}>Criar sessão de treino</button>} /></>;
   return (
@@ -277,6 +282,7 @@ function FoodPlan() {
         <div className="block b-paper" style={{ marginTop: 8 }}>
           <span className="label" style={{ marginTop: 0 }}>Cole aqui o texto da sua dieta</span>
           <textarea value={diet} onChange={(e) => setDiet(e.target.value)} style={{ minHeight: 140 }} aria-label="Texto da dieta" />
+          <AIPrefs domain="food" />
           <AIButton busy={busy} label="Montar com IA" onClick={async () => {
             if (diet.trim().length < 20) { toast('Cole o texto da dieta primeiro.', undefined, 'error'); return; }
             setBusy(true);
@@ -318,6 +324,37 @@ function FoodPlan() {
         ))}
       </Sheet>
     </>
+  );
+}
+
+const PREF_HINT = {
+  skin: { title: 'Suas preferências para a rotina', ph: 'Ex.: quero usar ácidos várias vezes na semana; prefiro rotina curta de manhã; não gosto de óleo no rosto; lavo o cabelo de manhã' },
+  training: { title: 'Suas preferências para a semana de treino', ph: 'Ex.: musculação sempre de manhã; pedal longo no sábado; não quero treinar domingo' },
+  food: { title: 'Suas preferências para o plano', ph: 'Ex.: café da manhã sempre doce; jantar leve; não como peixe' }
+} as const;
+
+/** O que ela prefere: a IA segue, e só ajusta (explicando) quando a combinação for claramente danosa. */
+function AIPrefs({ domain }: { domain: 'skin' | 'training' | 'food' }) {
+  const settings = useSettings();
+  const saved = settings?.aiPrefs?.[domain] ?? '';
+  const [text, setText] = useState<string | null>(null);
+  const value = text ?? saved;
+  const isSaved = value.trim() === saved.trim();
+  const save = async (announce: boolean) => {
+    await update<'settings'>('settings', { aiPrefs: { ...(settings?.aiPrefs ?? {}), [domain]: value.trim() || undefined } } as any);
+    if (announce) toast('Preferências salvas. A IA vai considerar na próxima montagem.');
+  };
+  if (!settings) return null;
+  return (
+    <section className="block b-paper ai-prefs" data-testid={`ai-prefs-${domain}`}>
+      <span className="label" style={{ marginTop: 0 }}>{PREF_HINT[domain].title}</span>
+      <textarea value={value} onChange={(e) => setText(e.target.value)} onBlur={() => !isSaved && save(false)} placeholder={PREF_HINT[domain].ph} rows={3} aria-label={PREF_HINT[domain].title} />
+      <div className="row between" style={{ marginTop: 8, alignItems: 'center', gap: 8 }}>
+        <span className="tiny muted" style={{ flex: 1 }}>A IA segue o que você escrever. Se alguma combinação puder machucar, ela ajusta e explica o porquê.</span>
+        {isSaved ? (value.trim() ? <span className="small saved-ok" data-testid="ai-prefs-saved"><Check size={15} strokeWidth={3} /> Salvo</span> : null)
+          : <button className="pill-act pa-ghost" onClick={() => save(true)} data-testid="ai-prefs-save">Salvar</button>}
+      </div>
+    </section>
   );
 }
 

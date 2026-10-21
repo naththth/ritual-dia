@@ -582,3 +582,15 @@ test('foto: sempre oferece câmera ou galeria', async ({ page }) => {
   expect(await chooser.element().getAttribute('capture')).toBeNull();
   await expect(page.getByTestId('photo-source')).toBeHidden();
 });
+
+test('preferências para a IA na rotina de cuidados', async ({ page }) => {
+  await onboard(page);
+  await page.goto('./#/plano/skin');
+  const box = page.getByTestId('ai-prefs-skin');
+  await box.getByRole('textbox').fill('Quero usar ácidos várias vezes na semana');
+  await box.getByTestId('ai-prefs-save').click();
+  await expect(box.getByTestId('ai-prefs-saved')).toBeVisible();
+  await page.reload();
+  await expect(page.getByTestId('ai-prefs-skin').getByRole('textbox')).toHaveValue('Quero usar ácidos várias vezes na semana');
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/prefs.png' });
+});

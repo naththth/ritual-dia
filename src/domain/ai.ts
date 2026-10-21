@@ -41,6 +41,9 @@ export async function askAI<T = any>(task: AITask, context: unknown, images?: { 
     if (docs.length) extra.exames_e_documentos = docsForAI(docs as any);
     const cyc = await cycleForAI(((ctx as any).data ?? (ctx as any).date ?? todayKey()) as DateKey, pf);
     if (cyc) extra.ciclo_menstrual = cyc;
+    const prefKey = ({ skin_plan: 'skin', training_plan: 'training', training_review: 'training', food_plan: 'food' } as const)[task as 'skin_plan'];
+    const pref = prefKey ? st?.aiPrefs?.[prefKey]?.trim() : undefined;
+    if (pref) extra.preferencias_dela = pref;
     ctx = { ...extra, ...(ctx as object) };
   }
   const { data, error } = await Promise.race([
@@ -102,6 +105,9 @@ export async function aiSkinPlan(today: DateKey) {
   };
   const r = await askAI<any>('skin_plan', ctx);
   const alias = new Map(products.map((p, i) => [`p${i + 1}`, p.id]));
+  // Os textos às vezes citam os códigos curtos: troca pelo nome do produto.
+  const nameOf = new Map(products.map((p, i) => [`p${i + 1}`, p.name]));
+  const txt = (v: unknown) => (v ? String(v).replace(/\bp(\d+)\b/g, (m, n) => nameOf.get(`p${n}`) ?? m).trim() : undefined);
   const clean = (ids: unknown) => (Array.isArray(ids) ? ids.map((x) => alias.get(String(x))).filter((x): x is string => !!x) : []);
   const period = (pp: any) => {
     const days: Record<number, { add: string[]; remove: string[] }> = {};
@@ -114,10 +120,10 @@ export async function aiSkinPlan(today: DateKey) {
   return {
     skin: {
       am: period(r.am), pm: period(r.pm), recovery: { am: clean(r.recovery?.am), pm: clean(r.recovery?.pm) },
-      diagnosis: r.diagnostico ? { rosto: r.diagnostico.rosto ? String(r.diagnostico.rosto) : undefined, corpo: r.diagnostico.corpo ? String(r.diagnostico.corpo) : undefined, cabelo: r.diagnostico.cabelo ? String(r.diagnostico.cabelo) : undefined, date: today } : undefined
+      diagnosis: r.diagnostico ? { rosto: txt(r.diagnostico.rosto), corpo: txt(r.diagnostico.corpo), cabelo: txt(r.diagnostico.cabelo), date: today } : undefined
     } as NonNullable<Plan['skin']>,
-    resumo: String(r.resumo ?? ''),
-    observacoes: String(r.observacoes ?? '')
+    resumo: txt(r.resumo) ?? '',
+    observacoes: txt(r.observacoes) ?? ''
   };
 }
 
