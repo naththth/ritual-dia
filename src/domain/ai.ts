@@ -10,7 +10,11 @@ import { planFor, plannedSkin, plannedTraining } from './rules';
 
 export type AITask = 'skin_plan' | 'training_plan' | 'food_plan' | 'day_brief' | 'training_review' | 'week_review' | 'wellness_read' | 'label_read' | 'targets' | 'doc_read' | 'product_read' | 'plate_read' | 'plan_chat';
 
+/** Só nos testes automáticos: uma IA simulada injetada pela página de teste. */
+const testAI = () => (typeof window !== 'undefined' ? (window as any).__RITUAL_TEST_AI as ((task: string, ctx: any) => any) | undefined : undefined);
+
 export function aiAvailable() {
+  if (testAI()) return true;
   return !!supabase && !!useSync.getState().session && navigator.onLine;
 }
 
@@ -26,6 +30,8 @@ function friendly(msg: string) {
 }
 
 export async function askAI<T = any>(task: AITask, context: unknown, images?: { mime: string; data: string }[], files?: { bucket: string; path: string; mime: string }[]): Promise<T> {
+  const fake = testAI();
+  if (fake) return fake(task, context) as T;
   if (!supabase) throw new Error('Sincronização não configurada.');
   if (!useSync.getState().session) throw new Error('Entre com Google para usar a IA.');
   if (!navigator.onLine) throw new Error('Sem conexão. A IA precisa de internet.');

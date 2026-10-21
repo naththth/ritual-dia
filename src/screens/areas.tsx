@@ -90,7 +90,7 @@ export function HabitsGoalsPage() {
     <div className="screen" data-testid="habits-goals">
       <TopBar />
       <h1 className="section-title" style={{ fontSize: 32, fontWeight: 500, margin: '8px 0 10px' }}>Hábitos e metas</h1>
-      <h2 className="section-title">Hábitos</h2>
+      <h2 className="section-title" style={{ marginTop: 18 }}>Hábitos</h2>
       <Habits />
       <h2 className="section-title" style={{ marginTop: 24 }}>Metas</h2>
       <Goals />

@@ -86,7 +86,7 @@ export function WeightScreen() {
       </section>
 
       {st.perWeek != null && (
-        <section className="block" data-testid="weight-pace">
+        <section className="block b-paper" data-testid="weight-pace">
           <h2 style={{ fontSize: 20, margin: '0 0 6px' }}>Ritmo</h2>
           <p style={{ margin: 0 }}>
             Tendência das últimas {st.trendDays === 28 ? '4' : '8'} semanas: <b className="num">{st.perWeek > 0 ? '+' : '−'}{kg(Math.abs(st.perWeek), 2)} kg por semana</b> ({kg(Math.abs(st.perWeekPct!), 1)}% do peso).
@@ -104,7 +104,7 @@ export function WeightScreen() {
       <div className="row between" style={{ margin: '14px 0 6px', alignItems: 'center' }}>
         <h2 className="section-title" style={{ margin: 0 }}>Curva</h2>
       </div>
-      <div className="chips" style={{ marginBottom: 6 }}>{RANGES.map((r) => <Chip key={r.id} on={range === r.id} onClick={() => setRange(r.id)}>{r.label}</Chip>)}</div>
+      <div className="chips scroll" style={{ marginBottom: 6, flexWrap: 'nowrap' }}>{RANGES.map((r) => <Chip key={r.id} on={range === r.id} onClick={() => setRange(r.id)}>{r.label}</Chip>)}</div>
       <Chart list={list} target={st.target} days={range} />
 
       <h2 className="section-title" style={{ marginTop: 18 }}>Pesagens</h2>

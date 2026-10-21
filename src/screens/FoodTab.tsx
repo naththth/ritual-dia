@@ -64,7 +64,7 @@ export function FoodTab() {
           <div className="macro-bar" style={{ height: 10 }}><i style={{ width: `${pct(eaten.n.kcal, goal.kcal)}%` }} /></div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginTop: 10 }}>
             {([['Proteína', eaten.n.p, goal.p], ['Carboidrato', eaten.n.c, goal.c], ['Gordura', eaten.n.f, goal.f]] as [string, number, number | undefined][]).map(([l, v, m]) => (
-              <div key={l} className="small"><div style={{ fontWeight: 700 }}><i className="fs-dot" style={{ background: l === 'Proteína' ? MACRO_COLORS.p : l === 'Carboidrato' ? MACRO_COLORS.c : MACRO_COLORS.f, marginRight: 6 }} />{l}</div><div className="num">{fmt(v)}{m ? ` de ${fmt(m)}` : ''} g</div>
+              <div key={l} className="small" style={{ minWidth: 0 }}><div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}><i className="fs-dot" style={{ background: l === 'Proteína' ? MACRO_COLORS.p : l === 'Carboidrato' ? MACRO_COLORS.c : MACRO_COLORS.f, flex: '0 0 auto' }} />{l === 'Carboidrato' ? 'Carbo' : l}</div><div className="num">{fmt(v)}{m ? ` de ${fmt(m)}` : ''} g</div>
                 {m ? <div className="macro-bar"><i style={{ width: `${pct(v, m)}%` }} /></div> : null}</div>
             ))}
           </div>

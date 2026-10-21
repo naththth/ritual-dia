@@ -483,7 +483,7 @@ test('rotina de cuidados: rosto, corpo e cabelo juntos na noite, com avaliação
   await page.getByTestId('plan-day-1').click();
   await page.locator('.sheet [data-testid=product-pick]', { hasText: 'Shampoo suave' }).click();
   await page.getByRole('button', { name: 'Pronto' }).click();
-  await expect(page.getByTestId('plan-day-1')).toContainText('Cabelo: Shampoo suave');
+  await expect(page.getByTestId('plan-day-1')).toContainText('Shampoo suave');
   await expect(page.getByTestId('plan-day-2')).not.toContainText('Shampoo');
   await page.getByTestId('plan-save').click();
   await expect(page.getByTestId('plan-skin')).toBeHidden();
@@ -621,4 +621,35 @@ test('áreas: Cuidados, Treino e Alimentação reúnem dia, plano e cadastros', 
   await expect(page.getByTestId('fab')).toBeVisible();
   await noHorizontalScroll(page);
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/hoje-nav.png' });
+});
+
+test('conversa com a especialista: perguntas, rascunho legível, ajuste e aplicar', async ({ page }) => {
+  await onboard(page);
+  await page.evaluate(() => {
+    (window as any).__RITUAL_TEST_AI = async (task: string, ctx: any) => {
+      await new Promise((r) => setTimeout(r, 150));
+      if (ctx.etapa === 'perguntas') return { mensagem: 'Vou montar em camadas, no estilo coreano, usando todos os seus produtos em rodízio.', perguntas: [{ id: 'q1', texto: 'Como está a tolerância atual do seu rosto ao retinol, considerando a rosácea e a sensibilidade que você relatou?', opcoes: ['Já uso 2 a 3 vezes por semana sem irritação nenhuma', 'Uso apenas 1 vez por semana ou estou iniciando agora com cuidado', 'Pausa temporária por sensibilidade ou rosácea'] }] };
+      if (ctx.etapa === 'montar') return { mensagem: 'Montei a base calmante todo dia e o retinol em noites alternadas.', nao_segui: [], diagnostico: { rosto: 'Pele oleosa e sensível, com barreira a proteger.' }, am: { base: ['p1', 'p3', 'p4'], days: {} }, pm: { base: ['p1', 'p2', 'p3'], days: { 1: { add: ['p5'], remove: [] }, 3: { add: ['p5'], remove: ['p2'] } } }, recovery: { am: [], pm: ['p1', 'p3'] }, resumo: 'Base calmante e retinol 2x.', observacoes: 'Use protetor todos os dias.' };
+      return { mensagem: 'Combinado: tirei o retinol da quarta.', alteracoes: { pm: { base: ['p1', 'p2', 'p3'], days: { 1: { add: ['p5'], remove: [] } } } }, nao_segui: [{ pedido: 'Retinol todos os dias', motivo: 'Com rosácea, diário irrita.', alternativa: 'Duas noites por semana.' }] };
+    };
+  });
+  await page.goto('./#/cuidados/rotina');
+  await page.getByTestId('ai-build').click();
+  await expect(page.getByTestId('chat-question')).toBeVisible();
+  await page.getByRole('button', { name: /Uso apenas 1 vez/ }).click();
+  await page.getByTestId('chat-build').click();
+  await expect(page.getByTestId('chat-draft')).toContainText('Manhã, todos os dias');
+  await expect(page.getByTestId('chat-draft')).toContainText('Protetor FPS 50');
+  await page.getByTestId('chat-draft').getByText('Segunda').click();
+  await expect(page.getByTestId('chat-draft')).toContainText('entra');
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/chat-draft.png' });
+  await page.getByTestId('chat-input').fill('Quero retinol todos os dias');
+  await page.getByTestId('chat-send').click();
+  await expect(page.getByTestId('chat-not-followed')).toContainText('rosácea');
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/chat-ajuste.png' });
+  await page.getByTestId('chat-apply').click();
+  await expect(page.getByTestId('plan-chat')).toBeHidden();
+  await page.getByRole('tab', { name: 'Noite' }).click();
+  await expect(page.getByTestId('plan-base')).toContainText('Sérum calmante');
+  await noHorizontalScroll(page);
 });

@@ -1,5 +1,5 @@
 // As especialistas de cada área e a montagem do plano em conversa: ela pergunta, monta, você comenta, ela ajusta.
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, Send, Sparkles } from 'lucide-react';
 import { Sheet } from '../ui/ui';
 import { toast } from '../state/store';
@@ -64,34 +64,75 @@ export function SpecialistCard({ domain }: { domain: Domain }) {
 interface Q { id: string; texto: string; opcoes?: string[] }
 interface NotFollowed { pedido: string; motivo: string; alternativa?: string }
 interface Msg { from: 'ai' | 'me'; text: string; questions?: Q[]; notFollowed?: NotFollowed[]; draft?: boolean }
-interface DayView { day: string; lines: string[] }
+/** Rascunho legível: seções recolhíveis, cada uma com grupos em tópicos. */
+interface Group { label: string; items: string[]; tone?: 'add' | 'remove' }
+interface Section { title: string; sub?: string; open?: boolean; groups: Group[]; text?: string }
 
 const DAYS = ['', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+const AREA_LABEL: Record<string, string> = { rosto: 'Rosto', corpo: 'Corpo', cabelo: 'Cabelo' };
 
 /** O que muda por área: o contexto enviado, como mostrar o rascunho e como aplicar. */
 async function adapter(domain: Domain, herText: string) {
   if (domain === 'skin') {
     const { ctx, decode, nameOfAlias } = await skinContext(todayKey());
-    const nm = (c: string) => nameOfAlias(c)?.name ?? '';
-    const list = (pp: any, d: number) => { const day = pp?.days?.[d] ?? pp?.days?.[String(d)] ?? {}; const base: string[] = pp?.base ?? []; return [...base.filter((x) => !(day.remove ?? []).includes(x)), ...(day.add ?? []).filter((x: string) => !base.includes(x))].map(nm).filter(Boolean); };
+    const prod = (c: string) => nameOfAlias(String(c));
+    const byArea = (codes: string[], tone?: Group['tone']): Group[] => {
+      const out: Group[] = [];
+      for (const ar of ['rosto', 'corpo', 'cabelo']) {
+        const items = codes.map(prod).filter((p) => p && (p.area ?? 'rosto') === ar).map((p) => p!.name);
+        if (items.length) out.push({ label: AREA_LABEL[ar], items, tone });
+      }
+      return out;
+    };
+    const dayOf = (pp: any, d: number) => pp?.days?.[d] ?? pp?.days?.[String(d)] ?? {};
     return {
       ctx,
-      describe: (r: any): DayView[] => [1, 2, 3, 4, 5, 6, 7].map((d) => ({ day: DAYS[d], lines: [`Manhã: ${list(r.am, d).join(' · ') || '—'}`, `Noite: ${list(r.pm, d).join(' · ') || '—'}`] })),
+      describe: (r: any): Section[] => {
+        const out: Section[] = [];
+        const dg = r.diagnostico ?? {};
+        const diag = ['rosto', 'corpo', 'cabelo'].filter((k) => dg[k]).map((k) => `${AREA_LABEL[k]}: ${dg[k]}`).join('\n\n');
+        if (diag) out.push({ title: 'Diagnóstico', groups: [], text: diag });
+        for (const per of ['am', 'pm'] as const) {
+          const base: string[] = r[per]?.base ?? [];
+          out.push({ title: per === 'am' ? 'Manhã, todos os dias' : 'Noite, todos os dias', sub: `${base.length} ${base.length === 1 ? 'passo' : 'passos'}, na ordem`, open: true, groups: byArea(base) });
+        }
+        for (let d = 1; d <= 7; d++) {
+          const groups: Group[] = [];
+          for (const per of ['am', 'pm'] as const) {
+            const day = dayOf(r[per], d);
+            const add = byArea(day.add ?? [], 'add').map((g) => ({ ...g, label: `${per === 'am' ? 'Manhã' : 'Noite'} · ${g.label} · entra` }));
+            const rem = byArea(day.remove ?? [], 'remove').map((g) => ({ ...g, label: `${per === 'am' ? 'Manhã' : 'Noite'} · ${g.label} · sai` }));
+            groups.push(...add, ...rem);
+          }
+          const n = groups.reduce((a, g) => a + g.items.length, 0);
+          out.push({ title: DAYS[d], sub: n ? `${n} ${n === 1 ? 'mudança' : 'mudanças'} em relação a todos os dias` : 'Igual a todos os dias', groups });
+        }
+        const rec = [...(r.recovery?.am ?? []), ...(r.recovery?.pm ?? [])];
+        if (rec.length) out.push({ title: 'Recuperação (quando a pele pedir)', groups: [...byArea(r.recovery?.am ?? []).map((g) => ({ ...g, label: `Manhã · ${g.label}` })), ...byArea(r.recovery?.pm ?? []).map((g) => ({ ...g, label: `Noite · ${g.label}` }))] });
+        if (r.observacoes) out.push({ title: 'Observações', groups: [], text: String(r.observacoes) });
+        return out;
+      },
       apply: async (r: any) => {
         const plan = decode(r);
         const cur = planFor(await all('plan'), 'skin', todayKey());
         await savePlan('skin', cur, { skin: { ...plan.skin, body: undefined, hair: undefined } });
-      }
+      },
+      slim: (c: any) => ({ ...c, produtos: (c.produtos ?? []).map((p: any) => ({ id: p.id, nome: p.nome, marca: p.marca, tipo: p.tipo, area: p.area, ativo: p.ativo, ativos: p.ativos })) })
     };
   }
   if (domain === 'training') {
     const ctx = await trainingContext();
     return {
       ctx,
-      describe: (r: any): DayView[] => {
-        const name = (k: string) => (r.templates ?? []).find((t: any) => t.key === k)?.name ?? k;
-        return [1, 2, 3, 4, 5, 6, 7].map((d) => ({ day: DAYS[d], lines: [(r.week?.[String(d)] ?? []).map(name).join(' · ') || 'Descanso'] }));
+      describe: (r: any): Section[] => {
+        const tpl = (k: string) => (r.templates ?? []).find((t: any) => t.key === k);
+        const days: Section[] = [1, 2, 3, 4, 5, 6, 7].map((d) => {
+          const ts = (r.week?.[String(d)] ?? []).map(tpl).filter(Boolean);
+          return { title: DAYS[d], sub: ts.length ? ts.map((t: any) => t.name).join(' + ') : 'Descanso', groups: ts.map((t: any) => ({ label: `${t.name} · ${t.duration} min${t.time ? ` · ${t.time}` : ''}`, items: Array.isArray(t.exercicios) && t.exercicios.length ? t.exercicios : (t.steps ?? []).map((st: any) => `${st.label}: ${st.minutes} min a ${st.pct}% do FTP`) })) };
+        });
+        return [{ title: 'Semana', open: true, groups: [{ label: 'Resumo', items: days.map((d) => `${d.title}: ${d.sub}`) }] }, ...days, ...(r.resumo ? [{ title: 'Lógica da semana', groups: [], text: String(r.resumo) }] : [])];
       },
+      slim: (c: any) => c,
       apply: async (r: any) => {
         const week = await applyTrainingResult(r);
         const cur = planFor(await all('plan'), 'training', todayKey());
@@ -102,10 +143,14 @@ async function adapter(domain: Domain, herText: string) {
   const ctx = await foodContext(herText);
   return {
     ctx,
-    describe: (r: any): DayView[] => {
-      const name = (k: string) => (r.refeicoes ?? []).find((m: any) => m.key === k)?.name ?? k;
-      return [1, 2, 3, 4, 5, 6, 7].map((d) => ({ day: DAYS[d], lines: Object.entries(r.week?.[String(d)] ?? {}).map(([mt, k]) => `${mt}: ${name(String(k))}`) }));
+    describe: (r: any): Section[] => {
+      const meal = (k: string) => (r.refeicoes ?? []).find((m: any) => m.key === k);
+      const MT: Record<string, string> = { cafe: 'Café da manhã', almoco: 'Almoço', lanche: 'Lanche', jantar: 'Jantar', ceia: 'Ceia' };
+      const meals: Section = { title: 'Refeições do plano', open: true, groups: (r.refeicoes ?? []).map((m: any) => ({ label: `${MT[m.mealType] ?? m.mealType} · ${m.name}`, items: (m.items ?? []).map((i: any) => `${String(i.foodId).replace(/^novo:/, '')} · ${i.portion}`) })) };
+      const days: Section[] = [1, 2, 3, 4, 5, 6, 7].map((d) => ({ title: DAYS[d], groups: [{ label: 'Refeições', items: Object.entries(r.week?.[String(d)] ?? {}).map(([mt, k]) => `${MT[mt] ?? mt}: ${meal(String(k))?.name ?? '—'}`) }] }));
+      return [meals, ...days, ...(r.resumo ? [{ title: 'Lógica do plano', groups: [], text: String(r.resumo) }] : [])];
     },
+    slim: (c: any) => c,
     apply: async (r: any) => {
       const { week } = await applyFoodResult(r);
       const cur = planFor(await all('plan'), 'food', todayKey());
@@ -122,11 +167,16 @@ export function PlanChat({ domain, open, onClose, onApplied }: { domain: Domain;
   const [busy, setBusy] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [input, setInput] = useState('');
-  const [view, setView] = useState<DayView[] | null>(null);
+  const [view, setView] = useState<Section[] | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const lastRef = useRef<HTMLDivElement>(null);
   const spec = SPECIALISTS[domain];
 
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [msgs.length, busy, view]);
+  // Ao chegar resposta, mostra o começo dela (não o fim do rascunho); enquanto espera, o fim da conversa.
+  useEffect(() => {
+    if (busy) endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    else lastRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [msgs.length, busy]);
   useEffect(() => {
     if (!open) return;
     setMsgs([]); setDraft(null); setAnswers({}); setInput(''); setView(null);
@@ -140,7 +190,7 @@ export function PlanChat({ domain, open, onClose, onApplied }: { domain: Domain;
     setBusy(etapa === 'perguntas' ? 'Pensando no que perguntar…' : etapa === 'montar' ? 'Montando com tudo o que você disse… leva uns 30 a 60 segundos.' : 'Ajustando…');
     try {
       const a = await adapter(domain, herText(list));
-      const r = await askAI<any>('plan_chat', { ...a.ctx, dominio: domain, etapa, conversa: convo(list), rascunho: etapa === 'ajustar' ? current : undefined });
+      const r = await askAI<any>('plan_chat', { ...(etapa === 'perguntas' ? a.slim(a.ctx) : a.ctx), dominio: domain, etapa, conversa: convo(list), rascunho: etapa === 'ajustar' ? current : undefined });
       const nf: NotFollowed[] = Array.isArray(r.nao_segui) ? r.nao_segui.filter((x: any) => x?.pedido) : [];
       if (etapa === 'perguntas') {
         const qs: Q[] = Array.isArray(r.perguntas) ? r.perguntas.filter((q: any) => q?.texto).slice(0, 3) : [];
@@ -160,6 +210,27 @@ export function PlanChat({ domain, open, onClose, onApplied }: { domain: Domain;
   }
 
   const lastQ = [...msgs].reverse().find((m) => m.questions?.length);
+  // O rascunho aparece logo depois da mensagem que o criou ou mudou; respostas sem mudança vêm abaixo dele.
+  const draftAt = msgs.map((m) => !!m.draft).lastIndexOf(true);
+  const lastAi = msgs.map((m) => m.from).lastIndexOf('ai');
+  const draftEl = view && draft ? (
+          <div className="draft" data-testid="chat-draft">
+            <div className="draft-head"><b>{msgs.filter((m) => m.draft).length > 1 ? 'Rascunho atualizado' : 'Rascunho'}</b><span className="tiny muted">Toque nos dias para abrir</span></div>
+            {view.map((sec, i) => (
+              <details key={`${sec.title}-${i}`} className="dsec" open={sec.open}>
+                <summary><span className="dsec-t">{sec.title}</span>{sec.sub && <span className="dsec-s">{sec.sub}</span>}</summary>
+                {sec.text && <p className="dsec-text">{sec.text}</p>}
+                {sec.groups.map((g, k) => (
+                  <div key={k} className={`dgroup ${g.tone ?? ''}`}>
+                    <span className="dg-l">{g.label}</span>
+                    <ol>{g.items.map((it, j) => <li key={j}>{it}</li>)}</ol>
+                  </div>
+                ))}
+              </details>
+            ))}
+          </div>
+        
+  ) : null;
   const answering = !draft && !!lastQ && !busy;
   const submitAnswers = () => {
     const parts = (lastQ?.questions ?? []).map((q) => (answers[q.id] ? `${q.texto} ${answers[q.id]}` : '')).filter(Boolean);
@@ -196,12 +267,13 @@ export function PlanChat({ domain, open, onClose, onApplied }: { domain: Domain;
       ) : undefined}>
       <div className="chat" data-testid="chat-log">
         {msgs.map((m, i) => (
-          <div key={i} className={`bubble ${m.from}`}>
+          <Fragment key={i}>
+          <div ref={i === lastAi ? lastRef : undefined} className={`bubble ${m.from}`}>
             {m.text && <p>{m.text}</p>}
             {m.notFollowed?.length ? (
               <div className="nf" data-testid="chat-not-followed">
                 <b>O que não segui do seu pedido</b>
-                {m.notFollowed.map((n, k) => <p key={k}><b>{n.pedido}:</b> {n.motivo}{n.alternativa ? ` No lugar: ${n.alternativa}` : ''}</p>)}
+                <ul>{m.notFollowed.map((n, k) => <li key={k}><b>{n.pedido}.</b> {n.motivo}{n.alternativa ? <><br /><i>No lugar:</i> {n.alternativa}</> : null}</li>)}</ul>
               </div>
             ) : null}
             {m.questions?.length && m === lastQ && !draft ? (
@@ -215,26 +287,20 @@ export function PlanChat({ domain, open, onClose, onApplied }: { domain: Domain;
               </div>
             ) : null}
           </div>
+          {i === draftAt && draftEl}
+          </Fragment>
         ))}
-        {view && draft && (
-          <div className="draft" data-testid="chat-draft">
-            <b>Rascunho</b>
-            {view.map((d) => <div key={d.day} className="draft-day"><span className="dd">{d.day}</span>{d.lines.map((l, k) => <span key={k} className="small">{l}</span>)}</div>)}
-          </div>
-        )}
         {busy && <div className="bubble ai typing" data-testid="chat-busy"><Sparkles size={15} /> {busy}</div>}
         <div ref={endRef} />
       </div>
       {!busy && (answering || msgs.length > 0) && (
         <div className="chat-input">
-          <textarea value={input} onChange={(e) => setInput(e.target.value)} rows={2} aria-label="Mensagem para a especialista" data-testid="chat-input"
-            placeholder={answering ? 'Quer acrescentar algo? (opcional)' : draft ? 'Pergunte ou peça um ajuste: “por que tirou o BHA?”, “quero óleo só à noite”' : domain === 'food' ? 'Cole o texto da sua dieta ou conte o que quer' : 'Escreva para a especialista'} />
-          <div className="row between" style={{ gap: 8, marginTop: 6 }}>
-            <MicButton label="Falar" onText={(t) => setInput((x) => appendText(x, t))} />
-            {answering
-              ? <button className="btn btn-ink" onClick={submitAnswers} data-testid="chat-build"><Sparkles size={16} /> Montar</button>
-              : <button className="btn btn-ink" onClick={send} disabled={!input.trim()} data-testid="chat-send"><Send size={16} /> Enviar</button>}
-          </div>
+          <textarea value={input} onChange={(e) => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = `${Math.min(140, e.target.scrollHeight)}px`; }} rows={1} aria-label="Mensagem para a especialista" data-testid="chat-input"
+            placeholder={answering ? 'Algo a acrescentar? (opcional)' : draft ? 'Comente ou peça um ajuste' : domain === 'food' ? 'Cole a sua dieta ou conte o que quer' : 'Escreva para a especialista'} />
+          <MicButton compact label="Falar" onText={(t) => setInput((x) => appendText(x, t))} />
+          {answering
+            ? <button className="chat-send" onClick={submitAnswers} aria-label="Montar" data-testid="chat-build"><Sparkles size={18} /><span>Montar</span></button>
+            : <button className="chat-send icon" onClick={send} disabled={!input.trim()} aria-label="Enviar" data-testid="chat-send"><Send size={18} /></button>}
         </div>
       )}
     </Sheet>

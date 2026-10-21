@@ -62,11 +62,11 @@ export function SkinPlan({ embedded = false }: { embedded?: boolean } = {}) {
   const faceInUse = inUse.filter((p) => (p.area ?? 'rosto') === 'rosto');
   const byId = new Map(products.map((p) => [p.id, p]));
   const sortIds = (ids: string[]) => [...ids].sort((a, b) => (GROUP_RANK[byId.get(a)?.group ?? 'hidratacao'] - GROUP_RANK[byId.get(b)?.group ?? 'hidratacao']));
-  /** "Rosto: gel, sérum. Corpo: loção. Cabelo: shampoo." */
-  const names = (ids: string[]) => AREAS.map((ar) => {
-    const n = sortIds(ids).filter((id) => (byId.get(id)?.area ?? 'rosto') === ar.id).map((id) => byId.get(id)?.name).filter(Boolean);
-    return n.length ? `${ar.label}: ${n.join(', ')}` : '';
-  }).filter(Boolean).join('. ');
+  /** Lista em tópicos, separada por área, na ordem de aplicação. */
+  const groups = (ids: string[], suffix = '', tone = '') => AREAS.map((ar) => {
+    const n = sortIds(ids).filter((id) => (byId.get(id)?.area ?? 'rosto') === ar.id).map((id) => byId.get(id)?.name).filter(Boolean) as string[];
+    return n.length ? <div key={ar.id + suffix} className={`dgroup flat ${tone}`}><span className="dg-l">{ar.label}{suffix}</span><ol>{n.map((x, i) => <li key={i}>{x}</li>)}</ol></div> : null;
+  });
 
   if (inUse.length === 0) {
     return <Empty text="Nenhum produto marcado como em uso. Faça a revisão dos produtos primeiro." action={<button className="btn btn-ink" onClick={() => nav('/revisao')}>Revisar produtos</button>} />;
@@ -100,17 +100,16 @@ export function SkinPlan({ embedded = false }: { embedded?: boolean } = {}) {
       {pp && (
         <>
           <div className="section"><h2 className="section-title">Todos os dias</h2><button className="link" onClick={() => setBaseOpen(true)} data-testid="edit-base">Editar</button></div>
-          <p className="small" style={{ marginTop: 0 }} data-testid="plan-base">{pp.base.length ? names(pp.base) : 'Nada ainda. Comece pelo que se repete todo dia: limpeza e hidratante do rosto, protetor, hidratante do corpo.'}</p>
+          <div data-testid="plan-base">{pp.base.length ? groups(pp.base) : <p className="small" style={{ marginTop: 0 }}>Nada ainda. Comece pelo que se repete todo dia: limpeza e hidratante do rosto, protetor, hidratante do corpo.</p>}</div>
           <div className="section"><h2 className="section-title">Por dia da semana</h2></div>
-          <p className="small muted" style={{ marginTop: -6 }}>Para o que não é diário: lavar o cabelo, máscara, esfoliação, ativos do rosto.</p>
+          <p className="small muted" style={{ marginTop: -6 }}>O que muda em relação a todos os dias: lavar o cabelo, máscara, esfoliação, ativos do rosto. Toque no dia para ajustar.</p>
           {DAYS.map((wd) => {
-            const list = dayList(pp, wd);
             const day = pp.days[wd];
+            const has = !!(day?.add.length || day?.remove.length);
             return (
-              <button key={wd} className="plan-day tap" onClick={() => setDayOpen(wd)} style={{ display: 'block' }} data-testid={`plan-day-${wd}`}>
-                <div className="dn">{WEEKDAY_LONG[wd]}</div>
-                <div className="small">{list.length ? names(list) : 'Nada planejado'}</div>
-                {(day?.add.length || day?.remove.length) ? <div className="tiny muted">{day.add.length ? `+ ${day.add.map((id) => byId.get(id)?.name).filter(Boolean).join(', ')}` : ''}{day.add.length && day.remove.length ? '. ' : ''}{day.remove.length ? `sem ${day.remove.map((id) => byId.get(id)?.name).filter(Boolean).join(', ')}` : ''}</div> : null}
+              <button key={wd} className="plan-day tap" onClick={() => setDayOpen(wd)} style={{ display: 'block', textAlign: 'left', width: '100%' }} data-testid={`plan-day-${wd}`}>
+                <div className="row between"><span className="dn">{WEEKDAY_LONG[wd]}</span><span className="tiny muted">{has ? `${dayList(pp, wd).length} passos` : 'Igual a todos os dias'}</span></div>
+                {has && <div style={{ marginTop: 6 }}>{groups(day!.add, ' · entra', 'add')}{groups(day!.remove, ' · sai', 'remove')}</div>}
               </button>
             );
           })}

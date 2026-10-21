@@ -623,11 +623,6 @@ button.food-line { width: 100%; text-align: left; }
 .bubble.me { background: var(--wine); color: var(--wine-ink); align-self: flex-end; border-bottom-right-radius: 6px; }
 .bubble.typing { display: flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: 14px; }
 .bubble .nf { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--line-2); font-size: 14px; display: flex; flex-direction: column; gap: 6px; }
-.draft { border: 1.5px solid var(--line); border-radius: 18px; padding: 12px 14px; background: var(--card); display: flex; flex-direction: column; gap: 8px; }
-.draft-day { display: flex; flex-direction: column; gap: 2px; padding-top: 6px; border-top: 1px dotted var(--line); }
-.draft-day .dd { font-weight: 700; font-size: 14px; }
-.chat-input { position: sticky; bottom: 0; background: var(--card); padding-top: 8px; margin-top: 6px; border-top: 1px solid var(--line); }
-.chat-input textarea { width: 100%; }
 /* Opções das perguntas da especialista: viram linhas inteiras e quebram o texto, nunca saem da tela. */
 .bubble { min-width: 0; overflow-wrap: anywhere; }
 .bubble:has(.qs) { max-width: 100%; }
@@ -635,3 +630,43 @@ button.food-line { width: 100%; text-align: left; }
 .bubble .qs .chip { width: 100%; max-width: 100%; white-space: normal; border-radius: 18px; text-align: left; justify-content: flex-start; height: auto; min-height: 44px; padding: 10px 16px; line-height: 1.35; }
 .draft, .draft-day span { overflow-wrap: anywhere; }
 .sheet .sh-body { overflow-x: hidden; }
+
+/* Rascunho da especialista: seções recolhíveis em tópicos */
+.draft { border: 1.5px solid var(--line); border-radius: 18px; background: var(--card); overflow: hidden; }
+.draft-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 12px 14px 8px; }
+.dsec { border-top: 1px solid var(--line); }
+.dsec > summary { list-style: none; cursor: pointer; padding: 12px 40px 12px 14px; position: relative; display: flex; flex-direction: column; gap: 2px; }
+.dsec > summary::-webkit-details-marker { display: none; }
+.dsec > summary::after { content: ''; position: absolute; right: 16px; top: 18px; width: 8px; height: 8px; border-right: 2px solid var(--ink-2); border-bottom: 2px solid var(--ink-2); transform: rotate(45deg); transition: transform .15s; }
+.dsec[open] > summary::after { transform: rotate(-135deg); top: 22px; }
+.dsec-t { font-weight: 700; font-size: 15.5px; }
+.dsec-s { font-size: 13.5px; color: var(--ink-2); }
+.dsec-text { margin: 0 14px 12px; font-size: 14.5px; line-height: 1.5; white-space: pre-line; }
+.dgroup { margin: 0 14px 12px; padding: 10px 12px; border-radius: 14px; background: var(--paper); }
+.dgroup.add { background: color-mix(in srgb, var(--olive) 35%, var(--paper)); }
+.dgroup.remove { background: color-mix(in srgb, var(--rose) 45%, var(--paper)); }
+.dg-l { display: block; font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-2); margin-bottom: 4px; }
+.dgroup ol { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 3px; font-size: 14.5px; line-height: 1.4; }
+.dgroup.remove ol li { text-decoration: line-through; text-decoration-color: rgba(0,0,0,.35); }
+/* Campo de mensagem compacto */
+.chat-input { position: sticky; bottom: 0; background: var(--card); padding: 8px 0 2px; margin-top: 6px; border-top: 1px solid var(--line); display: flex; align-items: flex-end; gap: 8px; }
+.chat-input textarea { flex: 1; min-width: 0; min-height: 44px; max-height: 140px; resize: none; padding: 11px 14px; border-radius: 22px; line-height: 1.35; }
+.mic-btn.mic-compact { width: 44px; height: 44px; padding: 0; justify-content: center; margin: 0; flex: 0 0 auto; }
+.chat-send { flex: 0 0 auto; height: 44px; padding: 0 16px; border-radius: 22px; background: var(--ink); color: var(--paper); display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
+.chat-send.icon { width: 44px; padding: 0; justify-content: center; }
+.chat-send:disabled { opacity: .35; }
+.bubble .nf ul { margin: 4px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+/* Chips com texto longo quebram linha em vez de sair da tela (exceto nas fileiras que rolam de lado). */
+.chip { max-width: 100%; white-space: normal; text-align: left; line-height: 1.25; padding: 8px 16px; }
+.chips.scroll .chip, .seg-tabs .chip { white-space: nowrap; max-width: none; }
+.dgroup.flat { margin: 0 0 8px; }
+.plan-day .dgroup.flat { background: var(--paper-2); }
+.plan-day .dgroup.flat.add { background: color-mix(in srgb, var(--olive) 35%, var(--paper)); }
+.plan-day .dgroup.flat.remove { background: color-mix(in srgb, var(--rose) 45%, var(--paper)); }
+/* Leitura: textos derivados de listas longas ficam em até 3 linhas; o foco da IA vira título legível, não manchete. */
+.now-detail { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+[data-testid="day-brief"] .bh h2 { font-family: var(--f-ui); font-size: 17px !important; font-weight: 750; line-height: 1.35; letter-spacing: 0; }
+[data-testid="day-brief"] p.small { font-size: 15px; line-height: 1.5; }
+.clamp2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* Barras: o rótulo quebra linha em vez de cortar; todas as barras começam na mesma coluna. */
+.bar-row { grid-template-columns: minmax(0, 38%) 1fr auto !important; padding: 3px 0; }

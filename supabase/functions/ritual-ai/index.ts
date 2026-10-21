@@ -127,7 +127,7 @@ function extractJson(text: string) {
   return JSON.parse(text.slice(s, e + 1));
 }
 
-type Call = (system: string, user: string, images?: Img[], opts?: { search?: boolean }) => Promise<string>;
+type Call = (system: string, user: string, images?: Img[], opts?: { search?: boolean; level?: 'low' | 'medium' | 'high' }) => Promise<string>;
 
 function pickProvider(): { name: string; call: Call } | null {
   const forced = (Deno.env.get('AI_PROVIDER') ?? '').toLowerCase();
@@ -139,13 +139,13 @@ function pickProvider(): { name: string; call: Call } | null {
     const models = Array.from(new Set([Deno.env.get('GEMINI_MODEL') ?? 'gemini-flash-latest', 'gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash']));
     let last = '';
     for (const model of models) {
-      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-        method: 'POST',
-        headers: { 'x-goog-api-key': g!, 'content-type': 'application/json' },
-        // Com pesquisa no Google (identificar produtos), a resposta vem em texto e o JSON é extraído depois.
-        body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: [...images.map((i) => ({ inline_data: { mime_type: i.mime, data: i.data } })), { text: user }] }], ...(opts.search ? { tools: [{ google_search: {} }] } : {}), generationConfig: { ...(opts.search ? {} : { responseMimeType: 'application/json' }), maxOutputTokens: 32768, temperature: opts.search ? 0.2 : 0.4 } })
-      });
-      const b = await r.json();
+      // Pensamento mais curto deixa a resposta várias vezes mais rápida; as instruções já trazem o raciocínio clínico.
+      const body = (withLevel: boolean) => JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: [...images.map((i) => ({ inline_data: { mime_type: i.mime, data: i.data } })), { text: user }] }], ...(opts.search ? { tools: [{ google_search: {} }] } : {}), generationConfig: { ...(opts.search ? {} : { responseMimeType: 'application/json' }), maxOutputTokens: 32768, temperature: opts.search ? 0.2 : 0.4, ...(withLevel && opts.level ? { thinkingConfig: { thinkingLevel: opts.level } } : {}) } });
+      const send = (withLevel: boolean) => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, { method: 'POST', headers: { 'x-goog-api-key': g!, 'content-type': 'application/json' }, body: body(withLevel) });
+      let r = await send(true);
+      let b = await r.json();
+      // Modelo que não aceita o nível de pensamento: repete sem ele.
+      if (r.status === 400 && opts.level && /thinking/i.test(String(b?.error?.message ?? ''))) { r = await send(false); b = await r.json(); }
       if (r.ok) {
         const cand = b.candidates?.[0];
         const text = (cand?.content?.parts ?? []).filter((p: any) => !p.thought).map((p: any) => p.text ?? '').join('');
@@ -240,10 +240,11 @@ Deno.serve(async (req: Request) => {
     const system = [BASE, dom ? SPECIALISTS[dom] : '', chat ? TASKS[DOMAIN_TASK[dom]] : TASKS[task], chat ? CHAT[String(context.etapa)] : ''].filter(Boolean).join('\n\n');
     const userMsg = `Contexto (JSON):\n${ctx}`;
     let text: string;
+    const level = task === 'targets' ? 'medium' : 'low';
     if (task === 'product_read' && provider.name === 'gemini') {
-      try { text = await provider.call(system, userMsg, imgs, { search: true }); extractJson(text); }
-      catch { text = await provider.call(system, userMsg, imgs); }
-    } else text = await provider.call(system, userMsg, imgs);
+      try { text = await provider.call(system, userMsg, imgs, { search: true, level }); extractJson(text); }
+      catch { text = await provider.call(system, userMsg, imgs, { level }); }
+    } else text = await provider.call(system, userMsg, imgs, { level });
     return new Response(JSON.stringify({ result: extractJson(text), provider: provider.name }), { headers: J });
   } catch (e) {
     return new Response(JSON.stringify({ error: String((e as Error)?.message ?? e) }), { status: 502, headers: J });

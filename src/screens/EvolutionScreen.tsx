@@ -20,7 +20,7 @@ function Bars({ rows, color, unit = '' }: { rows: { label: string; value: number
     <div role="table" aria-label="Valores">
       {rows.map((r) => (
         <div key={r.label} className="bar-row" role="row">
-          <span role="cell" className="small" style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.label}>{r.label}</span>
+          <span role="cell" className="small" style={{ fontWeight: 600, lineHeight: 1.25 }} title={r.label}>{r.label}</span>
           <span className="bar-track" role="presentation"><span className="bar-fill" style={{ width: `${(r.value / max) * 100}%`, display: 'block', color }} /></span>
           <span role="cell" className="small num" style={{ textAlign: 'right', fontWeight: 700 }}>{r.value}{unit}</span>
         </div>

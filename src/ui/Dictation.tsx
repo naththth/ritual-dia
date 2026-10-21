@@ -7,7 +7,7 @@ const SR: any = typeof window !== 'undefined' ? (window as any).SpeechRecognitio
 export const dictationAvailable = !!SR;
 
 /** Botão de microfone: enquanto grava, cada frase reconhecida é somada ao texto. */
-export function MicButton({ onText, label = 'Falar' }: { onText: (t: string) => void; label?: string }) {
+export function MicButton({ onText, label = 'Falar', compact = false }: { onText: (t: string) => void; label?: string; compact?: boolean }) {
   const [on, setOn] = useState(false);
   const rec = useRef<any>(null);
   useEffect(() => () => rec.current?.stop?.(), []);
@@ -23,8 +23,8 @@ export function MicButton({ onText, label = 'Falar' }: { onText: (t: string) => 
     rec.current = r; r.start(); setOn(true);
   };
   return (
-    <button type="button" className={`mic-btn ${on ? 'on' : ''}`} onClick={() => (on ? rec.current?.stop() : start())} aria-pressed={on} aria-label={on ? 'Parar de gravar' : label} data-testid="mic">
-      {on ? <Square size={14} fill="currentColor" /> : <Mic size={16} />}{on ? 'Gravando… toque para parar' : label}
+    <button type="button" className={`mic-btn ${on ? 'on' : ''} ${compact ? 'mic-compact' : ''}`} onClick={() => (on ? rec.current?.stop() : start())} aria-pressed={on} aria-label={on ? 'Parar de gravar' : label} data-testid="mic">
+      {on ? <Square size={14} fill="currentColor" /> : <Mic size={compact ? 20 : 16} />}{compact ? null : on ? 'Gravando… toque para parar' : label}
     </button>
   );
 }

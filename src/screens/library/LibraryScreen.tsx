@@ -95,7 +95,7 @@ export function Products() {
       <div className="list" style={{ marginTop: 8 }}>
         {list.map((p) => (
           <button key={p.id} className="lib-item" onClick={() => setEdit(p)}>
-            <span className="grow"><span className="tiny muted" style={{ fontWeight: 600 }}>{p.brand}</span><br /><span style={{ fontWeight: 650 }}>{p.name}</span>{p.info?.purpose && <><br /><span className="small muted">{p.info.purpose.length > 90 ? p.info.purpose.slice(0, 88) + '…' : p.info.purpose}</span></>}</span>
+            <span className="grow"><span className="tiny muted" style={{ fontWeight: 600 }}>{p.brand}</span><br /><span style={{ fontWeight: 650 }}>{p.name}</span>{p.info?.purpose && <><br /><span className="small muted clamp2">{p.info.purpose}</span></>}</span>
             <span className={`prio ${p.status === 'em_uso' ? 'media' : 'baixa'}`}>{STATUS_LABEL[p.status]}</span>
           </button>
         ))}
@@ -351,7 +351,7 @@ export function Goals() {
   const num = (v: string) => (v === '' ? undefined : Number(v.replace(',', '.')));
   return (
     <>
-      <p className="small" style={{ margin: '0 0 12px' }}>Objetivo de peso fica em <a className="link" href="#/peso">Peso</a>, onde o app acompanha as pesagens e calcula ritmo e previsão.</p>
+      <p className="small" style={{ margin: '0 0 12px' }}>Objetivo de peso fica em <a className="link" href="#/peso" style={{ minHeight: 0, display: 'inline' }}>Peso</a>, onde o app acompanha as pesagens e calcula ritmo e previsão.</p>
       <AddButton label="Nova meta" onClick={() => setEdit({ title: '', type: 'quantitativa', milestones: [], status: 'ativa' })} />
       {(goals ?? []).filter((g) => g.status !== 'arquivada').map((g) => {
         const es = (entries ?? []).filter((e) => e.goalId === g.id).sort((a, b) => (a.date < b.date ? 1 : -1));
