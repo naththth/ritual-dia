@@ -628,3 +628,10 @@ button.food-line { width: 100%; text-align: left; }
 .draft-day .dd { font-weight: 700; font-size: 14px; }
 .chat-input { position: sticky; bottom: 0; background: var(--card); padding-top: 8px; margin-top: 6px; border-top: 1px solid var(--line); }
 .chat-input textarea { width: 100%; }
+/* Opções das perguntas da especialista: viram linhas inteiras e quebram o texto, nunca saem da tela. */
+.bubble { min-width: 0; overflow-wrap: anywhere; }
+.bubble:has(.qs) { max-width: 100%; }
+.bubble .qs .chips { display: flex; flex-direction: column; gap: 8px; }
+.bubble .qs .chip { width: 100%; max-width: 100%; white-space: normal; border-radius: 18px; text-align: left; justify-content: flex-start; height: auto; min-height: 44px; padding: 10px 16px; line-height: 1.35; }
+.draft, .draft-day span { overflow-wrap: anywhere; }
+.sheet .sh-body { overflow-x: hidden; }
