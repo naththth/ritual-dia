@@ -174,7 +174,7 @@ export function SkinScreen() {
         </>
       )}
       {planned.length === 0 && !recovery && (
-        <p className="notice calm">Sem plano para este dia. Escolha os produtos da sua lista ou <button className="link" style={{ minHeight: 0 }} onClick={() => nav('/plano/skin')}>monte o plano</button>.</p>
+        <p className="notice calm">Sem plano para este dia. Escolha os produtos da sua lista ou <button className="link" style={{ minHeight: 0 }} onClick={() => nav('/cuidados/rotina')}>monte o plano</button>.</p>
       )}
 
       {extras.length > 0 && (

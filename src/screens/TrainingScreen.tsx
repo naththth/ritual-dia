@@ -103,8 +103,8 @@ export function TrainingScreen() {
           {(tmpls ?? []).length === 0 && !last && <Empty art={<ArtShoe />} text="Cadastre treinos-modelo para registrar com um toque." />}
           <button className="btn btn-ink btn-block" style={{ marginTop: 18 }} onClick={() => setDraft({ duration: 45, intensity: 'moderada' })} data-testid="workout-new"><Plus size={18} />Novo registro</button>
           <div className="row wrap" style={{ marginTop: 6, gap: 16 }}>
-            <a className="link" href="#/plano/training">Plano de treino</a>
-            <a className="link" href="#/biblioteca/treinos">Sessões de treino</a>
+            <a className="link" href="#/treino/plano">Plano de treino</a>
+            <a className="link" href="#/treino/sessoes">Sessões de treino</a>
           </div>
         </>
       )}

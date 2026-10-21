@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Upload, Plus, Sparkles, Trash2, ChevronLeft, ChevronRight, Check as CheckIcon } from 'lucide-react';
 import { TopBar } from './common';
+import { AreaNav } from './areas';
 import { useAll, useByRange, useSettings } from '../db/hooks';
 import { useApp, toast } from '../state/store';
 import { planFor, plannedTraining } from '../domain/rules';
@@ -81,6 +82,8 @@ export function TrainingTab() {
     <div className="screen" data-testid="training-tab">
       <TopBar />
       <h1 className="section-title" style={{ fontSize: 32, fontWeight: 500, margin: '8px 0 10px' }}>Treino</h1>
+      <AreaNav area="treino" />
+      <div style={{ height: 12 }} />
 
       <div className="row between" style={{ margin: '0 -8px' }}>
         <button className="icon-btn" aria-label="Semana anterior" onClick={() => setDate(addDays(date, -7))}><ChevronLeft size={20} /></button>
@@ -209,10 +212,6 @@ export function TrainingTab() {
           )}
         </section>
       )}
-      <div className="row wrap" style={{ gap: 16, marginTop: 8 }}>
-        <a className="link" href="#/plano/training">Plano de treino</a>
-        <a className="link" href="#/biblioteca/treinos">Sessões de treino</a>
-      </div>
     </div>
   );
 }

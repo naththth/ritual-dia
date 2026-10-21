@@ -8,12 +8,13 @@ import { savePlan } from '../domain/actions';
 import { todayKey, WEEKDAY_LONG, shortLabel } from '../lib/dates';
 import type { Plan, Product, SkinPeriodPlan } from '../db/types';
 import { ProductPick } from './SkinScreen';
-import { aiSkinPlan, aiTrainingPlan, applyTrainingResult, aiFoodPlan, aiAvailable, watts } from '../domain/ai';
-import { Check, Sparkles } from 'lucide-react';
+import { watts } from '../domain/ai';
+import { Check } from 'lucide-react';
 import { update } from '../db/db';
 import { toast } from '../state/store';
 import { GROUP_RANK } from '../domain/defaults';
 import { careProgress } from '../domain/care';
+import { ChatButton } from './specialist';
 
 const DAYS = [1, 2, 3, 4, 5, 6, 7];
 const emptySkin = (): NonNullable<Plan['skin']> => ({ am: { base: [], days: {} }, pm: { base: [], days: {} }, recovery: { am: [], pm: [] } });
@@ -44,7 +45,7 @@ function VersionNote({ current }: { current?: Plan }) {
 /* ---------------- Rotina: rosto, corpo e cabelo juntos, de manhã e de noite ---------------- */
 const AREAS: { id: 'rosto' | 'corpo' | 'cabelo'; label: string }[] = [{ id: 'rosto', label: 'Rosto' }, { id: 'corpo', label: 'Corpo' }, { id: 'cabelo', label: 'Cabelo' }];
 
-function SkinPlan() {
+export function SkinPlan({ embedded = false }: { embedded?: boolean } = {}) {
   const { plans, current } = useCurrent('skin');
   const products = useAll('product');
   const nav = useNavigate();
@@ -54,8 +55,6 @@ function SkinPlan() {
   const [baseOpen, setBaseOpen] = useState(false);
   const [dayOpen, setDayOpen] = useState<number | null>(null);
   const [dirty, setDirty] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState<{ resumo: string; observacoes: string } | null>(null);
   useEffect(() => { if (plans && !dirty) setD(structuredClone(current?.skin ?? emptySkin())); }, [plans, current?.id, current?.updatedAt]);
   const setDD = (v: NonNullable<Plan['skin']>) => { setDirty(true); setD(v); };
   if (!d || !products) return null;
@@ -96,12 +95,7 @@ function SkinPlan() {
       <VersionNote current={current} />
       <CareAssessment products={inUse} diagnosis={d.diagnosis} />
       <AIPrefs domain="skin" />
-      <AIButton busy={busy} label="Montar rotina com IA" onClick={async () => {
-        setBusy(true);
-        try { const r = await aiSkinPlan(todayKey()); setDD(r.skin); setNote({ resumo: r.resumo, observacoes: r.observacoes }); toast('Diagnóstico e rotina prontos. Revise e salve.'); }
-        catch (e: any) { toast(e.message, undefined, 'error'); } finally { setBusy(false); }
-      }} />
-      {note && <div className="notice calm" style={{ margin: '10px 0', whiteSpace: 'pre-line' }}>{note.resumo}{note.observacoes ? <><br /><br />{note.observacoes}</> : null}</div>}
+      <ChatButton domain="skin" label="Montar rotina com a dermatologista" />
       <Seg value={tab} onChange={setTab} options={[{ id: 'am', label: 'Manhã' }, { id: 'pm', label: 'Noite' }, { id: 'rec', label: 'Recuperação' }]} />
       {pp && (
         <>
@@ -135,7 +129,7 @@ function SkinPlan() {
           ))}
         </>
       )}
-      <button className="btn btn-ink btn-block" style={{ marginTop: 20 }} data-testid="plan-save" onClick={async () => { await savePlan('skin', current, { skin: { ...d, body: undefined, hair: undefined } }); back(); }}>Salvar plano</button>
+      <button className="btn btn-ink btn-block" style={{ marginTop: 20 }} data-testid="plan-save" onClick={async () => { await savePlan('skin', current, { skin: { ...d, body: undefined, hair: undefined } }); if (embedded) { setDirty(false); toast('Plano salvo'); } else back(); }}>Salvar plano</button>
 
       <Sheet open={baseOpen} onClose={() => setBaseOpen(false)} title={`Todos os dias · ${tab === 'am' ? 'manhã' : 'noite'}`} footer={<button className="btn btn-ink" onClick={() => setBaseOpen(false)}>Pronto</button>}>
         {pp && <AreaToggleList products={inUse} selected={pp.base} onToggle={(id) => setDD({ ...d, [tab]: { ...pp, base: pp.base.includes(id) ? pp.base.filter((x) => x !== id) : [...pp.base, id] } })} />}
@@ -210,7 +204,7 @@ function ProductToggleList({ products, selected, onToggle }: { products: Product
 }
 
 /* ---------------- Treino ---------------- */
-function TrainingPlan() {
+export function TrainingPlan({ embedded = false }: { embedded?: boolean } = {}) {
   const { plans, current } = useCurrent('training');
   const tmpls = useAll('wtemplate');
   const nav = useNavigate();
@@ -218,22 +212,17 @@ function TrainingPlan() {
   const [d, setD] = useState<Record<number, string[]> | null>(null);
   const settings = useSettings();
   const [dirty, setDirty] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [resumo, setResumo] = useState('');
+  const [resumo] = useState('');
   useEffect(() => { if (plans && !dirty) setD(structuredClone(current?.training ?? {})); }, [plans, current?.id, current?.updatedAt]);
   if (!d || !tmpls) return null;
   const active = tmpls.filter((t) => !t.archived);
   const ai = (
     <>
     <AIPrefs domain="training" />
-    <AIButton busy={busy} label="Montar semana com IA" onClick={async () => {
-      setBusy(true);
-      try { const r = await aiTrainingPlan(); const week = await applyTrainingResult(r); setDirty(true); setD(week); setResumo(r.resumo); toast('Rascunho pronto. Revise e salve.'); }
-      catch (e: any) { toast(e.message, undefined, 'error'); } finally { setBusy(false); }
-    }} />
+    <ChatButton domain="training" label="Montar semana com a treinadora" />
     </>
   );
-  if (!active.length) return <>{ai}<Empty text="Crie sessões de treino ou peça à IA para montar a semana." action={<button className="btn btn-ink" onClick={() => nav('/biblioteca/treinos')}>Criar sessão de treino</button>} /></>;
+  if (!active.length) return <>{ai}<Empty text="Crie sessões de treino ou peça à IA para montar a semana." action={<button className="btn btn-ink" onClick={() => nav('/treino/sessoes')}>Criar sessão de treino</button>} /></>;
   return (
     <>
       <VersionNote current={current} />
@@ -254,13 +243,13 @@ function TrainingPlan() {
           {!d[wd]?.length && <div className="tiny muted" style={{ marginTop: 6 }}>Sem treino planejado</div>}
         </div>
       ))}
-      <button className="btn btn-ink btn-block" style={{ marginTop: 20 }} data-testid="plan-save" onClick={async () => { await savePlan('training', current, { training: d }); back(); }}>Salvar plano</button>
+      <button className="btn btn-ink btn-block" style={{ marginTop: 20 }} data-testid="plan-save" onClick={async () => { await savePlan('training', current, { training: d }); if (embedded) { setDirty(false); toast('Plano salvo'); } else back(); }}>Salvar plano</button>
     </>
   );
 }
 
 /* ---------------- Alimentação ---------------- */
-function FoodPlan() {
+export function FoodPlan({ embedded = false }: { embedded?: boolean } = {}) {
   const { plans, current } = useCurrent('food');
   const tmpls = useAll('mtemplate');
   const settings = useSettings();
@@ -269,32 +258,18 @@ function FoodPlan() {
   const [d, setD] = useState<Record<number, Record<string, string | null>> | null>(null);
   const [open, setOpen] = useState<number | null>(null);
   const [dirty, setDirty] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [diet, setDiet] = useState('');
-  const [showAI, setShowAI] = useState(false);
-  const [resumo, setResumo] = useState('');
+  const [resumo] = useState('');
   useEffect(() => { if (plans && !dirty) setD(structuredClone(current?.food ?? {})); }, [plans, current?.id, current?.updatedAt]);
   if (!d || !tmpls || !settings) return null;
   const active = tmpls.filter((t) => !t.archived);
   const aiBox = (
     <>
-      {!showAI ? <AIButton busy={false} label="Montar a partir da minha dieta" onClick={() => setShowAI(true)} /> : (
-        <div className="block b-paper" style={{ marginTop: 8 }}>
-          <span className="label" style={{ marginTop: 0 }}>Cole aqui o texto da sua dieta</span>
-          <textarea value={diet} onChange={(e) => setDiet(e.target.value)} style={{ minHeight: 140 }} aria-label="Texto da dieta" />
-          <AIPrefs domain="food" />
-          <AIButton busy={busy} label="Montar com IA" onClick={async () => {
-            if (diet.trim().length < 20) { toast('Cole o texto da dieta primeiro.', undefined, 'error'); return; }
-            setBusy(true);
-            try { const r = await aiFoodPlan(diet); setDirty(true); setD(r.week); setResumo(r.resumo); setShowAI(false); toast('Rascunho pronto. Revise e salve.'); }
-            catch (e: any) { toast(e.message, undefined, 'error'); } finally { setBusy(false); }
-          }} />
-        </div>
-      )}
+      <AIPrefs domain="food" />
+      <ChatButton domain="food" label="Montar plano com a nutricionista" />
       {resumo && <div className="notice calm" style={{ margin: '10px 0' }}>{resumo}</div>}
     </>
   );
-  if (!active.length) return <>{aiBox}<Empty text="Salve refeições favoritas ou monte a partir da sua dieta." action={<button className="btn btn-ink" onClick={() => nav('/biblioteca/refeicoes')}>Criar refeição favorita</button>} /></>;
+  if (!active.length) return <>{aiBox}<Empty text="Salve refeições favoritas ou monte a partir da sua dieta." action={<button className="btn btn-ink" onClick={() => nav('/alimentacao/refeicoes')}>Criar refeição favorita</button>} /></>;
   const tName = (id?: string | null) => active.find((t) => t.id === id)?.name;
   return (
     <>
@@ -310,7 +285,7 @@ function FoodPlan() {
           </button>
         );
       })}
-      <button className="btn btn-ink btn-block" style={{ marginTop: 20 }} data-testid="plan-save" onClick={async () => { await savePlan('food', current, { food: d }); back(); }}>Salvar plano</button>
+      <button className="btn btn-ink btn-block" style={{ marginTop: 20 }} data-testid="plan-save" onClick={async () => { await savePlan('food', current, { food: d }); if (embedded) { setDirty(false); toast('Plano salvo'); } else back(); }}>Salvar plano</button>
       <Sheet open={open !== null} onClose={() => setOpen(null)} title={open ? WEEKDAY_LONG[open] : ''}
         footer={<><button className="btn btn-soft" onClick={() => { if (open) { const src = d[open] ?? {}; const nd = { ...d }; DAYS.forEach((x) => (nd[x] = { ...src })); setDirty(true); setD(nd); } setOpen(null); }}>Usar em todos os dias</button><button className="btn btn-ink" onClick={() => setOpen(null)}>Pronto</button></>}>
         {open && settings.mealTypes.map((m) => (
@@ -358,10 +333,3 @@ function AIPrefs({ domain }: { domain: 'skin' | 'training' | 'food' }) {
   );
 }
 
-function AIButton({ busy, label, onClick }: { busy: boolean; label: string; onClick: () => void }) {
-  return (
-    <button className="btn btn-wine btn-block" style={{ margin: '8px 0' }} disabled={busy || !aiAvailable()} onClick={onClick} data-testid="ai-build">
-      <Sparkles size={18} />{busy ? 'Montando…' : aiAvailable() ? label : `${label} (entre com Google e conecte-se)`}
-    </button>
-  );
-}

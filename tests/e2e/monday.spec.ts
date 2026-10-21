@@ -594,3 +594,31 @@ test('preferências para a IA na rotina de cuidados', async ({ page }) => {
   await expect(page.getByTestId('ai-prefs-skin').getByRole('textbox')).toHaveValue('Quero usar ácidos várias vezes na semana');
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/prefs.png' });
 });
+
+test('áreas: Cuidados, Treino e Alimentação reúnem dia, plano e cadastros', async ({ page }) => {
+  await onboard(page);
+  await page.getByRole('link', { name: 'Cuidados' }).click();
+  await expect(page.getByTestId('area-cuidados')).toContainText('Rotina da manhã');
+  await page.getByTestId('area-nav-cuidados').getByRole('tab', { name: 'Rotina' }).click();
+  await expect(page.getByTestId('spec-skin')).toContainText('Dermatologista');
+  await expect(page.getByTestId('ai-build')).toContainText('dermatologista');
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/cuidados-rotina.png' });
+  await page.getByTestId('area-nav-cuidados').getByRole('tab', { name: 'Produtos' }).click();
+  await expect(page.getByTestId('area-cuidados-produtos')).toContainText('Gel de limpeza');
+  await page.getByRole('link', { name: 'Treino' }).click();
+  await page.getByTestId('area-nav-treino').getByRole('tab', { name: 'Sessões' }).click();
+  await expect(page.getByTestId('wt-intro')).toBeVisible();
+  await page.getByTestId('area-nav-treino').getByRole('tab', { name: 'Plano' }).click();
+  await expect(page.getByTestId('spec-training')).toBeVisible();
+  await page.getByRole('link', { name: 'Alimentação' }).click();
+  await page.getByTestId('area-nav-alimentacao').getByRole('tab', { name: 'Alimentos' }).click();
+  await expect(page.getByTestId('area-alimentacao-alimentos')).toBeVisible();
+  await page.getByRole('link', { name: 'Mais' }).click();
+  await expect(page.getByTestId('more-screen')).not.toContainText('Biblioteca');
+  await page.getByRole('button', { name: /Hábitos e metas/ }).click();
+  await expect(page.getByTestId('habits-goals')).toBeVisible();
+  await page.getByRole('link', { name: 'Hoje' }).click();
+  await expect(page.getByTestId('fab')).toBeVisible();
+  await noHorizontalScroll(page);
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/hoje-nav.png' });
+});

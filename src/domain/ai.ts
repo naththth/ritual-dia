@@ -8,7 +8,7 @@ import type { Plan, Product, WorkoutStep } from '../db/types';
 import { addDays, isoWeekday, todayKey, type DateKey } from '../lib/dates';
 import { planFor, plannedSkin, plannedTraining } from './rules';
 
-export type AITask = 'skin_plan' | 'training_plan' | 'food_plan' | 'day_brief' | 'training_review' | 'week_review' | 'wellness_read' | 'label_read' | 'targets' | 'doc_read' | 'product_read' | 'plate_read';
+export type AITask = 'skin_plan' | 'training_plan' | 'food_plan' | 'day_brief' | 'training_review' | 'week_review' | 'wellness_read' | 'label_read' | 'targets' | 'doc_read' | 'product_read' | 'plate_read' | 'plan_chat';
 
 export function aiAvailable() {
   return !!supabase && !!useSync.getState().session && navigator.onLine;
@@ -41,14 +41,14 @@ export async function askAI<T = any>(task: AITask, context: unknown, images?: { 
     if (docs.length) extra.exames_e_documentos = docsForAI(docs as any);
     const cyc = await cycleForAI(((ctx as any).data ?? (ctx as any).date ?? todayKey()) as DateKey, pf);
     if (cyc) extra.ciclo_menstrual = cyc;
-    const prefKey = ({ skin_plan: 'skin', training_plan: 'training', training_review: 'training', food_plan: 'food' } as const)[task as 'skin_plan'];
+    const prefKey = task === 'plan_chat' ? ((ctx as any).dominio as 'skin' | 'training' | 'food') : ({ skin_plan: 'skin', training_plan: 'training', training_review: 'training', food_plan: 'food' } as const)[task as 'skin_plan'];
     const pref = prefKey ? st?.aiPrefs?.[prefKey]?.trim() : undefined;
     if (pref) extra.preferencias_dela = pref;
     ctx = { ...extra, ...(ctx as object) };
   }
   const { data, error } = await Promise.race([
     supabase.functions.invoke('ritual-ai', { body: { task, context: ctx, images, files } }),
-    new Promise<never>((_, rej) => setTimeout(() => rej(new Error('A IA demorou demais para responder. Tente de novo.')), files?.length || task === 'skin_plan' ? 150000 : 90000))
+    new Promise<never>((_, rej) => setTimeout(() => rej(new Error('A IA demorou demais para responder. Tente de novo.')), files?.length || task === 'skin_plan' || task === 'plan_chat' ? 150000 : 90000))
   ]);
   if (error) {
     let msg = error.message;
@@ -85,6 +85,12 @@ const short = (p: Product) => ({ id: p.id, marca: p.brand, nome: p.name, tipo: p
 
 /* ---------- Pele ---------- */
 export async function aiSkinPlan(today: DateKey) {
+  const { ctx, decode } = await skinContext(today);
+  return decode(await askAI<any>('skin_plan', ctx));
+}
+
+/** Contexto da rotina de cuidados e a tradução da resposta (códigos curtos de volta para os produtos). */
+export async function skinContext(today: DateKey) {
   const settings = await get<'settings'>('settings');
   const products = (await all('product')).filter((p) => p.status === 'em_uso');
   const logs = await byDateRange('skin', addDays(today, -14), today);
@@ -103,7 +109,7 @@ export async function aiSkinPlan(today: DateKey) {
     semana_de_treino,
     registros_recentes: logs.map((l) => ({ data: l.date, periodo: l.period, condicao: l.condition, sinais: l.signals, recuperacao: l.recovery }))
   };
-  const r = await askAI<any>('skin_plan', ctx);
+  const decode = (r: any) => {
   const alias = new Map(products.map((p, i) => [`p${i + 1}`, p.id]));
   // Os textos às vezes citam os códigos curtos: troca pelo nome do produto.
   const nameOf = new Map(products.map((p, i) => [`p${i + 1}`, p.name]));
@@ -125,6 +131,9 @@ export async function aiSkinPlan(today: DateKey) {
     resumo: txt(r.resumo) ?? '',
     observacoes: txt(r.observacoes) ?? ''
   };
+  };
+  const nameOfAlias = (code: string) => products[Number(String(code).slice(1)) - 1];
+  return { ctx, decode, products, nameOfAlias };
 }
 
 /* ---------- Treino ---------- */
@@ -134,15 +143,21 @@ export interface AITrainingResult {
   resumo: string;
 }
 export async function aiTrainingPlan(): Promise<AITrainingResult> {
+  return askAI<AITrainingResult>('training_plan', await trainingContext());
+}
+export async function trainingContext() {
   const settings = await get<'settings'>('settings');
   const mods = await all('modality');
   const tmpls = await all('wtemplate');
-  return askAI<AITrainingResult>('training_plan', {
+  const plans = await all('plan');
+  const tp = planFor(plans, 'training', todayKey());
+  return {
+    semana_atual: Object.fromEntries([1, 2, 3, 4, 5, 6, 7].map((d) => [d, (tp?.training?.[d] ?? []).map((id) => tmpls.find((t) => t.id === id)).filter(Boolean).map((t) => ({ nome: t!.name, horario: t!.time, minutos: t!.duration }))])),
     ftp: settings?.ftp ?? null,
     observacoes_dela: settings?.aiContext ?? '',
     modalidades: mods.filter((m) => !m.archived).map((m) => m.name),
     treinos_modelo_existentes: tmpls.filter((t) => !t.archived).map((t) => ({ nome: t.name, duracao: t.duration, roteiro: t.note }))
-  });
+  };
 }
 
 /** Grava os modelos sugeridos e devolve o plano semanal com os ids reais. */
@@ -171,14 +186,21 @@ export async function applyTrainingResult(r: AITrainingResult): Promise<Record<n
 
 /* ---------- Alimentação ---------- */
 export async function aiFoodPlan(dietText: string) {
+  return applyFoodResult(await askAI<any>('food_plan', await foodContext(dietText)));
+}
+export async function foodContext(dietText: string) {
   const settings = await get<'settings'>('settings');
   const foods = (await all('food')).filter((f) => !f.archived);
-  const r = await askAI<any>('food_plan', {
+  return {
     dieta: dietText.slice(0, 20000),
     restricoes: settings?.foodPrefs ?? [],
     refeicoes_do_dia: settings?.mealTypes ?? [],
     alimentos: foods.map((f) => ({ id: f.id, nome: f.name, tipo: f.type }))
-  });
+  };
+}
+/** Cria os alimentos novos e as refeições favoritas propostas e devolve o plano semanal com os ids reais. */
+export async function applyFoodResult(r: any) {
+  const foods = (await all('food')).filter((f) => !f.archived);
   // cria alimentos novos
   const byName = new Map<string, string>();
   for (const f of foods) byName.set(f.name.toLowerCase(), f.id);

@@ -95,6 +95,29 @@ Formato: {"itens":[{"nome":"Arroz branco","taco_id":3,"gramas":120,"medida_casei
 Formato: {"nome":null,"marca":null,"porcao_g":null,"porcao_rotulo":null,"kcal_100g":null,"proteina_100g":null,"carboidrato_100g":null,"gordura_100g":null,"fibra_100g":null,"sodio_mg_100g":null}.`
 };
 
+// Especialistas por área: critérios, limites e o jeito dela de querer as coisas. Valem para as tarefas da área e para a conversa.
+const SPECIALISTS: Record<string, string> = {
+  skin: `Você é a dermatologista e tricologista dela, cuidando de rosto, corpo e cabelo.
+O jeito dela: gosta de rotina no estilo coreano, com vários passos em camadas, e quer usar TODOS os produtos que tem em uso. Seu trabalho é encaixar o máximo deles com coerência: rodízio ao longo da semana (dias, manhã e noite, áreas), camadas na ordem certa (do mais aquoso ao mais denso; ativo antes do hidratante; protetor por último de manhã) e funções complementares (hidratação, calmante, reparação, tratamento). Produto parecido com outro não sai: entra em dias diferentes. Esta regra prevalece sobre qualquer instrução de excluir produto: só deixe algo fora da semana por segurança real (conflito de ativos, pele sensibilizada ou rosácea em crise, alergia ou cuidado de bula) ou por ser tratamento pontual de lesão (curativo, peróxido em lesão isolada), e nesse caso diga qual e por quê.
+Critérios: barreira cutânea primeiro; rosácea e sensibilidade pedem ativos espaçados, ácido azelaico e niacinamida bem-vindos, esfoliação física fora do rosto; retinoide e ácido esfoliante nunca na mesma aplicação; introdução gradual de ativo novo; protetor solar toda manhã; corpo hidratado logo após o banho; couro cabeludo oleoso e fio fino pedem produtos leves e condicionador só no comprimento.
+Limites: não prescreve nem ajusta medicamento (inclusive minoxidil, isotretinoína, antibióticos) e não contradiz a dermatologista dela. Lesão que muda de forma ou cor, queda abrupta de cabelo, irritação que não melhora em poucos dias ou dor: oriente consulta presencial.`,
+  training: `Você é a treinadora dela, de força e endurance (ela faz triathlon, musculação, LPO e yoga).
+O jeito dela: ama treino de corpo todo e quer ficar forte, para a vida e para seguir melhorando o corpo que construiu ao sair da obesidade, sem voltar. Sua prioridade é força e massa magra, com o endurance encaixado sem roubar a recuperação.
+Critérios: musculação sempre de corpo todo (agachar, dobrar o quadril, empurrar, puxar, core), 2 a 4 séries de 6 a 12 repetições com 1 a 3 de reserva, multiarticulares primeiro, progressão de carga registrada, semana mais leve a cada 4 a 6 semanas; em déficit calórico ou com GLP-1, volume de força suficiente para preservar massa magra é inegociável. Endurance: distribuição polarizada, uma sessão de qualidade e base em Z2; dose a semana por FTP, TSS, forma, VFC, sono e esforço percebido.
+Limites: dor articular ou muscular persistente não é para treinar por cima: troque o exercício e, se continuar, oriente avaliação. Tontura, dor no peito, falta de ar desproporcional ou queda brusca de rendimento: parar e procurar médico. Não contradiz treinador presencial.`,
+  food: `Você é a nutricionista esportiva dela.
+O jeito dela: usa Mounjaro (tirzepatida) e quer aproveitar ao máximo esse período, com foco em nutrição esportiva, e não voltar à obesidade. Seu trabalho é usar a janela do remédio para construir hábitos que se sustentem depois dele.
+Critérios: proteína no alto da faixa (1,6 a 2,2 g/kg) distribuída em todas as refeições; carboidrato colocado em volta do treino e ajustado à carga; fibra, água e micronutrientes (ferro, cálcio, vitamina D, B12) em dia; refeições menores e mais frequentes se houver náusea; déficit moderado, nunca agressivo, porque massa magra é o que protege contra o reganho; a evidência mostra reganho comum ao parar GLP-1, então rotina realista, comida de verdade e treino de força são a estratégia.
+Limites: nunca proponha dieta de fome, jejum prolongado ou calorias abaixo do gasto de repouso; não mexe em medicação; o que a nutricionista dela definiu prevalece e divergências são sinalizadas, não impostas; sem moralismo nem culpa com comida. Sinais de comer pouco demais (tontura, queda de rendimento, perda de cabelo) merecem atenção e conversa com a equipe dela.`
+};
+const TASK_DOMAIN: Record<string, string> = { skin_plan: 'skin', product_read: 'skin', training_plan: 'training', training_review: 'training', food_plan: 'food', targets: 'food', plate_read: 'food', label_read: 'food' };
+const DOMAIN_TASK: Record<string, string> = { skin: 'skin_plan', training: 'training_plan', food: 'food_plan' };
+const CHAT: Record<string, string> = {
+  perguntas: `Você vai montar este plano conversando com ela. Agora é o começo: antes de montar, faça de 0 a 3 perguntas curtas, só sobre o que muda a decisão e não está respondido no contexto (perfil, preferências, avaliação, registros, conversa). Cada pergunta com 2 a 4 opções curtas (ela também pode escrever). Se já tiver o suficiente, não pergunte nada. 'mensagem': 1 a 2 frases, em primeira pessoa, dizendo o que você vai considerar. Formato: {"mensagem":"","perguntas":[{"id":"q1","texto":"","opcoes":[""]}]}.`,
+  montar: `Monte o plano agora considerando contexto.conversa: o que ela respondeu ali vale como preferência dela. Responda no formato da tarefa acima, acrescentando 'mensagem' (2 a 4 frases, em primeira pessoa como especialista, com a lógica do plano) e 'nao_segui' (o que ela pediu e você não seguiu ou seguiu em parte: [{"pedido":"","motivo":"","alternativa":""}], vazio se seguiu tudo).`,
+  ajustar: `Ela respondeu sobre o rascunho (contexto.rascunho, no formato da tarefa acima; contexto.conversa traz a conversa toda e a última fala é dela). Se for pergunta, responda em 'mensagem' sem mudar nada. Se for pedido de mudança, aplique o que fizer sentido e devolva em 'alteracoes' só as chaves de primeiro nível do formato que mudaram, cada uma inteira (ex.: só "pm"; ou "templates" e "week"; inclua "resumo" ou "diagnostico" se mudarem); null se nada mudou. Se não der para seguir, explique em 'nao_segui' e proponha a alternativa. Mantenha o resto coerente. Formato: {"mensagem":"","alteracoes":null,"nao_segui":[]}.`
+};
+
 type Img = { mime: string; data: string };
 
 function extractJson(text: string) {
@@ -206,13 +229,15 @@ Deno.serve(async (req: Request) => {
     const provider = pickProvider();
     if (!provider) return new Response(JSON.stringify({ error: 'A chave da IA ainda não foi configurada no Supabase.' }), { status: 503, headers: J });
     const { task, context, images, files } = await req.json();
-    if (!TASKS[task]) return new Response(JSON.stringify({ error: 'Tarefa desconhecida' }), { status: 400, headers: J });
+    const chat = task === 'plan_chat';
+    const dom = chat ? String(context?.dominio ?? '') : TASK_DOMAIN[task];
+    if (chat ? !DOMAIN_TASK[dom] || !CHAT[String(context?.etapa)] : !TASKS[task]) return new Response(JSON.stringify({ error: 'Tarefa desconhecida' }), { status: 400, headers: J });
     const ctx = JSON.stringify(context ?? {});
-    if (ctx.length > 80000) return new Response(JSON.stringify({ error: 'Contexto grande demais' }), { status: 413, headers: J });
+    if (ctx.length > 150000) return new Response(JSON.stringify({ error: 'Contexto grande demais' }), { status: 413, headers: J });
     const imgs: Img[] = Array.isArray(images) ? images.filter((i: any) => typeof i?.data === 'string' && /^(image\/(jpeg|png|webp)|application\/pdf)$/.test(i?.mime)).slice(0, 4) : [];
     imgs.push(...(await storageFiles(user, files)));
     if (imgs.reduce((a, i) => a + i.data.length, 0) > 19_000_000) return new Response(JSON.stringify({ error: 'Imagens grandes demais' }), { status: 413, headers: J });
-    const system = BASE + '\n\n' + TASKS[task];
+    const system = [BASE, dom ? SPECIALISTS[dom] : '', chat ? TASKS[DOMAIN_TASK[dom]] : TASKS[task], chat ? CHAT[String(context.etapa)] : ''].filter(Boolean).join('\n\n');
     const userMsg = `Contexto (JSON):\n${ctx}`;
     let text: string;
     if (task === 'product_read' && provider.name === 'gemini') {

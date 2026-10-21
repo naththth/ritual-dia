@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, Search, ChevronRight, Droplet, Utensils, Dumbbell, Target, Repeat2, Tags, CalendarRange, Sparkles, BookmarkCheck } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Search, Droplet, Utensils, Dumbbell, Target, Repeat2, Tags, CalendarRange, Sparkles, BookmarkCheck } from 'lucide-react';
 import { useAll, useSettings } from '../db/hooks';
 import { useApp } from '../state/store';
 import { TopBar } from './common';
-import { Chip, Seg, Empty, ArtLeaf } from '../ui/ui';
+import { Chip, Empty, ArtLeaf } from '../ui/ui';
 import { TaskRow, TaskSheet } from './tasks';
 import { matchesSearch } from '../domain/rules';
 import { PRIORITIES, type Priority, type Task, type TaskStatus } from '../db/types';
@@ -13,15 +13,15 @@ import { shortLabel } from '../lib/dates';
 type Sort = 'prioridade' | 'recentes' | 'custo' | 'tempo';
 
 export function ListsScreen() {
-  const [params] = useSearchParams();
-  const [tab, setTab] = useState<'tarefas' | 'biblioteca'>(() => (params.get('tab') as any) || (sessionStorage.getItem('lists-tab') as any) || 'tarefas');
-  const change = (t: typeof tab) => { setTab(t); try { sessionStorage.setItem('lists-tab', t); } catch { /* */ } };
+  const nav = useNavigate();
   return (
     <div className="screen" data-testid="lists-screen">
       <TopBar />
-      <h1 className="section-title" style={{ fontSize: 32, fontWeight: 500, margin: '8px 0 14px' }}>Listas</h1>
-      <Seg value={tab} onChange={change} options={[{ id: 'tarefas', label: 'Tarefas' }, { id: 'biblioteca', label: 'Biblioteca' }]} label="Seção" />
-      {tab === 'tarefas' ? <Tasks /> : <Library />}
+      <div className="row between" style={{ margin: '8px 0 14px', alignItems: 'center' }}>
+        <h1 className="section-title" style={{ fontSize: 32, fontWeight: 500, margin: 0 }}>Tarefas</h1>
+        <button className="link" onClick={() => nav('/biblioteca/categorias')} data-testid="task-categories"><Tags size={15} style={{ marginRight: 6, verticalAlign: '-2px' }} />Categorias</button>
+      </div>
+      <Tasks />
     </div>
   );
 }
@@ -97,17 +97,3 @@ export const LIBRARY = [
   { id: 'categorias', label: 'Categorias de tarefas', icon: <Tags size={20} />, c: 'var(--wine-ink)' }
 ];
 
-function Library() {
-  const nav = useNavigate();
-  return (
-    <section style={{ marginTop: 10 }} data-testid="library">
-      {LIBRARY.map((l) => (
-        <button key={l.id} className="lib-item" onClick={() => nav(l.path ?? `/biblioteca/${l.id}`)}>
-          <span className="lib-icon" style={{ background: l.c }}>{l.icon}</span>
-          <span className="grow" style={{ fontWeight: 650 }}>{l.label}</span>
-          <ChevronRight size={18} />
-        </button>
-      ))}
-    </section>
-  );
-}

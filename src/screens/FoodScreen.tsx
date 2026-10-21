@@ -256,8 +256,8 @@ export function FoodScreen() {
           </>
         )}
         <div className="row wrap" style={{ marginTop: 14, gap: 16 }}>
-          <a className="link" href="#/plano/food">Plano de alimentação</a>
-          <a className="link" href="#/biblioteca/refeicoes">Refeições favoritas</a>
+          <a className="link" href="#/alimentacao/plano">Plano de alimentação</a>
+          <a className="link" href="#/alimentacao/refeicoes">Refeições favoritas</a>
         </div>
       </section>
 

@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { HashRouter, NavLink, Route, Routes, useLocation } from 'react-router-dom';
-import { Dumbbell, Menu, Plus, Sun, Utensils } from 'lucide-react';
+import { Dumbbell, Menu, Plus, Sparkles, Sun, Utensils } from 'lucide-react';
 import { ensureDefaults } from './domain/defaults';
 import { initSync } from './sync/sync';
 import { useSettings } from './db/hooks';
@@ -23,6 +23,7 @@ import { CycleScreen } from './screens/cycle';
 import { WeightScreen } from './screens/WeightScreen';
 import { LibraryScreen } from './screens/library/LibraryScreen';
 import { PlanScreen } from './screens/PlanScreen';
+import { AREA_ROUTES, TrainingPlanPage, TrainingSessionsPage, FoodPlanPage, FoodsPage, MealsPage, CareTodayPage, CarePlanPage, CareProductsPage, HabitsGoalsPage } from './screens/areas';
 import { Onboarding } from './screens/Onboarding';
 import { ProductReview } from './screens/ProductReview';
 import { RegisterSheet } from './screens/RegisterSheet';
@@ -64,7 +65,7 @@ function Shell() {
   if (inOnboarding && !loc.pathname.startsWith('/revisao')) {
     return (<div className="app"><Onboarding /><Toasts /></div>);
   }
-  const mainTabs = ['/', '/treino', '/alimentacao', '/mais', '/calendario', '/listas', '/evolucao'];
+  const mainTabs = ['/', ...AREA_ROUTES, '/mais', '/calendario', '/listas', '/evolucao', '/habitos'];
   const showNav = mainTabs.includes(loc.pathname);
   return (
     <div className="app">
@@ -78,6 +79,15 @@ function Shell() {
         <Route path="/alimentacao/refeicao" element={<FoodScreen />} />
         <Route path="/treino" element={<TrainingTab />} />
         <Route path="/treino/registrar" element={<TrainingScreen />} />
+        <Route path="/treino/plano" element={<TrainingPlanPage />} />
+        <Route path="/treino/sessoes" element={<TrainingSessionsPage />} />
+        <Route path="/alimentacao/plano" element={<FoodPlanPage />} />
+        <Route path="/alimentacao/alimentos" element={<FoodsPage />} />
+        <Route path="/alimentacao/refeicoes" element={<MealsPage />} />
+        <Route path="/cuidados" element={<CareTodayPage />} />
+        <Route path="/cuidados/rotina" element={<CarePlanPage />} />
+        <Route path="/cuidados/produtos" element={<CareProductsPage />} />
+        <Route path="/habitos" element={<HabitsGoalsPage />} />
         <Route path="/mais" element={<MoreScreen />} />
         <Route path="/diario" element={<JournalScreen />} />
         <Route path="/notas" element={<NotesScreen />} />
@@ -94,12 +104,13 @@ function Shell() {
       {showNav && (
         <nav className="bottomnav" aria-label="Navegação principal">
           <NavLink to="/" end><Sun size={22} />Hoje</NavLink>
-          <NavLink to="/treino" end><Dumbbell size={22} />Treino</NavLink>
-          <button className="fab" aria-label="Registrar" onClick={() => setReg(true)} data-testid="fab"><Plus size={28} strokeWidth={2.4} /></button>
-          <NavLink to="/alimentacao" end><Utensils size={22} />Alimentação</NavLink>
-          <NavLink to="/mais" className={() => (['/mais', '/calendario', '/listas', '/evolucao'].includes(loc.pathname) ? 'active' : '')}><Menu size={22} />Mais</NavLink>
+          <NavLink to="/treino" className={() => (loc.pathname.startsWith('/treino') ? 'active' : '')}><Dumbbell size={22} />Treino</NavLink>
+          <NavLink to="/cuidados" className={() => (loc.pathname.startsWith('/cuidados') ? 'active' : '')}><Sparkles size={22} />Cuidados</NavLink>
+          <NavLink to="/alimentacao" className={() => (loc.pathname.startsWith('/alimentacao') ? 'active' : '')}><Utensils size={22} />Alimentação</NavLink>
+          <NavLink to="/mais" className={() => (['/mais', '/calendario', '/listas', '/evolucao', '/habitos'].includes(loc.pathname) ? 'active' : '')}><Menu size={22} />Mais</NavLink>
         </nav>
       )}
+      {loc.pathname === '/' && <button className="fab fab-float" aria-label="Registrar" onClick={() => setReg(true)} data-testid="fab"><Plus size={28} strokeWidth={2.4} /></button>}
       <RegisterSheet open={reg} onClose={() => setReg(false)} />
       <Toasts />
     </div>

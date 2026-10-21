@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Plus, ChevronLeft, ChevronRight, Undo2 } from 'lucide-react';
+import { AreaNav } from './areas';
 import { TopBar } from './common';
 import { useAll, useByDate, useSettings } from '../db/hooks';
 import { useApp, toast } from '../state/store';
@@ -43,6 +44,8 @@ export function FoodTab() {
       <div className="row between" style={{ margin: '8px 0 10px' }}>
         <h1 className="section-title" style={{ fontSize: 32, fontWeight: 500, margin: 0 }}>Alimentação</h1>
       </div>
+      <AreaNav area="alimentacao" />
+      <div style={{ height: 10 }} />
       <div className="row between" style={{ margin: '0 -8px 6px' }}>
         <button className="icon-btn" aria-label="Dia anterior" onClick={() => setDate(addDays(date, -1))}><ChevronLeft size={20} /></button>
         <span style={{ fontWeight: 700 }}>{date === todayKey() ? `Hoje, ${shortLabel(date)}` : shortLabel(date)}</span>
@@ -116,11 +119,6 @@ export function FoodTab() {
           {lastWater && <button className="pill-act pa-ghost" onClick={async () => { await remove(lastWater.id); toast(`−${lastWater.ml} mL`); }}><Undo2 size={15} />Desfazer</button>}
         </div>
       </section>
-      <div className="row wrap" style={{ gap: 16, marginTop: 8 }}>
-        <a className="link" href="#/plano/food">Plano de alimentação</a>
-        <a className="link" href="#/biblioteca/alimentos">Meus alimentos</a>
-        <a className="link" href="#/biblioteca/refeicoes">Refeições favoritas</a>
-      </div>
     </div>
   );
 }

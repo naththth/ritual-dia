@@ -610,3 +610,21 @@ button.food-line { width: 100%; text-align: left; }
 .pp-menu button:active { background: var(--paper-2); }
 .pp-menu .pp-cancel { justify-content: center; color: var(--ink-2); }
 .saved-ok { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; color: var(--olive-ink, #3d4a1f); }
+
+/* Áreas, especialistas e conversa */
+.area-nav { margin: 0 -16px; }
+.fab-float { position: fixed; right: max(16px, calc(50% - 280px + 16px)); bottom: calc(var(--nav-h) + 22px + var(--safe-b)); margin: 0; z-index: 31; }
+.spec-card { padding: 14px 16px; }
+.spec-list { margin: 10px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 14.5px; line-height: 1.45; }
+.chat { display: flex; flex-direction: column; gap: 10px; padding-bottom: 6px; }
+.bubble { max-width: 92%; padding: 10px 14px; border-radius: 18px; font-size: 15px; line-height: 1.45; }
+.bubble p { margin: 0; white-space: pre-line; }
+.bubble.ai { background: var(--paper-2); align-self: flex-start; border-bottom-left-radius: 6px; }
+.bubble.me { background: var(--wine); color: var(--wine-ink); align-self: flex-end; border-bottom-right-radius: 6px; }
+.bubble.typing { display: flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: 14px; }
+.bubble .nf { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--line-2); font-size: 14px; display: flex; flex-direction: column; gap: 6px; }
+.draft { border: 1.5px solid var(--line); border-radius: 18px; padding: 12px 14px; background: var(--card); display: flex; flex-direction: column; gap: 8px; }
+.draft-day { display: flex; flex-direction: column; gap: 2px; padding-top: 6px; border-top: 1px dotted var(--line); }
+.draft-day .dd { font-weight: 700; font-size: 14px; }
+.chat-input { position: sticky; bottom: 0; background: var(--card); padding-top: 8px; margin-top: 6px; border-top: 1px solid var(--line); }
+.chat-input textarea { width: 100%; }

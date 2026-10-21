@@ -71,7 +71,7 @@ function ArchToggle({ on, set }: { on: boolean; set: (v: boolean) => void }) {
 }
 
 /* ---------------- Produtos ---------------- */
-function Products() {
+export function Products() {
   const products = useAll('product');
   const [q, setQ] = useState('');
   const [group, setGroup] = useState<ProductGroup | ''>('');
@@ -111,7 +111,7 @@ function Products() {
 }
 
 /* ---------------- Alimentos ---------------- */
-function Foods() {
+export function Foods() {
   const foods = useAll('food');
   const [arch, setArch] = useState(false);
   const [edit, setEdit] = useState<any>(null);
@@ -139,7 +139,7 @@ function Foods() {
 }
 
 /* ---------------- Refeições favoritas ---------------- */
-function MealTemplates() {
+export function MealTemplates() {
   const tmpls = useAll('mtemplate');
   const foods = useAll('food');
   const [edit, setEdit] = useState<Partial<MealTemplate> | null>(null);
@@ -188,7 +188,7 @@ function MealTemplates() {
 }
 
 /* ---------------- Modalidades ---------------- */
-function Modalities() {
+export function Modalities() {
   const mods = useAll('modality');
   const [arch, setArch] = useState(false);
   const [edit, setEdit] = useState<Partial<Modality> | null>(null);
@@ -227,7 +227,7 @@ function Modalities() {
 }
 
 /* ---------------- Treinos-modelo ---------------- */
-function WorkoutTemplates() {
+export function WorkoutTemplates() {
   const tmpls = useAll('wtemplate');
   const mods = useAll('modality');
   const plans = useAll('plan');
@@ -244,7 +244,7 @@ function WorkoutTemplates() {
   };
   return (
     <>
-      <p className="small" style={{ margin: '0 0 12px' }} data-testid="wt-intro">Cada sessão é um treino pronto: o que fazer, quanto tempo e em que intensidade. O <button className="link" style={{ minHeight: 0, padding: 0 }} onClick={() => nav('/plano/training')}>Plano de treino</button> distribui as sessões pelos dias da semana; no dia, a sessão aparece em Treino com os exercícios e você marca como feita com um toque. Aqui você muda o conteúdo; lá, o dia.</p>
+      <p className="small" style={{ margin: '0 0 12px' }} data-testid="wt-intro">Cada sessão é um treino pronto: o que fazer, quanto tempo e em que intensidade. O <button className="link" style={{ minHeight: 0, padding: 0 }} onClick={() => nav('/treino/plano')}>Plano de treino</button> distribui as sessões pelos dias da semana; no dia, a sessão aparece em Treino com os exercícios e você marca como feita com um toque. Aqui você muda o conteúdo; lá, o dia.</p>
       <AddButton label="Nova sessão" onClick={() => setEdit({ name: '', duration: 45, intensity: 'moderada' })} />
       {(tmpls ?? []).filter((t) => !t.archived).map((t) => {
         const ds = daysOf(t.id);
@@ -281,7 +281,7 @@ function WorkoutTemplates() {
 }
 
 /* ---------------- Hábitos ---------------- */
-function Habits() {
+export function Habits() {
   const habits = useAll('habit');
   const mods = useAll('modality');
   const [arch, setArch] = useState(false);
@@ -336,7 +336,7 @@ function Habits() {
 }
 
 /* ---------------- Metas ---------------- */
-function Goals() {
+export function Goals() {
   const goals = useAll('goal');
   const entries = useAll('gentry');
   const [edit, setEdit] = useState<Partial<Goal> | null>(null);
@@ -415,7 +415,7 @@ function Goals() {
 }
 
 /* ---------------- Categorias ---------------- */
-function Categories() {
+export function Categories() {
   const cats = useAll('category');
   const [edit, setEdit] = useState<Partial<Category> | null>(null);
   const [sub, setSub] = useState('');
