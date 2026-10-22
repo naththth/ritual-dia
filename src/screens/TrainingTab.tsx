@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Upload, Plus, Sparkles, Trash2, ChevronLeft, ChevronRight, Check as CheckIcon } from 'lucide-react';
 import { TopBar } from './common';
@@ -18,6 +18,29 @@ import { MicButton, appendText } from '../ui/Dictation';
 import type { Workout, WorkoutTemplate } from '../db/types';
 import { aiAvailable, askAI, applyTrainingResult } from '../domain/ai';
 import { fmt } from '../domain/nutrition';
+import { CoachButton } from './coach';
+import { syncIntervalsNow } from '../sync/services';
+import { useSync } from '../sync/sync';
+
+// Ao abrir a aba (ou voltar ao app nela), busca no intervals o que acabou de chegar do MyWhoosh e do Garmin.
+let lastAutoSync = 0;
+function useIntervalsOnOpen(connected: boolean | undefined) {
+  const [syncing, setSyncing] = useState(false);
+  const session = useSync((s) => s.session);
+  useEffect(() => {
+    if (!connected || !session) return;
+    const run = () => {
+      if (document.visibilityState !== 'visible' || !navigator.onLine || Date.now() - lastAutoSync < 2 * 60_000) return;
+      lastAutoSync = Date.now();
+      setSyncing(true);
+      syncIntervalsNow(3).catch(() => { lastAutoSync = 0; }).finally(() => setSyncing(false));
+    };
+    run();
+    document.addEventListener('visibilitychange', run);
+    return () => document.removeEventListener('visibilitychange', run);
+  }, [connected, !!session]);
+  return syncing;
+}
 
 export function TrainingTab() {
   const { date, setDate } = useApp();
@@ -35,6 +58,7 @@ export function TrainingTab() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [review, setReview] = useState<{ analise: string; proposta?: any } | null>(null);
+  const syncing = useIntervalsOnOpen(settings?.intervals?.connected);
   if (!workouts || !plans || !tmpls || !mods || !skips) return <div className="screen"><TopBar /></div>;
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(ws, i));
@@ -81,13 +105,16 @@ export function TrainingTab() {
   return (
     <div className="screen" data-testid="training-tab">
       <TopBar />
-      <h1 className="section-title" style={{ fontSize: 32, fontWeight: 500, margin: '8px 0 10px' }}>Treino</h1>
+      <div className="row between" style={{ alignItems: 'center' }}>
+        <h1 className="section-title" style={{ fontSize: 32, fontWeight: 500, margin: '8px 0 10px' }}>Treino</h1>
+        <CoachButton />
+      </div>
       <AreaNav area="treino" />
       <div style={{ height: 12 }} />
 
       <div className="row between" style={{ margin: '0 -8px' }}>
         <button className="icon-btn" aria-label="Semana anterior" onClick={() => setDate(addDays(date, -7))}><ChevronLeft size={20} /></button>
-        <span className="small" style={{ fontWeight: 700 }}>{shortLabel(ws)} a {shortLabel(we)}</span>
+        <span className="small" style={{ fontWeight: 700, textAlign: 'center' }}>{shortLabel(ws)} a {shortLabel(we)}{syncing && <><br /><span className="tiny muted" data-testid="intervals-syncing">Buscando treinos novos…</span></>}</span>
         <button className="icon-btn" aria-label="Próxima semana" onClick={() => setDate(addDays(date, 7))}><ChevronRight size={20} /></button>
       </div>
       <div className="week-train" role="group" aria-label="Dias da semana">
@@ -240,7 +267,7 @@ export function WorkoutCard({ w, name, ftp }: { w: Workout; name: string; ftp?: 
         <span style={{ fontWeight: 700, fontSize: 17 }}><CheckIcon size={16} strokeWidth={3} style={{ verticalAlign: '-2px', marginRight: 6 }} />{name}{w.startTime ? `, ${new Date(w.startTime).toTimeString().slice(0, 5)}` : ''}</span>
         <button className="icon-btn" aria-label="Excluir treino" onClick={() => deleteRecord(w.id, 'Treino excluído')}><Trash2 size={17} /></button>
       </div>
-      {w.reclassifiedFrom && <p className="small" style={{ margin: '2px 0 6px' }} data-testid="reclassified">O relógio gravou como musculação; pelo horário da aula, contei como {name}.</p>}
+      {w.reclassifiedFrom && <p className="small" style={{ margin: '2px 0 6px' }} data-testid="reclassified">{w.reclassifiedBy === 'conversa' ? `Corrigido na conversa com a treinadora: contei como ${name}.` : w.reclassifiedBy === 'regra' ? `O relógio gravou de outro jeito; pela sua regra, contei como ${name}.` : `O relógio gravou como musculação; pelo horário da aula, contei como ${name}.`}</p>}
       {cells.length > 0 && (
         <div className="metric-grid">
           {cells.map(([l, v]) => <div key={l}><span className="ml">{l}</span><span className="mv num">{v}</span></div>)}

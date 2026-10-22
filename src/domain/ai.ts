@@ -8,7 +8,7 @@ import type { Plan, Product, WorkoutStep } from '../db/types';
 import { addDays, isoWeekday, todayKey, type DateKey } from '../lib/dates';
 import { planFor, plannedSkin, plannedTraining } from './rules';
 
-export type AITask = 'skin_plan' | 'training_plan' | 'food_plan' | 'day_brief' | 'training_review' | 'week_review' | 'wellness_read' | 'label_read' | 'targets' | 'doc_read' | 'product_read' | 'plate_read' | 'plan_chat';
+export type AITask = 'skin_plan' | 'training_plan' | 'food_plan' | 'day_brief' | 'training_review' | 'week_review' | 'wellness_read' | 'label_read' | 'targets' | 'doc_read' | 'product_read' | 'plate_read' | 'plan_chat' | 'training_coach';
 
 /** Só nos testes automáticos: uma IA simulada injetada pela página de teste. */
 const testAI = () => (typeof window !== 'undefined' ? (window as any).__RITUAL_TEST_AI as ((task: string, ctx: any) => any) | undefined : undefined);
@@ -47,7 +47,7 @@ export async function askAI<T = any>(task: AITask, context: unknown, images?: { 
     if (docs.length) extra.exames_e_documentos = docsForAI(docs as any);
     const cyc = await cycleForAI(((ctx as any).data ?? (ctx as any).date ?? todayKey()) as DateKey, pf);
     if (cyc) extra.ciclo_menstrual = cyc;
-    const prefKey = task === 'plan_chat' ? ((ctx as any).dominio as 'skin' | 'training' | 'food') : ({ skin_plan: 'skin', training_plan: 'training', training_review: 'training', food_plan: 'food' } as const)[task as 'skin_plan'];
+    const prefKey = task === 'plan_chat' ? ((ctx as any).dominio as 'skin' | 'training' | 'food') : ({ skin_plan: 'skin', training_plan: 'training', training_review: 'training', training_coach: 'training', food_plan: 'food' } as const)[task as 'skin_plan'];
     const pref = prefKey ? st?.aiPrefs?.[prefKey]?.trim() : undefined;
     if (pref) extra.preferencias_dela = pref;
     ctx = { ...extra, ...(ctx as object) };

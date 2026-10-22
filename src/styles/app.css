@@ -670,3 +670,13 @@ button.food-line { width: 100%; text-align: left; }
 .clamp2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 /* Barras: o rótulo quebra linha em vez de cortar; todas as barras começam na mesma coluna. */
 .bar-row { grid-template-columns: minmax(0, 38%) 1fr auto !important; padding: 3px 0; }
+
+/* Treinadora na aba Treino */
+.coach-btn { flex: 0 0 44px; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--wine); color: var(--wine-ink); }
+.coach-btn:active { transform: scale(.96); }
+.coach-known { margin: 0 0 10px; font-size: 14px; }
+.coach-known ul { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.coach-known li { display: flex; align-items: center; justify-content: space-between; gap: 6px; background: var(--paper-2); border-radius: 12px; padding: 2px 2px 2px 12px; line-height: 1.35; }
+.coach-ex { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.coach-ex .chip { width: 100%; white-space: normal; text-align: left; justify-content: flex-start; height: auto; min-height: 40px; padding: 8px 14px; border-radius: 16px; line-height: 1.3; }
+.coach-done .struck li { text-decoration: line-through; opacity: .6; }

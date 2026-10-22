@@ -273,7 +273,9 @@ async function syncIntervals(userId: string, days = 14) {
     const planned = dayTpls.find((t: any) => t?.modalityId === modalityId);
     // O que ela escreveu ou ajustou no app (esforço, comentário, modalidade corrigida) nunca é sobrescrito pela sincronização.
     const prev: any = existingById.get(`workout:icu:${a.id}`) ?? {};
-    const keep = Object.fromEntries(['rpe', 'feeling', 'muscles', 'note', 'combo', 'restType', 'classChecked', 'reclassifiedFrom', 'createdAt'].filter((k) => prev[k] !== undefined).map((k) => [k, prev[k]]));
+    // 'locked' traz os campos que ela corrigiu (à mão ou conversando com a treinadora): esses também ficam.
+    const keepKeys = ['rpe', 'feeling', 'muscles', 'note', 'combo', 'restType', 'classChecked', 'reclassifiedFrom', 'reclassifiedBy', 'locked', 'createdAt', ...(Array.isArray(prev.locked) ? prev.locked : [])];
+    const keep = Object.fromEntries(keepKeys.filter((k) => prev[k] !== undefined).map((k) => [k, prev[k]]));
     if (prev.classChecked || prev.modalityId && prev.modalityId !== (SPORT[a.type] ?? 'mod:musculacao')) { modalityId = prev.modalityId; }
     rows.push({ id: `workout:icu:${a.id}`, user_id: userId, kind: 'workout', deleted: false, client_updated_at: nowIso, data: {
       date, createdAt: ts, updatedAt: ts, startTime: a.start_date ?? a.start_date_local, reclassifiedFrom, classChecked: reclassifiedFrom ? true : undefined,

@@ -46,7 +46,20 @@ export interface Settings extends Base {
   readingGoal?: number; // livros por ano
   autoBrief?: boolean; // prepara o dia sozinho ao abrir
   intervals?: { athleteId?: string; connected?: boolean; lastSync?: number };
+  /** Regras que ela ensinou à treinadora: como reclassificar o que o relógio grava (ex.: musculação às terças à noite é LPO). */
+  trainingRules?: TrainingRule[];
   targets?: { kcal?: number; p?: number; c?: number; f?: number }; // metas próprias; sem elas, usa o plano do dia
+}
+
+export interface TrainingRule {
+  id: string;
+  text: string; // como ela disse, para mostrar e para a IA
+  fromModalityId: string; // como o relógio grava (ex.: mod:musculacao)
+  toModalityId: string;
+  weekdays?: number[]; // 1 = segunda ... 7 = domingo
+  from?: string; // HH:MM
+  to?: string; // HH:MM
+  createdAt: number;
 }
 
 export interface Category extends Base {
@@ -266,6 +279,7 @@ export interface Workout extends Base {
   metrics?: WorkoutMetrics;
   startTime?: string; // ISO do início real (arquivo)
   fileName?: string;
+  name?: string; // nome da atividade no MyWhoosh/Garmin
   date: DateKey;
   modalityId: string;
   duration?: number;
@@ -279,6 +293,10 @@ export interface Workout extends Base {
   /** Musculação do relógio que virou a aula do horário (ex.: LPO). */
   reclassifiedFrom?: string;
   classChecked?: boolean;
+  /** Quem trocou a modalidade: o horário da aula, uma regra dela ou a conversa com a treinadora. */
+  reclassifiedBy?: 'aula' | 'regra' | 'conversa';
+  /** Campos que ela corrigiu à mão ou pela conversa: a sincronização não sobrescreve. */
+  locked?: string[];
   note?: string;
   rpe?: number; // esforço percebido 1 a 10
   feeling?: string; // como foi, nas palavras dela
