@@ -15,7 +15,9 @@ import { trainingLoad, workoutLoad, formLabel } from '../domain/load';
 import { effectiveSleep, effectiveHrv, wellnessForAI } from '../domain/wellness';
 import { db, update } from '../db/db';
 import { MicButton, appendText } from '../ui/Dictation';
-import type { Workout, WorkoutTemplate } from '../db/types';
+import type { StrengthExercise, Workout, WorkoutTemplate } from '../db/types';
+import { programFor, defaultExercises } from '../domain/strength';
+import { ExerciseEditor, LogExercises } from './strength-ui';
 import { aiAvailable, askAI, applyTrainingResult } from '../domain/ai';
 import { fmt } from '../domain/nutrition';
 import { CoachButton } from './coach';
@@ -66,6 +68,7 @@ export function TrainingTab() {
   const plannedOf = (d: DateKey) => plannedTraining(planFor(plans, 'training', d), d, extras).map((id) => tmpls.find((t) => t.id === id)).filter((t): t is WorkoutTemplate => !!t);
   const doneOf = (d: DateKey) => workouts.filter((w) => w.date === d);
   const modName = (id: string) => mods.find((m) => m.id === id)?.name ?? 'Treino';
+  const isMuscle = (id: string) => mods.find((m) => m.id === id)?.extra === 'muscle';
 
   const weekPlanned = days.reduce((a, d) => a + plannedOf(d).length, 0);
   const weekDone = workouts.length;
@@ -93,7 +96,7 @@ export function TrainingTab() {
         carga_atual: (() => { const l = trainingLoad(history ?? [], addDays(todayKey(), -120), todayKey()).slice(-1)[0]; return l ? { fitness_ctl: Math.round(l.ctl), fadiga_atl: Math.round(l.atl), forma_tsb: Math.round(l.tsb) } : null; })(),
         sono_e_recuperacao_28_dias: (await db.records.where('[kind+date]').between(['wellness', addDays(todayKey(), -28)], ['wellness', todayKey()], true, true).toArray()).filter((r: any) => !r.deleted).map((w: any) => wellnessForAI(w)),
         diario_14_dias: (await db.records.where('[kind+date]').between(['journal', addDays(todayKey(), -14)], ['journal', todayKey()], true, true).toArray()).filter((r: any) => !r.deleted).map((j: any) => ({ data: j.date, energia: j.energy, sono: j.sleep, estresse: j.stress })),
-        treinos_feitos_28_dias: recent.map((w) => ({ data: w.date, modalidade: modName(w.modalityId), minutos: w.duration, do_plano: !!w.fromPlan, metricas: w.metrics ? { ...w.metrics, laps: undefined } : undefined, esforco_percebido: w.rpe, como_foi: w.feeling }))
+        treinos_feitos_28_dias: recent.map((w) => ({ data: w.date, modalidade: modName(w.modalityId), minutos: w.duration, do_plano: !!w.fromPlan, metricas: w.metrics ? { ...w.metrics, laps: undefined } : undefined, esforco_percebido: w.rpe, como_foi: w.feeling, exercicios: w.exercises?.map((e) => ({ exercicio: e.name, series: e.sets, repeticoes: e.reps, carga_kg: e.loadKg, programado: e.planned })) }))
       });
       setReview({ analise: String(r.analise ?? ''), proposta: r.templates?.length ? r : undefined });
     } catch (e: any) { toast(e.message, undefined, 'error'); } finally { setBusy(false); }
@@ -138,7 +141,10 @@ export function TrainingTab() {
 
         {/* 1) O que foi feito vem primeiro, como registro do dia. */}
         {dayDone.length > 0 && <span className="label" style={{ marginTop: 0 }}>Feito</span>}
-        {dayDone.map((w) => <WorkoutCard key={w.id} w={w} name={modName(w.modalityId)} ftp={settings?.ftp} />)}
+        {dayDone.map((w) => {
+          const tpl = isMuscle(w.modalityId) ? (dayPlanned.find((t) => t.id === w.templateId) ?? dayPlanned.find((t) => t.modalityId === w.modalityId)) : undefined;
+          return <WorkoutCard key={w.id} w={w} name={modName(w.modalityId)} ftp={settings?.ftp} strength={isMuscle(w.modalityId) ? { program: tpl ? programFor(tpl, history ?? [], w.date).exercises : [] } : undefined} />;
+        })}
 
         {/* 2) O planejado: completo só enquanto está pendente; trocado ou pulado vira uma linha. */}
         {dayPlanned.map((t) => {
@@ -167,9 +173,10 @@ export function TrainingTab() {
               <div className="small">{modName(t.modalityId)}, {t.duration} min, {t.intensity}</div>
               {t.note ? <div className="small wt-note">{t.note}</div> : null}
               {t.muscles?.length ? <div className="small">Foco: {t.muscles.join(', ').toLowerCase()}</div> : null}
+              {isMuscle(t.modalityId) && <PlannedStrength t={t} history={history ?? []} date={date} onDone={(exs) => workoutFromTemplate(t, date, true, exs)} />}
               {t.steps?.length ? <StepsView steps={t.steps} /> : null}
               <div className="row wrap" style={{ gap: 8, marginTop: 10 }}>
-                <button className="pill-act pa-blue" data-testid="train-done" onClick={() => workoutFromTemplate(t, date, true)}>Feito</button>
+                {!isMuscle(t.modalityId) && <button className="pill-act pa-blue" data-testid="train-done" onClick={() => workoutFromTemplate(t, date, true)}>Feito</button>}
                 <button className="pill-act pa-ghost" onClick={() => fileRef.current?.click()}>Importar o arquivo</button>
                 <button className="pill-act pa-ghost" onClick={() => skipPlanned(date, 'training', t.id, 'Treino marcado como não hoje')}>Hoje não</button>
               </div>
@@ -244,7 +251,7 @@ export function TrainingTab() {
   );
 }
 
-export function WorkoutCard({ w, name, ftp }: { w: Workout; name: string; ftp?: number }) {
+export function WorkoutCard({ w, name, ftp, strength }: { w: Workout; name: string; ftp?: number; strength?: { program: StrengthExercise[] } }) {
   const m = w.metrics;
   const cells: [string, string][] = [];
   if (w.duration) cells.push(['Duração', `${w.duration} min`]);
@@ -287,6 +294,7 @@ export function WorkoutCard({ w, name, ftp }: { w: Workout; name: string; ftp?: 
         </div>
       )}
       {!m && <div className="small">{[w.intensity, w.muscles?.join(', ')].filter(Boolean).join(', ')}</div>}
+      {strength && <LogExercises w={w} program={strength.program} onSave={(exercises) => update<'workout'>(w.id, { exercises }).then(() => toast('Exercícios salvos no treino'))} />}
       <WorkoutFeedback w={w} />
     </div>
   );
@@ -309,6 +317,24 @@ function WorkoutFeedback({ w }: { w: Workout }) {
         <MicButton label="Falar" onText={(t) => { const next = appendText(text, t); setText(next); saveText(next); }} />
         {saved ? (text.trim() ? <span className="small saved-ok" data-testid="feedback-saved"><CheckIcon size={15} strokeWidth={3} /> Salvo</span> : null)
           : <button className="pill-act pa-blue" onClick={() => saveText(text, true)} data-testid="feedback-save">Salvar</button>}
+      </div>
+    </div>
+  );
+}
+
+/** Musculação planejada: exercícios com variações, séries, repetições e carga, ajustáveis antes de treinar. */
+function PlannedStrength({ t, history, date, onDone }: { t: WorkoutTemplate; history: Workout[]; date: DateKey; onDone: (exs: StrengthExercise[]) => void }) {
+  // Na primeira vez, grava a sessão sugerida no modelo: dali em diante o que ela escolher fica.
+  useEffect(() => {
+    if (!t.exercises?.length) { const d = defaultExercises(t.muscles); if (d.length) update<'wtemplate'>(t.id, { exercises: d }); }
+  }, [t.id, t.exercises?.length]);
+  const { exercises, why } = programFor(t, history, date);
+  if (!t.exercises?.length && !exercises.length) return <button className="pill-act pa-blue" style={{ marginTop: 10 }} data-testid="train-done" onClick={() => onDone([])}>Feito</button>;
+  return (
+    <div data-testid="planned-strength">
+      <ExerciseEditor value={exercises} why={why} onChange={(v) => update<'wtemplate'>(t.id, { exercises: v })} />
+      <div className="row wrap" style={{ gap: 8, marginTop: 10 }}>
+        <button className="pill-act pa-blue" data-testid="train-done" onClick={() => onDone(exercises)}>Feito, como programado</button>
       </div>
     </div>
   );

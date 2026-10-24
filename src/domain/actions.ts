@@ -1,6 +1,7 @@
 // Ações com desfazer. Toda gravação passa por aqui ou pelo repositório.
 import { create, db, get, remove, restore, update, upsert, uid } from '../db/db';
-import type { AnyRecord, Habit, Meal, MealItem, Plan, PlanDomain, SkinLog, SkinPeriod, Task, Workout, WorkoutTemplate, MealTemplate } from '../db/types';
+import type { AnyRecord, Habit, Meal, MealItem, Plan, PlanDomain, SkinLog, SkinPeriod, Task, Workout, WorkoutTemplate, MealTemplate, StrengthExercise } from '../db/types';
+import { withPlanned } from './strength';
 import type { DateKey } from '../lib/dates';
 import { haptic, toast } from '../state/store';
 import { completeTask, moveTask, reopenTask, planSaveTarget } from './rules';
@@ -59,8 +60,8 @@ export async function saveWorkout(w: Omit<Workout, 'id' | 'kind' | 'createdAt' |
   toast('Treino registrado', () => remove(rec.id));
 }
 
-export async function workoutFromTemplate(t: WorkoutTemplate, date: DateKey, fromPlan: boolean) {
-  await saveWorkout({ date, modalityId: t.modalityId, duration: t.duration, intensity: t.intensity, muscles: t.muscles, distanceKm: t.distanceKm, templateId: t.id, fromPlan });
+export async function workoutFromTemplate(t: WorkoutTemplate, date: DateKey, fromPlan: boolean, exercises?: StrengthExercise[]) {
+  await saveWorkout({ date, exercises: exercises?.length ? withPlanned(exercises) : undefined, modalityId: t.modalityId, duration: t.duration, intensity: t.intensity, muscles: t.muscles, distanceKm: t.distanceKm, templateId: t.id, fromPlan });
 }
 
 export async function deleteRecord(id: string, text: string) {

@@ -253,6 +253,21 @@ export interface Modality extends Base {
   order: number;
   archived?: boolean;
 }
+/** Exercício de musculação: o programado (no modelo) e o que ela fez (no treino). */
+export interface StrengthExercise {
+  id: string;
+  group: string; // grupo muscular do catálogo
+  name: string;
+  sets: number;
+  reps: number;
+  loadKg?: number;
+  /** Quantas vezes ela pediu "trazer outras": gira as 3 variações da lista. */
+  round?: number;
+  /** Dia (YYYY-MM-DD) em que ela fixou a carga à mão; vale até o próximo treino feito com o exercício. */
+  loadAt?: DateKey;
+  /** No treino feito: o que estava programado, para comparar. */
+  planned?: { name: string; sets: number; reps: number; loadKg?: number };
+}
 export interface WorkoutStep { label: string; minutes: number; pct: number }
 export interface WorkoutTemplate extends Base {
   kind: 'wtemplate';
@@ -266,6 +281,8 @@ export interface WorkoutTemplate extends Base {
   duration: number;
   intensity: Intensity;
   muscles?: string[];
+  /** Musculação: exercícios programados, com séries, repetições e carga. */
+  exercises?: StrengthExercise[];
   distanceKm?: number;
   archived?: boolean;
 }
@@ -290,6 +307,8 @@ export interface Workout extends Base {
   intensity?: Intensity;
   distanceKm?: number;
   muscles?: string[];
+  /** Musculação: o que ela fez de fato (o relógio não sabe), com o programado guardado para comparar. */
+  exercises?: StrengthExercise[];
   combo?: string[];
   restType?: string;
   templateId?: string;
