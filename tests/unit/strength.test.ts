@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { exercisesFromNote, defaultExercises, variationOptions, suggestLoad, plannedLoad, programFor, withPlanned } from '../../src/domain/strength';
+import { exercisesFromNote, reconcileWithNote, noteWithExercises, defaultExercises, variationOptions, suggestLoad, plannedLoad, programFor, withPlanned } from '../../src/domain/strength';
 import type { Workout, StrengthExercise } from '../../src/db/types';
 
 const ex = (p: Partial<StrengthExercise> = {}): StrengthExercise => ({ id: 'a', group: 'Pernas', name: 'Agachamento livre', sets: 3, reps: 10, loadKg: 40, ...p });
@@ -59,5 +59,25 @@ describe('roteiro escrito no treino', () => {
     expect(exercisesFromNote('só texto')).toEqual([]);
     expect(defaultExercises(['Pernas'], 'só texto')).toHaveLength(2);
     expect(defaultExercises(['Pernas'], note)).toHaveLength(6);
+  });
+});
+
+describe('editar o treino reescreve o roteiro', () => {
+  const note = 'Bi-sets, 60 a 90 s.\n\n1. Agachamento goblet ou livre 3x6-10\n2. Mesa flexora 3x10-12\n3. Dead bug 3x8 por lado\nFinal: alongar.';
+  it('o roteiro manda sobre exercícios gravados que não batem, mantendo a carga dos que continuam', () => {
+    const old = [{ id: 'a', group: 'Pernas', name: 'Mesa flexora', sets: 3, reps: 12, loadKg: 25 }, { id: 'b', group: 'Pernas', name: 'Leg press 45°', sets: 3, reps: 10 }];
+    const r = reconcileWithNote(note, old)!;
+    expect(r.map((e) => e.name)).toEqual(['Agachamento goblet', 'Mesa flexora', 'Dead bug']);
+    expect(r[1]).toMatchObject({ id: 'a', loadKg: 25 });
+    expect(reconcileWithNote(note, r)).toBeUndefined();
+    expect(reconcileWithNote('só texto', old)).toBeUndefined();
+  });
+  it('linhas que não mudaram ficam como estavam; trocas e novos entram renumerados', () => {
+    const exs = exercisesFromNote(note);
+    const edited = [exs[0], { ...exs[1], name: 'Cadeira flexora', reps: 12 }, { id: 'n', group: 'Ombros', name: 'Elevação lateral', sets: 2, reps: 15 }];
+    const out = noteWithExercises(note, edited);
+    expect(out).toBe('Bi-sets, 60 a 90 s.\n\n1. Agachamento goblet ou livre 3x6-10\n2. Cadeira flexora 3x12\n3. Elevação lateral 2x15\nFinal: alongar.');
+    expect(noteWithExercises(note, [exs[2], exs[0]])).toContain('1. Dead bug 3x8 por lado\n2. Agachamento goblet ou livre 3x6-10');
+    expect(noteWithExercises(undefined, [exs[1]])).toBe('1. Mesa flexora 3x12');
   });
 });

@@ -41,18 +41,56 @@ const GROUP_HINTS: [RegExp, string][] = [
 
 /** Lê o roteiro escrito no treino ("1. Agachamento goblet ou livre 3x6-10") e devolve os exercícios.
  *  Com "A ou B", fica o que casa com o catálogo (senão o primeiro); repetições = topo da faixa. */
+export function parseNoteLine(line: string): StrengthExercise | undefined {
+  const m = line.match(/^\s*\d+[.)]\s+(.+?)\s+(\d+)\s*[x×]\s*(\d+)(?:\s*-\s*(\d+))?/i);
+  if (!m) return undefined;
+  const alts = m[1].split(/\s+ou\s+/i).map((a) => a.trim()).filter(Boolean);
+  const name = alts.find((a) => exerciseGroupOf(a)) ?? alts[0];
+  const group = exerciseGroupOf(name) ?? GROUP_HINTS.find(([re]) => re.test(name))?.[1];
+  if (!group) return undefined;
+  return { id: newExerciseId(), group, name: name.charAt(0).toUpperCase() + name.slice(1), sets: Number(m[2]), reps: Number(m[4] ?? m[3]) };
+}
+
 export function exercisesFromNote(note?: string): StrengthExercise[] {
-  const out: StrengthExercise[] = [];
-  for (const line of (note ?? '').split('\n')) {
-    const m = line.match(/^\s*\d+[.)]\s+(.+?)\s+(\d+)\s*[x×]\s*(\d+)(?:\s*-\s*(\d+))?/i);
-    if (!m) continue;
-    const alts = m[1].split(/\s+ou\s+/i).map((a) => a.trim()).filter(Boolean);
-    const name = alts.find((a) => exerciseGroupOf(a)) ?? alts[0];
-    const group = exerciseGroupOf(name) ?? GROUP_HINTS.find(([re]) => re.test(name))?.[1];
-    if (!group) continue;
-    out.push({ id: newExerciseId(), group, name: name.charAt(0).toUpperCase() + name.slice(1), sets: Number(m[2]), reps: Number(m[4] ?? m[3]) });
-  }
-  return out;
+  return (note ?? '').split('\n').map(parseNoteLine).filter((e): e is StrengthExercise => !!e);
+}
+
+const sameEx = (a: Pick<StrengthExercise, 'name' | 'sets' | 'reps'>, b: Pick<StrengthExercise, 'name' | 'sets' | 'reps'>) => a.name === b.name && a.sets === b.sets && a.reps === b.reps;
+
+/** O texto do treino manda: se os exercícios gravados não batem com o roteiro, valem os do roteiro
+ *  (mantendo carga e variações dos que continuam). Devolve undefined quando já estão iguais. */
+export function reconcileWithNote(note: string | undefined, exs: StrengthExercise[] = []): StrengthExercise[] | undefined {
+  const parsed = exercisesFromNote(note);
+  if (!parsed.length) return undefined;
+  if (parsed.length === exs.length && parsed.every((p, i) => sameEx(p, exs[i]))) return undefined;
+  const used = new Set<string>();
+  return parsed.map((p) => {
+    const old = exs.find((e) => e.name === p.name && !used.has(e.id));
+    if (!old) return p;
+    used.add(old.id);
+    return { ...p, id: old.id, loadKg: old.loadKg, loadAt: old.loadAt, round: old.round };
+  });
+}
+
+/** Reescreve o roteiro do texto com os exercícios editados. Linha que não mudou fica como a treinadora escreveu
+ *  (com a faixa de repetições e o "ou"); o resto do texto fica onde estava. */
+export function noteWithExercises(note: string | undefined, exs: StrengthExercise[]): string {
+  const lines = (note ?? '').split('\n');
+  const parsed = lines.map((l) => parseNoteLine(l));
+  const taken = new Set<number>();
+  const block = exs.map((e, i) => {
+    const j = parsed.findIndex((p, k) => p && !taken.has(k) && sameEx(p, e));
+    if (j >= 0) { taken.add(j); return lines[j].replace(/^\s*\d+([.)])/, `${i + 1}$1`); }
+    return `${i + 1}. ${e.name} ${e.sets}x${e.reps}`;
+  });
+  const first = parsed.findIndex((p) => !!p);
+  if (first < 0) return [(note ?? '').trimEnd(), block.join('\n')].filter(Boolean).join('\n\n');
+  const out: string[] = [];
+  lines.forEach((l, k) => {
+    if (k === first) out.push(...block);
+    else if (!parsed[k]) out.push(l);
+  });
+  return out.join('\n');
 }
 
 /** Sessão do treino quando ela ainda não escolheu exercícios: o roteiro escrito, ou uma montada pelos grupos. */
@@ -116,7 +154,7 @@ export function plannedLoad(ex: StrengthExercise, done: Workout[], today: DateKe
 
 /** O programado do dia, com as cargas já calculadas. */
 export function programFor(t: Pick<WorkoutTemplate, 'exercises' | 'muscles' | 'note'>, done: Workout[], today: DateKey): { exercises: StrengthExercise[]; why: Record<string, string> } {
-  const base = t.exercises?.length ? t.exercises : defaultExercises(t.muscles, t.note);
+  const base = reconcileWithNote(t.note, t.exercises) ?? (t.exercises?.length ? t.exercises : defaultExercises(t.muscles, t.note));
   const why: Record<string, string> = {};
   const exercises = base.map((ex) => {
     const p = plannedLoad(ex, done, today);

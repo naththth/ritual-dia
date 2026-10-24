@@ -29,6 +29,7 @@ test('musculação programada com carga, variações e lançamento do que foi fe
   await page.goto('./#/');
   await page.reload();
   await page.goto('./#/treino');
+  await page.getByTestId('strength-edit').click();
 
   const rows = page.getByTestId('exercise-row');
   await expect(rows).toHaveCount(2);
@@ -48,6 +49,9 @@ test('musculação programada com carga, variações e lançamento do que foi fe
   await sel.selectOption('__outras');
   expect(await sel.locator('option').allTextContents()).not.toEqual(before);
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/strength-plan.png', fullPage: true });
+  await page.getByTestId('strength-edit-save').click();
+  await expect(page.getByTestId('strength-note')).toContainText('30,5 kg');
+  await expect(page.getByTestId('strength-note')).toContainText('4x10');
 
   await page.getByTestId('train-done').click();
   const card = page.getByTestId('workout-card');
@@ -90,7 +94,54 @@ test('o roteiro escrito no treino vira os exercícios do dia', async ({ page }) 
   await page.reload();
   await page.goto('./#/treino');
   await page.getByRole('button', { name: /^dom, 25\/10/ }).click();
+  const note = page.getByTestId('strength-note');
+  await expect(note).toContainText('1. Agachamento goblet ou livre 3x6-10');
+  // a edição acontece dentro do treino e, ao concluir, o texto do treino muda
+  await page.getByTestId('strength-edit').click();
   const rows = page.getByTestId('exercise-row');
   await expect(rows).toHaveCount(3);
   await expect(rows.first().getByTestId('exercise-select')).toHaveValue('Agachamento goblet');
+  const third = rows.nth(2).getByTestId('exercise-select');
+  const alt = (await third.locator('option').nth(1).textContent())!;
+  await third.selectOption({ index: 1 });
+  await rows.nth(2).getByTestId('ex-load').fill('25');
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/strength-edit.png', fullPage: true });
+  await page.getByTestId('strength-edit-save').click();
+  await expect(page.getByTestId('exercise-row')).toHaveCount(0);
+  await expect(note).toContainText(`3. ${alt} 3x12 · 25 kg`);
+  await expect(note).toContainText('1. Agachamento goblet ou livre 3x6-10');
+  await expect(note).not.toContainText('Mesa flexora');
+  await page.reload();
+  await page.getByRole('button', { name: /^dom, 25\/10/ }).click();
+  await expect(page.getByTestId('strength-note')).toContainText(`3. ${alt} 3x12 · 25 kg`);
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/strength-after.png', fullPage: true });
+});
+
+test('exercícios gravados que não batem com o roteiro dão lugar ao roteiro', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-10-24T08:00:00-03:00'));
+  await page.goto('./');
+  await page.getByTestId('start-local').click();
+  await page.getByTestId('file-input').setInputFiles(path.resolve('tests/e2e/fixtures/sample.json'));
+  await page.getByTestId('do-import').click();
+  await page.evaluate(async () => {
+    const req = indexedDB.open('ritual');
+    const db: IDBDatabase = await new Promise((r) => { req.onsuccess = () => r(req.result); });
+    const tx = db.transaction('records', 'readwrite');
+    const st = tx.objectStore('records');
+    const base = { deleted: 0, dirty: 0, updatedAt: 5, createdAt: 5 };
+    st.put({ ...base, id: 'wtemplate:mus', kind: 'wtemplate', name: 'Musculação C', modalityId: 'mod:musculacao', duration: 35, intensity: 'moderada', muscles: ['Corpo todo'], note: '1. Agachamento goblet ou livre 3x6-10\n2. Mesa flexora 3x10-12',
+      exercises: [{ id: 'x1', group: 'Pernas', name: 'Leg press 45°', sets: 3, reps: 10 }, { id: 'x2', group: 'Costas', name: 'Puxada na frente', sets: 3, reps: 10 }] });
+    st.put({ ...base, id: 'plan:training-t', kind: 'plan', domain: 'training', validFrom: '2026-10-01', training: { 7: ['wtemplate:mus'] } });
+    const g = st.get('settings');
+    await new Promise((r) => { g.onsuccess = r; });
+    st.put({ ...g.result, onboarded: true });
+    await new Promise((r) => { tx.oncomplete = r; });
+  });
+  await page.goto('./#/');
+  await page.reload();
+  await page.goto('./#/treino');
+  await page.getByRole('button', { name: /^dom, 25\/10/ }).click();
+  await page.getByTestId('strength-edit').click();
+  await expect(page.getByTestId('exercise-select').first()).toHaveValue('Agachamento goblet');
+  await expect(page.getByTestId('exercise-row')).toHaveCount(2);
 });

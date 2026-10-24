@@ -16,7 +16,7 @@ import { effectiveSleep, effectiveHrv, wellnessForAI } from '../domain/wellness'
 import { db, update } from '../db/db';
 import { MicButton, appendText } from '../ui/Dictation';
 import type { StrengthExercise, Workout, WorkoutTemplate } from '../db/types';
-import { programFor, defaultExercises } from '../domain/strength';
+import { programFor, defaultExercises, reconcileWithNote, noteWithExercises, parseNoteLine } from '../domain/strength';
 import { ExerciseEditor, LogExercises } from './strength-ui';
 import { aiAvailable, askAI, applyTrainingResult } from '../domain/ai';
 import { fmt } from '../domain/nutrition';
@@ -171,7 +171,7 @@ export function TrainingTab() {
               )}
               <div className="row between"><span className="t" style={{ fontWeight: 700, fontSize: 18 }}>{t.name}</span>{t.time && <span className="small" style={{ fontWeight: 700 }}>{t.time}</span>}</div>
               <div className="small">{modName(t.modalityId)}, {t.duration} min, {t.intensity}</div>
-              {t.note ? <div className="small wt-note">{t.note}</div> : null}
+              {t.note && !isMuscle(t.modalityId) ? <div className="small wt-note">{t.note}</div> : null}
               {t.muscles?.length ? <div className="small">Foco: {t.muscles.join(', ').toLowerCase()}</div> : null}
               {isMuscle(t.modalityId) && <PlannedStrength t={t} history={history ?? []} date={date} onDone={(exs) => workoutFromTemplate(t, date, true, exs)} />}
               {t.steps?.length ? <StepsView steps={t.steps} /> : null}
@@ -322,19 +322,68 @@ function WorkoutFeedback({ w }: { w: Workout }) {
   );
 }
 
-/** Musculação planejada: exercícios com variações, séries, repetições e carga, ajustáveis antes de treinar. */
+/** Texto do treino com a carga de cada exercício do roteiro ao lado. Sem roteiro escrito, a lista vem dos exercícios. */
+function StrengthNote({ note, exercises }: { note?: string; exercises: StrengthExercise[] }) {
+  const lines = (note ?? '').split('\n');
+  const hasList = lines.some((l) => parseNoteLine(l));
+  const used = new Set<string>();
+  const kg = (e?: StrengthExercise) => (e?.loadKg != null ? <b> · {String(e.loadKg).replace('.', ',')} kg</b> : null);
+  return (
+    <div className="small wt-note" data-testid="strength-note">
+      {(note ?? '').trim() ? lines.map((l, i) => {
+        const p = parseNoteLine(l);
+        const e = p ? exercises.find((x) => x.name === p.name && !used.has(x.id)) : undefined;
+        if (e) used.add(e.id);
+        return <span key={i}>{l}{kg(e)}{'\n'}</span>;
+      }) : null}
+      {!hasList && exercises.length ? <>{(note ?? '').trim() ? '\n' : ''}{exercises.map((e, i) => <span key={e.id}>{`${i + 1}. ${e.name} ${e.sets}x${e.reps}`}{kg(e)}{'\n'}</span>)}</> : null}
+    </div>
+  );
+}
+
+/** Musculação planejada: o texto do treino é o programado. Em "Editar treino" ela troca exercícios, séries,
+ *  repetições e carga; ao concluir, o roteiro do texto é reescrito com o que ficou. */
 function PlannedStrength({ t, history, date, onDone }: { t: WorkoutTemplate; history: Workout[]; date: DateKey; onDone: (exs: StrengthExercise[]) => void }) {
-  // Na primeira vez, grava a sessão sugerida no modelo: dali em diante o que ela escolher fica.
+  // Grava no modelo a sessão que vale: a do roteiro escrito (se a gravada não bate com ele) ou a sugerida pelos grupos.
   useEffect(() => {
-    if (!t.exercises?.length) { const d = defaultExercises(t.muscles, t.note); if (d.length) update<'wtemplate'>(t.id, { exercises: d }); }
-  }, [t.id, t.exercises?.length]);
+    const fix = reconcileWithNote(t.note, t.exercises) ?? (!t.exercises?.length ? defaultExercises(t.muscles, t.note) : undefined);
+    if (fix?.length) update<'wtemplate'>(t.id, { exercises: fix });
+  }, [t.id, t.note, t.exercises]);
+  const [draft, setDraft] = useState<StrengthExercise[] | null>(null);
   const { exercises, why } = programFor(t, history, date);
-  if (!t.exercises?.length && !exercises.length) return <button className="pill-act pa-blue" style={{ marginTop: 10 }} data-testid="train-done" onClick={() => onDone([])}>Feito</button>;
+  if (!exercises.length && !draft) {
+    return (
+      <>
+        {t.note ? <div className="small wt-note">{t.note}</div> : null}
+        <button className="pill-act pa-blue" style={{ marginTop: 10 }} data-testid="train-done" onClick={() => onDone([])}>Feito</button>
+      </>
+    );
+  }
+  if (draft) {
+    // O texto de apoio (descanso, RIR) continua à vista; o roteiro numerado vira o editor.
+    const intro = (t.note ?? '').split('\n').filter((l) => !parseNoteLine(l)).join('\n').trim();
+    return (
+      <div data-testid="planned-strength-edit">
+        {intro ? <div className="small wt-note">{intro}</div> : null}
+        <div style={{ marginTop: 10 }}><ExerciseEditor value={draft} why={why} onChange={setDraft} /></div>
+        <div className="row wrap" style={{ gap: 8, marginTop: 10 }}>
+          <button className="pill-act pa-ghost" onClick={() => setDraft(null)}>Cancelar</button>
+          <button className="pill-act pa-blue" data-testid="strength-edit-save" disabled={!draft.length}
+            onClick={() => {
+              const exs = draft;
+              setDraft(null);
+              update<'wtemplate'>(t.id, { exercises: exs, note: noteWithExercises(t.note, exs) }).then(() => toast('Treino atualizado'));
+            }}>Concluir edição</button>
+        </div>
+      </div>
+    );
+  }
   return (
     <div data-testid="planned-strength">
-      <ExerciseEditor value={exercises} why={why} onChange={(v) => update<'wtemplate'>(t.id, { exercises: v })} />
+      <StrengthNote note={t.note} exercises={exercises} />
       <div className="row wrap" style={{ gap: 8, marginTop: 10 }}>
         <button className="pill-act pa-blue" data-testid="train-done" onClick={() => onDone(exercises)}>Feito, como programado</button>
+        <button className="pill-act pa-ghost" data-testid="strength-edit" onClick={() => setDraft(exercises)}>Editar treino</button>
       </div>
     </div>
   );
