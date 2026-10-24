@@ -27,6 +27,7 @@ import { AREA_ROUTES, TrainingPlanPage, TrainingSessionsPage, FoodPlanPage, Food
 import { Onboarding } from './screens/Onboarding';
 import { ProductReview } from './screens/ProductReview';
 import { RegisterSheet } from './screens/RegisterSheet';
+import { DevAssist } from './screens/devassist';
 import { registerSW } from 'virtual:pwa-register';
 import { toast } from './state/store';
 
@@ -112,6 +113,7 @@ function Shell() {
       )}
       {loc.pathname === '/' && <button className="fab fab-float" aria-label="Registrar" onClick={() => setReg(true)} data-testid="fab"><Plus size={28} strokeWidth={2.4} /></button>}
       <RegisterSheet open={reg} onClose={() => setReg(false)} />
+      <DevAssist />
       <Toasts />
     </div>
   );

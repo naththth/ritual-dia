@@ -15,7 +15,7 @@ export type Kind =
   | 'product' | 'skin' | 'photo'
   | 'food' | 'mtemplate' | 'meal' | 'water'
   | 'modality' | 'wtemplate' | 'workout'
-  | 'plan' | 'skip' | 'extra' | 'brief'
+  | 'plan' | 'skip' | 'extra' | 'brief' | 'devreq'
   | 'wellness' | 'journal' | 'note' | 'book' | 'readlog' | 'review' | 'healthdoc' | 'cycle';
 
 export type Priority = 'alta' | 'media' | 'baixa';
@@ -46,6 +46,8 @@ export interface Settings extends Base {
   readingGoal?: number; // livros por ano
   autoBrief?: boolean; // prepara o dia sozinho ao abrir
   intervals?: { athleteId?: string; connected?: boolean; lastSync?: number };
+  /** Ajustes do app com o Claude: tarefa conectada e se o botão aparece nas telas. */
+  devAssist?: { connected?: boolean; hidden?: boolean };
   /** Regras que ela ensinou à treinadora: como reclassificar o que o relógio grava (ex.: musculação às terças à noite é LPO). */
   trainingRules?: TrainingRule[];
   targets?: { kcal?: number; p?: number; c?: number; f?: number }; // metas próprias; sem elas, usa o plano do dia
@@ -329,6 +331,24 @@ export interface Skip extends Base {
   ref: string;
 }
 
+/** Sessão de ajuste do app com o Claude: ela descreve o que mudar numa tela; ao finalizar, uma sessão do Claude Code faz a mudança e publica. */
+export interface DevMessage { from: 'ela' | 'claude'; text: string; at: number; images?: string[] }
+export interface DevRequest extends Base {
+  kind: 'devreq';
+  date: DateKey;
+  /** aberta: ela está escrevendo; finalizada: na fila; em_andamento: o Claude está mexendo; feito: publicado; precisa_voce: o Claude perguntou algo; falhou: não deu certo. */
+  status: 'aberta' | 'finalizada' | 'em_andamento' | 'feito' | 'precisa_voce' | 'falhou';
+  route: string;
+  screen: string;
+  /** Texto visível da tela quando a sessão começou, para o Claude saber exatamente do que ela fala. */
+  snapshot?: string;
+  messages: DevMessage[];
+  finishedAt?: number;
+  /** Link da sessão do Claude Code que está cuidando do ajuste. */
+  claudeUrl?: string;
+  summary?: string;
+}
+
 /** Treino que entra num dia específico fora do plano semanal (ex.: pedal montado com a treinadora no lugar da yoga). */
 export interface PlanExtra extends Base {
   kind: 'extra';
@@ -395,7 +415,7 @@ export type KindMap = {
   product: Product; skin: SkinLog; photo: Photo;
   food: Food; mtemplate: MealTemplate; meal: Meal; water: Water;
   modality: Modality; wtemplate: WorkoutTemplate; workout: Workout;
-  plan: Plan; skip: Skip; extra: PlanExtra; brief: DayBrief;
+  plan: Plan; skip: Skip; extra: PlanExtra; brief: DayBrief; devreq: DevRequest;
   wellness: Wellness; journal: Journal; note: Note; book: Book; readlog: ReadLog; review: Review; healthdoc: HealthDoc; cycle: CycleDay;
 };
 

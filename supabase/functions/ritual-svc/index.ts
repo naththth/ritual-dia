@@ -337,6 +337,24 @@ Deno.serve(async (req: Request) => {
     if (!user) return json({ error: 'Entre com Google para usar este recurso.' }, 401);
 
     if (action === 'intervals_sync') return json(await syncIntervals(user.id, Number(body.days) || 30));
+    // Ajustes do app com o Claude: a sessão finalizada chama a tarefa do Claude Code pelo endereço dela.
+    if (action === 'dev_ping' || action === 'dev_finish') {
+      const { data: sec } = await admin.from('user_secrets').select('secret, meta').eq('user_id', user.id).eq('provider', 'claude_routine').maybeSingle();
+      if (!sec?.secret || !sec.meta?.url) return json({ error: 'Conecte o Claude em Ajustes primeiro.' }, 400);
+      if (!/^https:\/\/api\.anthropic\.com\/v1\/claude_code\/routines\/trig_[A-Za-z0-9]+\/fire$/.test(String(sec.meta.url))) return json({ error: 'Endereço do Claude inválido. Conecte de novo em Ajustes.' }, 400);
+      if (action === 'dev_ping') return json({ ok: true });
+      const id = String(body.id ?? '');
+      const { data: rec } = await admin.from('records').select('id, data').eq('user_id', user.id).eq('id', id).eq('kind', 'devreq').eq('deleted', false).maybeSingle();
+      if (!rec) return json({ error: 'Sessão de ajuste não encontrada no servidor. Tente de novo em instantes.' }, 404);
+      const r = await fetch(sec.meta.url, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${sec.secret}`, 'anthropic-version': '2026-10-21', 'content-type': 'application/json' },
+        body: JSON.stringify({ text: `Sessão de ajuste ${id} finalizada no Ritual (tela: ${rec.data?.screen ?? '?'}). Comece por ela e depois pegue as outras finalizadas que estiverem na fila.` })
+      });
+      const out = await r.json().catch(() => ({}));
+      if (!r.ok) return json({ error: r.status === 401 ? 'A chave do Claude não vale mais. Gere outra e conecte de novo em Ajustes.' : r.status === 429 ? 'Muitos ajustes nesta hora; o Claude pega este no próximo.' : `O Claude respondeu ${r.status}: ${String(out?.error?.message ?? '').slice(0, 140)}` }, 502);
+      return json({ url: out.claude_code_session_url });
+    }
     if (action === 'push_test') {
       const pub = await secret('vapid_public'); const priv = await secret('vapid_private');
       webpush.setVapidDetails('mailto:ritual@users.noreply.github.com', pub!, priv!);

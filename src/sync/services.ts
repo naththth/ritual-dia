@@ -91,3 +91,28 @@ export async function pushTrainingSoon() {
     await syncNow();
   } catch { /* tenta de novo no ciclo de hora em hora */ }
 }
+
+/* ---------- Ajustes do app com o Claude ---------- */
+/** Guarda o endereço e a chave da tarefa do Claude que faz os ajustes (só o servidor usa a chave). */
+export async function saveDevRoutine(url: string, token: string) {
+  const u = url.trim();
+  if (!/^https:\/\/api\.anthropic\.com\/v1\/claude_code\/routines\/trig_[A-Za-z0-9]+\/fire$/.test(u)) throw new Error('O endereço deve ser o que o Claude mostra ao gerar a chave: https://api.anthropic.com/v1/claude_code/routines/trig_…/fire');
+  if (!token.trim().startsWith('sk-ant-')) throw new Error('A chave começa com sk-ant-.');
+  if (!supabase || !useSync.getState().session) throw new Error('Entre com Google primeiro.');
+  const { error } = await supabase.from('user_secrets').upsert({
+    user_id: useSync.getState().session!.user.id, provider: 'claude_routine', secret: token.trim(), meta: { url: u }, updated_at: new Date().toISOString()
+  });
+  if (error) throw new Error(error.message);
+}
+export async function removeDevRoutine() {
+  if (!supabase) return;
+  await supabase.from('user_secrets').delete().eq('provider', 'claude_routine');
+}
+/** Sessão finalizada: sobe o registro e chama a tarefa do Claude, que pega este ajuste. */
+export async function fireDevRequest(id: string) {
+  await syncNow();
+  return svc<{ url?: string }>('dev_finish', { id });
+}
+export async function testDevRoutine() {
+  return svc<{ ok: boolean }>('dev_ping');
+}

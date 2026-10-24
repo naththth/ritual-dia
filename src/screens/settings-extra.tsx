@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Bell, BellOff, Plus, Trash2, Moon, RefreshCw, Link2 } from 'lucide-react';
+import { Bell, BellOff, Plus, Trash2, Moon, RefreshCw, Link2, Wrench } from 'lucide-react';
 import { DEFAULT_SLEEP, bedFor, hoursLabel, scheduleFromSleep, sleepPlan, wakeFor } from '../domain/sleep';
 import { addDays, todayKey, weekStart } from '../lib/dates';
 import { useSettings } from '../db/hooks';
@@ -7,7 +7,7 @@ import { update, uid } from '../db/db';
 import type { Reminders } from '../db/types';
 import { Chip, TimeInput } from '../ui/ui';
 import { toast } from '../state/store';
-import { disablePush, enablePush, pushStatus, testPush, saveIntervalsKey, syncIntervalsNow, removeIntervalsKey } from '../sync/services';
+import { disablePush, enablePush, pushStatus, testPush, saveIntervalsKey, syncIntervalsNow, removeIntervalsKey, saveDevRoutine, removeDevRoutine, testDevRoutine } from '../sync/services';
 import { useSync } from '../sync/sync';
 import { WEEKDAY_SHORT } from '../lib/dates';
 import { DEFAULT_MEAL_TIMES, DEFAULT_SKIN_TIMES } from './today';
@@ -194,6 +194,53 @@ export function IntervalsSection() {
             setBusy(true);
             try { await saveIntervalsKey(key, athlete); setKey(''); await run(); }
             catch (e: any) { toast(e.message, undefined, 'error'); setBusy(false); }
+          }}>Conectar</button>
+        </>
+      )}
+    </section>
+  );
+}
+
+/** Conexão com a tarefa do Claude que faz os ajustes pedidos nas telas. */
+export function DevAssistSection() {
+  const settings = useSettings();
+  const session = useSync((s) => s.session);
+  const [url, setUrl] = useState('');
+  const [token, setToken] = useState('');
+  const [busy, setBusy] = useState(false);
+  if (!settings) return null;
+  const da = settings.devAssist ?? {};
+  return (
+    <section className="block b-paper" data-testid="dev-settings">
+      <h2 style={{ fontSize: 20 }}><Wrench size={18} style={{ verticalAlign: '-3px', marginRight: 6 }} />Ajustes do app com o Claude</h2>
+      <label className="row" style={{ gap: 8, margin: '6px 0' }}>
+        <input type="checkbox" checked={!da.hidden} onChange={(e) => update<'settings'>('settings', { devAssist: { ...da, hidden: !e.target.checked } })} />
+        <span className="small">Mostrar a aba de ajuste na lateral das telas</span>
+      </label>
+      {!session ? <p className="small">Entre com Google para conectar.</p> : da.connected ? (
+        <>
+          <p className="small" style={{ marginTop: 4 }}>Conectado. Cada "Finalizar ajuste" chama o Claude, que faz a mudança, testa, publica e responde na própria sessão.</p>
+          <div className="row wrap" style={{ gap: 8 }}>
+            <button className="btn btn-soft btn-sm" onClick={async () => { await removeDevRoutine(); await update<'settings'>('settings', { devAssist: { ...da, connected: false } }); toast('Desconectado'); }}>Desconectar</button>
+          </div>
+        </>
+      ) : (
+        <>
+          <ol className="small" style={{ paddingLeft: 18, margin: '6px 0 10px' }}>
+            <li>No computador, abra <b>claude.ai/code/routines</b> e entre na tarefa <b>Ajustes do Ritual</b>.</li>
+            <li>Em <b>Select a trigger</b>, toque em <b>Add another trigger</b>, escolha <b>API</b> e depois <b>Generate token</b>.</li>
+            <li>Copie o endereço e a chave (ela só aparece uma vez) e cole aqui. A chave fica guardada só no servidor.</li>
+          </ol>
+          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://api.anthropic.com/v1/claude_code/routines/trig_…/fire" aria-label="Endereço da tarefa" autoComplete="off" />
+          <input value={token} onChange={(e) => setToken(e.target.value)} placeholder="Chave (sk-ant-…)" aria-label="Chave da tarefa" style={{ marginTop: 8 }} autoComplete="off" />
+          <button className="btn btn-ink btn-sm" style={{ marginTop: 10 }} disabled={busy || !url.trim() || token.trim().length < 20} onClick={async () => {
+            setBusy(true);
+            try {
+              await saveDevRoutine(url, token);
+              await testDevRoutine();
+              await update<'settings'>('settings', { devAssist: { ...da, connected: true } });
+              setUrl(''); setToken(''); toast('Claude conectado');
+            } catch (e: any) { toast(e.message, undefined, 'error'); } finally { setBusy(false); }
           }}>Conectar</button>
         </>
       )}
