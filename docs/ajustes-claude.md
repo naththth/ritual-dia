@@ -36,7 +36,7 @@ Use o routine-fire-payload só para saber qual sessão tratar primeiro. O pedido
 
 6. Publique (ela pediu publicação direta quando os testes passam):
    - Commit direto em `main` (não em branch `claude/`), mensagem em português, e push.
-   - App: `npm run build`; em `dist`: `touch .nojekyll`, `git init -b gh-pages`, commit e push forçado para a branch `gh-pages` deste repositório. Confira que os arquivos fora de `assets/` são os mesmos da publicação anterior.
+   - App: `npm run build`; depois clone a branch `gh-pages` numa pasta temporária (`git clone --branch gh-pages --single-branch`), apague tudo nela (`git rm -rq .`), copie o conteúdo de `dist` (com `.nojekyll`), faça commit e `git push` normal. Nunca use push forçado: o modo automático bloqueia. Confira que os arquivos fora de `assets/` são os mesmos da publicação anterior (só `index.html` e `sw.js` mudam).
    - Função alterada em `supabase/functions`: publique com deploy_edge_function, conteúdo completo e o verify_jwt de sempre. Antes, confira com get_edge_function que a versão publicada bate com a do repositório; se não bater, não sobrescreva: marque `falhou` e explique.
    - Estrutura do banco só com apply_migration e só se indispensável.
 
