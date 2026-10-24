@@ -99,9 +99,8 @@ export async function saveDevRoutine(url: string, token: string) {
   if (!/^https:\/\/api\.anthropic\.com\/v1\/claude_code\/routines\/trig_[A-Za-z0-9]+\/fire$/.test(u)) throw new Error('O endereço deve ser o que o Claude mostra ao gerar a chave: https://api.anthropic.com/v1/claude_code/routines/trig_…/fire');
   if (!token.trim().startsWith('sk-ant-')) throw new Error('A chave começa com sk-ant-.');
   if (!supabase || !useSync.getState().session) throw new Error('Entre com Google primeiro.');
-  const { error } = await supabase.from('user_secrets').upsert({
-    user_id: useSync.getState().session!.user.id, provider: 'claude_routine', secret: token.trim(), meta: { url: u }, updated_at: new Date().toISOString()
-  });
+  // Gravação por função do banco: o app pode salvar a chave, mas nunca lê a tabela de chaves.
+  const { error } = await supabase.rpc('save_user_secret', { p_provider: 'claude_routine', p_secret: token.trim(), p_meta: { url: u } });
   if (error) throw new Error(error.message);
 }
 export async function removeDevRoutine() {
