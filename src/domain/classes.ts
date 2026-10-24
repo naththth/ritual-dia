@@ -25,12 +25,12 @@ export function ruleMatches(r: TrainingRule, w: Pick<Workout, 'date' | 'startTim
 }
 
 export async function reconcileClasses(days = 21, today: DateKey = todayKey()): Promise<number> {
-  const [plans, tmpls, workouts, settings] = await Promise.all([all('plan'), all('wtemplate'), byDateRange('workout', addDays(today, -days), today), get<'settings'>('settings')]);
+  const [plans, tmpls, workouts, settings, extras] = await Promise.all([all('plan'), all('wtemplate'), byDateRange('workout', addDays(today, -days), today), get<'settings'>('settings'), byDateRange('extra', addDays(today, -days), today)]);
   const rules = settings?.trainingRules ?? [];
   let changed = 0;
   for (const w of workouts) {
     if (w.deleted || !w.startTime) continue;
-    const dayTpls = plannedTraining(planFor(plans, 'training', w.date), w.date)
+    const dayTpls = plannedTraining(planFor(plans, 'training', w.date), w.date, extras)
       .map((id) => tmpls.find((t) => t.id === id))
       .filter((t): t is NonNullable<typeof t> => !!t);
     const classes = dayTpls.filter((t) => !!t.time && t.modalityId !== STRENGTH);

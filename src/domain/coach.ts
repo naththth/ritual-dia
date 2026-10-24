@@ -3,7 +3,24 @@ import { db, all, byDateRange, get, remove, restore, update, upsert, uid, getMet
 import { addDays, isoWeekday, todayKey, type DateKey } from '../lib/dates';
 import { planFor, plannedTraining } from './rules';
 import { askAI } from './ai';
-import type { AnyRecord, TrainingRule, Workout } from '../db/types';
+import type { AnyRecord, Intensity, TrainingRule, Workout, WorkoutStep } from '../db/types';
+
+/** Treino que a treinadora montou para um dia e espera o aprovo dela antes de entrar no app e no MyWhoosh. */
+export interface CoachProposal {
+  date: DateKey;
+  name: string;
+  modalityId: string;
+  minutes: number;
+  intensity: Intensity;
+  time?: string;
+  steps?: WorkoutStep[];
+  note?: string;
+  /** Treinos daquele dia que saem para este entrar (do plano semanal ou avulsos de antes). */
+  replaces: string[];
+  status?: 'aprovado' | 'descartado';
+  /** Resultado do envio ao intervals.icu depois do aprovo. */
+  sent?: 'enviado' | 'sem_conexao' | 'falhou';
+}
 
 export interface CoachMsg {
   from: 'ai' | 'me';
@@ -16,6 +33,7 @@ export interface CoachMsg {
   /** Registros como estavam antes, para desfazer. */
   undo?: { id: string; before?: AnyRecord }[];
   undone?: boolean;
+  proposal?: CoachProposal;
   at: number;
 }
 
@@ -36,6 +54,7 @@ async function context(text: string, history: CoachMsg[]) {
   const [mods, plans, tmpls, settings] = await Promise.all([all('modality'), all('plan'), all('wtemplate'), get<'settings'>('settings')]);
   const workouts = (await byDateRange('workout', addDays(today, -21), today)).sort((a, b) => (a.startTime ?? a.date).localeCompare(b.startTime ?? b.date));
   const skips = (await byDateRange('skip', addDays(today, -7), addDays(today, 7))).filter((s) => s.domain === 'training');
+  const extras = await byDateRange('extra', addDays(today, -7), addDays(today, 7));
   const tp = planFor(plans, 'training', today);
   const tname = (id?: string) => tmpls.find((t) => t.id === id)?.name;
   return {
@@ -51,7 +70,18 @@ async function context(text: string, history: CoachMsg[]) {
       metricas: w.metrics ? { tss: w.metrics.tss, np: w.metrics.np, potencia_media: w.metrics.avgPower, fc_media: w.metrics.avgHr, kcal: w.metrics.kcal, km: w.metrics.distanceKm } : undefined
     })),
     plano_da_semana: [1, 2, 3, 4, 5, 6, 7].map((d) => ({ dia: d, nome_dia: DAY[d], treinos: (tp?.training?.[d] ?? []).map((id) => tmpls.find((t) => t.id === id)).filter(Boolean).map((t) => ({ template_id: t!.id, nome: t!.name, modalidade_id: t!.modalityId, horario: t!.time, minutos: t!.duration })) })),
-    planejado_hoje: plannedTraining(tp, today).map((id) => ({ template_id: id, nome: tname(id) })),
+    planejado_hoje: plannedTraining(tp, today, extras).map((id) => ({ template_id: id, nome: tname(id) })),
+    ftp: settings?.ftp ?? null,
+    intervals_conectado: !!settings?.intervals?.connected,
+    // Hoje e os próximos 6 dias como estão de fato: plano semanal + avulsos combinados, menos o que ela pulou.
+    proximos_dias: Array.from({ length: 7 }, (_, i) => addDays(today, i)).map((d) => ({
+      data: d, dia_semana: isoWeekday(d),
+      treinos: plannedTraining(planFor(plans, 'training', d), d, extras).map((id) => tmpls.find((t) => t.id === id)).filter(Boolean).map((t) => ({
+        template_id: t!.id, nome: t!.name, modalidade_id: t!.modalityId, minutos: t!.duration, intensidade: t!.intensity, horario: t!.time,
+        avulso: !!t!.oneOff, pulado: skips.some((s) => s.date === d && s.ref === t!.id),
+        blocos: t!.steps?.map((st) => ({ rotulo: st.label, minutos: st.minutes, pct: st.pct }))
+      }))
+    })),
     pulados: skips.map((s) => ({ data: s.date, template_id: s.ref, nome: tname(s.ref) })),
     regras_de_classificacao: (settings?.trainingRules ?? []).map((r) => ({ id: r.id, descricao: r.text, de_modalidade_id: r.fromModalityId, para_modalidade_id: r.toModalityId, dias_semana: r.weekdays, de: r.from, ate: r.to })),
     preferencias_de_treino: settings?.aiPrefs?.training ?? ''
@@ -74,6 +104,7 @@ export async function askCoach(text: string, history: CoachMsg[]): Promise<Coach
   const validMod = (id?: string) => !!id && mods.some((m) => m.id === id);
   const label = (w: Workout) => `${modName(w.modalityId)} de ${DAY[isoWeekday(w.date)]} ${w.date.slice(8, 10)}/${w.date.slice(5, 7)}`;
   let rulesChanged = false;
+  let proposal: CoachProposal | undefined;
 
   for (const a of Array.isArray(r?.acoes) ? r.acoes : []) {
     try {
@@ -137,6 +168,26 @@ export async function askCoach(text: string, history: CoachMsg[]): Promise<Coach
           await update<'settings'>('settings', { aiPrefs: { ...(s.aiPrefs ?? {}), training: cur ? `${cur}\n${t}` : t } });
           done.push(`Guardei para os próximos planos: ${t.replace(/\.$/, '')}.`);
         }
+      } else if (a?.tipo === 'propor_treino') {
+        const date = String(a.data ?? '') as DateKey;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < todayKey()) { failed.push('A proposta veio sem uma data válida.'); continue; }
+        const modalityId = validMod(a.modalidade_id) ? a.modalidade_id : 'mod:ciclismo';
+        const steps: WorkoutStep[] = (Array.isArray(a.blocos) ? a.blocos : [])
+          .map((b: any) => ({ label: String(b?.rotulo ?? '').trim() || 'Bloco', minutes: Number(b?.minutos), pct: Number(b?.pct) }))
+          .filter((b: WorkoutStep) => b.minutes > 0 && b.minutes <= 240 && b.pct >= 30 && b.pct <= 200)
+          .map((b: WorkoutStep) => ({ ...b, minutes: Math.round(b.minutes * 100) / 100, pct: Math.round(b.pct) }));
+        if (modalityId === 'mod:ciclismo' && !steps.length) { failed.push('A proposta de pedal veio sem blocos.'); continue; }
+        const minutes = steps.length ? Math.round(steps.reduce((t, b) => t + b.minutes, 0)) : Math.round(Number(a.minutos) || 0);
+        if (!minutes) { failed.push('A proposta veio sem duração.'); continue; }
+        const tmpls = await all('wtemplate');
+        proposal = {
+          date, modalityId, minutes, steps: steps.length ? steps : undefined,
+          name: String(a.nome ?? '').trim() || `${modName(modalityId)} ${minutes} min`,
+          intensity: INT.includes(a.intensidade) ? a.intensidade : 'moderada',
+          time: HM.test(a.horario ?? '') ? a.horario : undefined,
+          note: String(a.nota ?? '').trim() || undefined,
+          replaces: (Array.isArray(a.substitui_template_ids) ? a.substitui_template_ids : []).map(String).filter((id: string) => tmpls.some((t) => t.id === id))
+        };
       } else if (a?.tipo === 'pular_planejado') {
         const date = String(a.data ?? '') as DateKey;
         const tpl = await get<'wtemplate'>(String(a.template_id));
@@ -165,7 +216,8 @@ export async function askCoach(text: string, history: CoachMsg[]): Promise<Coach
 
   return {
     from: 'ai', at: Date.now(),
-    text: String(r?.mensagem ?? '').trim() || (done.length ? 'Feito.' : 'Não entendi o que mudar. Pode contar de outro jeito?'),
+    text: String(r?.mensagem ?? '').trim() || (done.length || proposal ? 'Feito.' : 'Não entendi o que mudar. Pode contar de outro jeito?'),
+    proposal,
     done: done.length ? done : undefined,
     failed: failed.length ? failed : undefined,
     suggestion: String(r?.sugestao_plano ?? '').trim() || undefined,
@@ -176,4 +228,40 @@ export async function askCoach(text: string, history: CoachMsg[]): Promise<Coach
 /** Volta os registros ao estado de antes da resposta. */
 export async function undoCoach(m: CoachMsg) {
   for (const u of [...(m.undo ?? [])].reverse()) await restore(u.before, u.id);
+}
+
+/** Aprovado por ela: o treino entra no dia (no lugar do que ela indicou) e vai para o intervals.icu, que leva ao MyWhoosh. */
+export async function approveProposal(p: CoachProposal): Promise<{ undo: { id: string; before?: AnyRecord }[]; done: string[]; sent: CoachProposal['sent'] }> {
+  const undo: { id: string; before?: AnyRecord }[] = [];
+  const snap = async (id: string) => { if (!undo.some((u) => u.id === id)) undo.push({ id, before: await db.records.get(id) }); };
+  const done: string[] = [];
+  const day = `${DAY[isoWeekday(p.date)]} ${p.date.slice(8, 10)}/${p.date.slice(5, 7)}`;
+  for (const ref of p.replaces) {
+    const t = await get<'wtemplate'>(ref);
+    const extraId = `extra:${p.date}:training:${ref}`;
+    if (await get(extraId)) { await snap(extraId); await remove(extraId); }
+    else { const id = `skip:${p.date}:training:${ref}`; await snap(id); await upsert('skip', id, { date: p.date, domain: 'training', ref }); }
+    if (t) done.push(`${t.name} saiu de ${day}.`);
+  }
+  const tplId = uid('wtemplate');
+  undo.push({ id: tplId });
+  await upsert('wtemplate', tplId, { name: p.name, modalityId: p.modalityId, duration: p.minutes, intensity: p.intensity, time: p.time, steps: p.steps, note: p.note, oneOff: p.date, archived: true });
+  const extraId = `extra:${p.date}:training:${tplId}`;
+  undo.push({ id: extraId });
+  await upsert('extra', extraId, { date: p.date, domain: 'training', ref: tplId, by: 'treinadora' });
+  done.push(`${p.name} entrou em ${day}.`);
+
+  let sent: CoachProposal['sent'] = 'sem_conexao';
+  const settings = await get<'settings'>('settings');
+  if (p.steps?.length && settings?.intervals?.connected) {
+    try {
+      const { syncNow } = await import('../sync/sync');
+      const { syncIntervalsNow } = await import('../sync/services');
+      await syncNow();
+      await syncIntervalsNow(3);
+      sent = 'enviado';
+      done.push('Enviei ao intervals.icu: o treino aparece no MyWhoosh em instantes.');
+    } catch { sent = 'falhou'; }
+  }
+  return { undo, done, sent };
 }

@@ -157,7 +157,9 @@ const num = (...v: any[]) => { for (const x of v) if (typeof x === 'number' && !
 
 /** Texto de treino no formato do intervals.icu: cada bloco vira "- 10m 55%" (percentual do FTP). */
 function workoutText(t: any) {
-  return (t.steps ?? []).map((s: any) => `${s.label}\n- ${Math.max(1, Math.round(s.minutes))}m ${Math.round(s.pct)}%`).join('\n\n');
+  // Duração em minutos e segundos ("30s", "1m30s"): intervalos curtos não podem virar 1 minuto.
+  const dur = (min: number) => { const secs = Math.max(5, Math.round(min * 60)); const m = Math.floor(secs / 60), r = secs % 60; return `${m ? `${m}m` : ''}${r ? `${r}s` : ''}`; };
+  return (t.steps ?? []).map((s: any) => `${s.label}\n- ${dur(Number(s.minutes))} ${Math.round(s.pct)}%`).join('\n\n');
 }
 
 async function syncIntervals(userId: string, days = 14) {
@@ -186,14 +188,19 @@ async function syncIntervals(userId: string, days = 14) {
   }
 
   // 1) Envia os pedais planejados dos próximos 7 dias (o intervals repassa ao MyWhoosh e ao Garmin).
-  const recs = await userRecords(userId, ['plan', 'wtemplate', 'skip']);
+  const recs = await userRecords(userId, ['plan', 'wtemplate', 'skip', 'extra']);
   const plans = recs.filter((x) => x.kind === 'plan');
+  // Treinos do dia: plano semanal + avulsos combinados com a treinadora para aquela data.
+  const dayIds = (d: string) => {
+    const wd = ((new Date(d + 'T12:00:00Z').getUTCDay() + 6) % 7) + 1;
+    const base: string[] = planFor(plans, 'training', d)?.training?.[String(wd)] ?? [];
+    const add = recs.filter((x) => x.kind === 'extra' && x.date === d).map((x) => String(x.ref));
+    return Array.from(new Set([...base, ...add]));
+  };
   const events: any[] = [];
   for (let i = 0; i < 7; i++) {
     const d = addDays(today, i);
-    const wd = ((new Date(d + 'T12:00:00Z').getUTCDay() + 6) % 7) + 1;
-    const ids: string[] = planFor(plans, 'training', d)?.training?.[String(wd)] ?? [];
-    for (const id of ids) {
+    for (const id of dayIds(d)) {
       const t = recs.find((x) => x.kind === 'wtemplate' && x.id === id);
       if (!t?.steps?.length || recs.some((x) => x.kind === 'skip' && x.date === d && x.ref === id)) continue;
       events.push({ category: 'WORKOUT', type: 'VirtualRide', start_date_local: `${d}T00:00:00`, name: t.name, description: workoutText(t), external_id: `ritual:${d}:${id}`, moving_time: t.steps.reduce((a: number, s: any) => a + s.minutes * 60, 0) });
@@ -260,8 +267,7 @@ async function syncIntervals(userId: string, days = 14) {
     const ftp = num(a.icu_ftp);
     const date = String(a.start_date_local).slice(0, 10);
     let modalityId = SPORT[a.type] ?? 'mod:musculacao';
-    const wd = ((new Date(date + 'T12:00:00Z').getUTCDay() + 6) % 7) + 1;
-    const dayTpls = (planFor(plans, 'training', date)?.training?.[String(wd)] ?? []).map((id: string) => recs.find((x) => x.kind === 'wtemplate' && x.id === id)).filter(Boolean);
+    const dayTpls = dayIds(date).map((id: string) => recs.find((x) => x.kind === 'wtemplate' && x.id === id)).filter(Boolean);
     // O relógio não tem LPO: musculação perto do horário de uma aula planejada é a aula.
     let reclassifiedFrom: string | undefined;
     if (modalityId === 'mod:musculacao') {

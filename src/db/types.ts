@@ -15,7 +15,7 @@ export type Kind =
   | 'product' | 'skin' | 'photo'
   | 'food' | 'mtemplate' | 'meal' | 'water'
   | 'modality' | 'wtemplate' | 'workout'
-  | 'plan' | 'skip' | 'brief'
+  | 'plan' | 'skip' | 'extra' | 'brief'
   | 'wellness' | 'journal' | 'note' | 'book' | 'readlog' | 'review' | 'healthdoc' | 'cycle';
 
 export type Priority = 'alta' | 'media' | 'baixa';
@@ -257,6 +257,8 @@ export interface WorkoutTemplate extends Base {
   time?: string; // 'HH:MM' quando tem horário fixo (aula)
   steps?: WorkoutStep[]; // blocos em % do FTP (pedal)
   note?: string;
+  /** Treino de um dia só (montado na conversa com a treinadora): não aparece nos catálogos nem no plano semanal. */
+  oneOff?: DateKey;
   name: string;
   modalityId: string;
   duration: number;
@@ -327,6 +329,15 @@ export interface Skip extends Base {
   ref: string;
 }
 
+/** Treino que entra num dia específico fora do plano semanal (ex.: pedal montado com a treinadora no lugar da yoga). */
+export interface PlanExtra extends Base {
+  kind: 'extra';
+  date: DateKey;
+  domain: 'training';
+  ref: string; // wtemplate id
+  by?: 'treinadora';
+}
+
 export interface DayBrief extends Base {
   kind: 'brief';
   date: DateKey;
@@ -384,7 +395,7 @@ export type KindMap = {
   product: Product; skin: SkinLog; photo: Photo;
   food: Food; mtemplate: MealTemplate; meal: Meal; water: Water;
   modality: Modality; wtemplate: WorkoutTemplate; workout: Workout;
-  plan: Plan; skip: Skip; brief: DayBrief;
+  plan: Plan; skip: Skip; extra: PlanExtra; brief: DayBrief;
   wellness: Wellness; journal: Journal; note: Note; book: Book; readlog: ReadLog; review: Review; healthdoc: HealthDoc; cycle: CycleDay;
 };
 

@@ -18,8 +18,8 @@ export async function importFitFiles(files: FileList | File[] | null, ftp?: numb
       const id = twin?.id ?? `workout:fit:${a.startIso}`;
       const exists = twin ?? await db.records.get(id);
       const live = (k: string) => db.records.where('kind').equals(k).toArray().then((r: any[]) => r.filter((x) => !x.deleted));
-      const [plans, tmpls] = await Promise.all([live('plan'), live('wtemplate')]);
-      const planned = plannedTraining(planFor(plans as any, 'training', a.date), a.date)
+      const [plans, tmpls, extras] = await Promise.all([live('plan'), live('wtemplate'), live('extra')]);
+      const planned = plannedTraining(planFor(plans as any, 'training', a.date), a.date, extras as any)
         .map((tid) => (tmpls as any[]).find((t) => t.id === tid)).find((t) => t?.modalityId === a.modalityId);
       await upsert('workout', id, {
         date: a.date, modalityId: (exists as any)?.classChecked ? (exists as any).modalityId : a.modalityId, duration: a.minutes, intensity: intensityFrom(a.metrics),

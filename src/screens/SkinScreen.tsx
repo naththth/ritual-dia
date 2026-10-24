@@ -38,6 +38,7 @@ export function SkinScreen() {
   const wellness = useByDate('wellness', date);
   const tmpls = useAll('wtemplate');
   const skips = useByDate('skip', date);
+  const dayExtras = useByDate('extra', date);
   const { stats: cStats, profile } = useCycle();
 
   const [recovery, setRecovery] = useState(false);
@@ -70,14 +71,14 @@ export function SkinScreen() {
   const adjust = useMemo(() => {
     if (period !== 'pm' || log || !products) return undefined;
     const skipped = new Set((skips ?? []).filter((x) => x.domain === 'training').map((x) => x.ref));
-    const plannedW = plannedTraining(planFor(plans ?? [], 'training', date), date).map((id) => (tmpls ?? []).find((t) => t.id === id)).filter((t): t is NonNullable<typeof t> => !!t && !skipped.has(t.id));
+    const plannedW = plannedTraining(planFor(plans ?? [], 'training', date), date, dayExtras).map((id) => (tmpls ?? []).find((t) => t.id === id)).filter((t): t is NonNullable<typeof t> => !!t && !skipped.has(t.id));
     const w = (wellness ?? [])[0];
     return nightAdjust({
       plannedPm: plannedSkin(plan, date, 'pm', products), recoveryPm: plan?.skin?.recovery?.pm ?? [], products,
       amLog: logs?.find((l) => l.period === 'am'), liveSignals: signals, liveCondition: condition,
       workouts: workouts ?? [], plannedWorkouts: plannedW, sleepH: effectiveSleep(w)?.h, phase: cycleInfo(date, cStats, profile)?.phase
     });
-  }, [period, log, products, plan, date, logs, signals, condition, workouts, wellness, tmpls, plans, skips, cStats, profile]);
+  }, [period, log, products, plan, date, logs, signals, condition, workouts, wellness, tmpls, plans, skips, dayExtras, cStats, profile]);
   const decide = (c: 'applied' | 'kept') => { setChoice(c); try { localStorage.setItem(adjustKey, c); } catch { /* */ } };
   const applyAdjust = () => {
     if (!adjust) return;

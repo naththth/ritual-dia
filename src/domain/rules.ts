@@ -48,8 +48,11 @@ export function plannedSkin(
   });
 }
 
-export function plannedTraining(plan: Plan | undefined, date: DateKey): string[] {
-  return plan?.training?.[isoWeekday(date)] ?? [];
+/** Treinos do dia: os do plano semanal mais os avulsos combinados para aquela data (extras). */
+export function plannedTraining(plan: Plan | undefined, date: DateKey, extras?: { date: DateKey; ref: string; deleted?: 0 | 1 }[]): string[] {
+  const base = plan?.training?.[isoWeekday(date)] ?? [];
+  const add = (extras ?? []).filter((e) => e.date === date && !e.deleted).map((e) => e.ref);
+  return add.length ? Array.from(new Set([...base, ...add])) : base;
 }
 
 export function plannedFood(plan: Plan | undefined, date: DateKey): Record<string, string | null> {

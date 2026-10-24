@@ -235,10 +235,10 @@ export async function applyFoodResult(r: any) {
 
 /* ---------- Orientação do dia ---------- */
 export async function aiDayBrief(date: DateKey) {
-  const [tasks, plans, products, tmpls, mods, skinLogs, settings, workouts, journals, wellness, skips, meals] = await Promise.all([
+  const [tasks, plans, products, tmpls, mods, skinLogs, settings, workouts, journals, wellness, skips, meals, extras] = await Promise.all([
     all('task'), all('plan'), all('product'), all('wtemplate'), all('modality'), byDateRange('skin', addDays(date, -7), date), get<'settings'>('settings'),
     byDateRange('workout', addDays(date, -120), date), byDateRange('journal', addDays(date, -3), date), byDateRange('wellness', addDays(date, -7), date),
-    byDateRange('skip', date, date), byDateRange('meal', date, date)
+    byDateRange('skip', date, date), byDateRange('meal', date, date), byDateRange('extra', date, date)
   ]);
   const pending = tasks.filter((t) => t.status === 'pendente');
   const skinPlan = planFor(plans, 'skin', date);
@@ -246,7 +246,7 @@ export async function aiDayBrief(date: DateKey) {
   const skipped = new Set(skips.filter((x) => x.domain === 'training').map((x) => x.ref));
   const doneToday = workouts.filter((w) => w.date === date);
   // Planejado que ainda vale: nem pulado, nem já feito (mesma modalidade).
-  const tr = plannedTraining(planFor(plans, 'training', date), date).map((id) => tmpls.find((t) => t.id === id)).filter(Boolean)
+  const tr = plannedTraining(planFor(plans, 'training', date), date, extras).map((id) => tmpls.find((t) => t.id === id)).filter(Boolean)
     .filter((t) => !skipped.has(t!.id) && !doneToday.some((w) => w.templateId === t!.id || w.modalityId === t!.modalityId));
   const now = new Date();
   const hora = date === todayKey() ? `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}` : undefined;

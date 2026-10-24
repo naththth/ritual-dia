@@ -1,17 +1,19 @@
 // A treinadora na aba Treino: ela conta como foi, o que é diferente nos treinos e nos dias, e o app se ajusta.
 import { useEffect, useRef, useState } from 'react';
-import { Send, Sparkles, Undo2, X } from 'lucide-react';
+import { Check, Send, Sparkles, Undo2, X } from 'lucide-react';
 import { Sheet } from '../ui/ui';
 import { useSettings } from '../db/hooks';
 import { update } from '../db/db';
 import { toast } from '../state/store';
 import { MicButton, appendText } from '../ui/Dictation';
 import { aiAvailable } from '../domain/ai';
-import { askCoach, loadCoachChat, saveCoachChat, undoCoach, type CoachMsg } from '../domain/coach';
+import { approveProposal, askCoach, loadCoachChat, saveCoachChat, undoCoach, type CoachMsg, type CoachProposal } from '../domain/coach';
+import type { WorkoutStep } from '../db/types';
 import { PlanChat } from './specialist';
 
 const DAYS = ['', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
 const EXAMPLES = [
+  'Hoje não vou à yoga, monta um pedal de 45 min no lugar',
   'Toda musculação de terça e quinta à noite é LPO',
   'O pedal de hoje pesou mais do que parece, esforço 8',
   'Hoje não vou treinar, dormi mal'
@@ -56,6 +58,20 @@ function CoachSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
       commit([...list, { from: 'ai', text: `Não consegui responder agora: ${e.message}`, at: Date.now() }]);
     } finally { setBusy(false); }
   };
+
+  const [approving, setApproving] = useState<number | null>(null);
+  const approve = async (i: number) => {
+    const m = msgs[i];
+    if (!m.proposal || approving !== null) return;
+    setApproving(i);
+    try {
+      const r = await approveProposal(m.proposal);
+      commit(msgs.map((x, k) => (k === i ? { ...x, proposal: { ...m.proposal!, status: 'aprovado', sent: r.sent }, done: [...(x.done ?? []), ...r.done], undo: [...(x.undo ?? []), ...r.undo], undone: false } : x)));
+      toast(r.sent === 'enviado' ? 'Treino no app e a caminho do MyWhoosh' : r.sent === 'falhou' ? 'Treino no app; o envio ao intervals falhou, tento de novo na próxima hora' : 'Treino no app');
+    } catch (e: any) { toast(`Não consegui aplicar: ${e.message}`, undefined, 'error'); }
+    finally { setApproving(null); }
+  };
+  const discard = (i: number) => commit(msgs.map((x, k) => (k === i && x.proposal ? { ...x, proposal: { ...x.proposal, status: 'descartado' } } : x)));
 
   const undo = async (i: number) => {
     await undoCoach(msgs[i]);
@@ -107,6 +123,7 @@ function CoachSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
                 {i === lastWithUndo && <button className="link" onClick={() => undo(i)} data-testid="coach-undo"><Undo2 size={14} style={{ verticalAlign: '-2px' }} /> Desfazer</button>}
               </div>
             ) : null}
+            {m.proposal ? <ProposalCard p={m.proposal} busy={approving === i} onApprove={() => void approve(i)} onDiscard={() => discard(i)} /> : null}
             {m.failed?.length ? <div className="nf"><b>Não consegui</b><ul>{m.failed.map((d, k) => <li key={k}>{d}</li>)}</ul></div> : null}
             {m.suggestion ? (
               <div className="nf">
@@ -129,5 +146,67 @@ function CoachSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
       </div>
       <PlanChat domain="training" open={planOpen} onClose={() => setPlanOpen(false)} />
     </Sheet>
+  );
+}
+
+const dur = (min: number) => { const t = Math.round(min * 60); return t < 60 ? `${t}s` : t % 60 ? `${Math.floor(t / 60)}min${t % 60}s` : `${t / 60} min`; };
+const same = (a: WorkoutStep, b: WorkoutStep) => a.minutes === b.minutes && a.pct === b.pct && a.label === b.label;
+/** Junta repetições seguidas (1 ou 2 blocos que se repetem) em "5× (30s forte / 30s leve)". */
+function groupSteps(steps: WorkoutStep[]) {
+  const out: { reps: number; steps: WorkoutStep[] }[] = [];
+  let i = 0;
+  while (i < steps.length) {
+    let best = { len: 1, reps: 1 };
+    for (const len of [2, 1]) {
+      let reps = 1;
+      while (i + (reps + 1) * len <= steps.length && steps.slice(i + reps * len, i + (reps + 1) * len).every((s, k) => same(s, steps[i + k]))) reps++;
+      if (reps > 1 && reps * len > best.reps * best.len) best = { len, reps };
+    }
+    out.push({ reps: best.reps, steps: steps.slice(i, i + best.len) });
+    i += best.reps * best.len;
+  }
+  return out;
+}
+const zone = (pct: number) => (pct < 56 ? 'Z1' : pct < 76 ? 'Z2' : pct < 91 ? 'Z3' : pct < 106 ? 'Z4' : pct < 121 ? 'Z5' : 'Z6');
+
+/** O treino proposto, bloco a bloco, com watts pelo FTP; só entra no app e no MyWhoosh depois do aprovo. */
+function ProposalCard({ p, busy, onApprove, onDiscard }: { p: CoachProposal; busy: boolean; onApprove: () => void; onDiscard: () => void }) {
+  const settings = useSettings();
+  const ftp = settings?.ftp;
+  const day = `${DAYS[new Date(p.date + 'T12:00:00').getDay() || 7]} ${p.date.slice(8, 10)}/${p.date.slice(5, 7)}`;
+  const max = Math.max(...(p.steps ?? []).map((s) => s.pct), 100);
+  const pending = !p.status;
+  return (
+    <div className={`nf coach-proposal${p.status === 'descartado' ? ' struck' : ''}`} data-testid="coach-proposal">
+      <b>{p.status === 'aprovado' ? 'Aprovado' : p.status === 'descartado' ? 'Descartado' : 'Proposta de treino'}</b>
+      <span><b>{p.name}</b> · {day}{p.time ? ` às ${p.time}` : ''} · {p.minutes} min</span>
+      {p.steps?.length ? (
+        <>
+          <div className="cp-bars" aria-hidden="true">
+            {p.steps.map((s, k) => <i key={k} style={{ flexGrow: s.minutes, height: `${Math.max(12, (s.pct / max) * 100)}%` }} className={`cp-${zone(s.pct).toLowerCase()}`} />)}
+          </div>
+          <ol className="cp-steps">
+            {groupSteps(p.steps).map((g, k) => (
+              <li key={k}>
+                {g.reps > 1 && <span className="cp-reps">{g.reps}×</span>}
+                {g.steps.map((s, j) => (
+                  <span key={j} className={j ? 'cp-sub' : undefined}><span>{s.label}</span><span className="num">{dur(s.minutes)} · {s.pct}%{ftp ? ` · ${Math.round((ftp * s.pct) / 100)} W` : ''} · {zone(s.pct)}</span></span>
+                ))}
+              </li>
+            ))}
+          </ol>
+        </>
+      ) : null}
+      {p.note ? <span className="small">{p.note}</span> : null}
+      {pending ? (
+        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+          <button className="pill-act pa-blue" onClick={onApprove} disabled={busy} data-testid="coach-approve"><Check size={14} style={{ verticalAlign: '-2px' }} /> {busy ? 'Enviando…' : p.steps?.length ? 'Aprovar e mandar pro MyWhoosh' : 'Aprovar'}</button>
+          <button className="link" onClick={onDiscard} disabled={busy}>Descartar</button>
+        </div>
+      ) : p.status === 'aprovado' ? (
+        <span className="small muted">{p.sent === 'enviado' ? 'No intervals.icu: escolha no MyWhoosh em Treinos agendados.' : p.sent === 'falhou' ? 'O envio ao intervals falhou agora; o app tenta de novo na próxima hora.' : p.steps?.length ? 'Conecte o intervals.icu em Ajustes para ir ao MyWhoosh.' : 'Está no seu dia.'}</span>
+      ) : null}
+      {pending && <span className="tiny muted">Quer mudar algo? É só falar abaixo que eu refaço.</span>}
+    </div>
   );
 }

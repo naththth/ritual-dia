@@ -83,6 +83,9 @@ describe('planos por dia da semana', () => {
     const tp: Plan = { ...base, id: 'tp', kind: 'plan', domain: 'training', validFrom: '2026-10-01', training: { 1: ['musc'], 3: ['musc'], 5: ['musc'] } };
     expect(plannedTraining(tp, '2026-10-19')).toEqual(['musc']);
     expect(plannedTraining(tp, '2026-10-20')).toEqual([]);
+    // avulso combinado com a treinadora entra só naquele dia
+    expect(plannedTraining(tp, '2026-10-20', [{ date: '2026-10-20', ref: 'pedal-x' }, { date: '2026-10-21', ref: 'outro' }])).toEqual(['pedal-x']);
+    expect(plannedTraining(tp, '2026-10-19', [{ date: '2026-10-19', ref: 'musc' }, { date: '2026-10-19', ref: 'gone', deleted: 1 }])).toEqual(['musc']);
     expect(plannedTraining(tp, '2026-10-23')).toEqual(['musc']);
   });
 });

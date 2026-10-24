@@ -680,3 +680,16 @@ button.food-line { width: 100%; text-align: left; }
 .coach-ex { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
 .coach-ex .chip { width: 100%; white-space: normal; text-align: left; justify-content: flex-start; height: auto; min-height: 40px; padding: 8px 14px; border-radius: 16px; line-height: 1.3; }
 .coach-done .struck li { text-decoration: line-through; opacity: .6; }
+
+/* Proposta de treino da treinadora */
+.coach-proposal .cp-bars { display: flex; align-items: flex-end; gap: 2px; height: 56px; padding: 6px; background: var(--card); border-radius: var(--r-s); border: 1px solid var(--line); }
+.coach-proposal .cp-bars i { display: block; min-width: 3px; border-radius: 3px 3px 0 0; }
+.cp-z1 { background: var(--line-2); } .cp-z2 { background: var(--blue-2); } .cp-z3 { background: var(--olive-2); }
+.cp-z4 { background: var(--honey-2); } .cp-z5 { background: var(--wine-2); } .cp-z6 { background: var(--wine); }
+.coach-proposal .cp-steps { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.coach-proposal.struck { opacity: .6; }
+.coach-proposal .cp-steps li { display: flex; flex-wrap: wrap; column-gap: 6px; }
+.coach-proposal .cp-steps li > span > span:first-child { font-weight: 600; margin-right: 6px; }
+.coach-proposal .cp-steps li > span > span.num { color: var(--ink-2); }
+.coach-proposal .cp-steps .cp-reps { font-weight: 700; }
+.coach-proposal .cp-steps .cp-sub::before { content: '/ '; color: var(--ink-3); }

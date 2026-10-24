@@ -59,8 +59,9 @@ export function useTimeline(date: DateKey): TLItem[] | undefined {
   const meals = useByDate('meal', date);
   const workouts = useByDate('workout', date);
   const skips = useByDate('skip', date);
+  const extras = useByDate('extra', date);
   const journal = useByDate('journal', date);
-  if (!journal || !settings || !plans || !products || !wt || !mt || !foods || !mods || !skin || !meals || !workouts || !skips) return undefined;
+  if (!journal || !settings || !plans || !products || !wt || !mt || !foods || !mods || !skin || !meals || !workouts || !skips || !extras) return undefined;
   const items: TLItem[] = [];
   const sTimes = settings.skinTimes ?? DEFAULT_SKIN_TIMES;
   const mTimes = { ...DEFAULT_MEAL_TIMES, ...(settings.mealTimes ?? {}) };
@@ -76,7 +77,7 @@ export function useTimeline(date: DateKey): TLItem[] | undefined {
       const skipped = new Set(skips.filter((x) => x.domain === 'training').map((x) => x.ref));
       const adj = nightAdjust({
         plannedPm: planned, recoveryPm: skinPlan?.skin?.recovery?.pm ?? [], products, amLog: skin.find((x) => x.period === 'am'), workouts,
-        plannedWorkouts: plannedTraining(planFor(plans, 'training', date), date).map((id) => wt.find((t) => t.id === id)).filter((t): t is NonNullable<typeof t> => !!t && !skipped.has(t.id))
+        plannedWorkouts: plannedTraining(planFor(plans, 'training', date), date, extras).map((id) => wt.find((t) => t.id === id)).filter((t): t is NonNullable<typeof t> => !!t && !skipped.has(t.id))
       });
       let choice: string | null = null; try { choice = localStorage.getItem(`night-adjust:${date}`); } catch { /* */ }
       if (adj?.kind === 'swap' && choice !== 'kept') {
@@ -111,7 +112,7 @@ export function useTimeline(date: DateKey): TLItem[] | undefined {
     });
   }
 
-  const plannedT = plannedTraining(planFor(plans, 'training', date), date).map((id) => wt.find((t) => t.id === id)).filter((t): t is NonNullable<typeof t> => !!t);
+  const plannedT = plannedTraining(planFor(plans, 'training', date), date, extras).map((id) => wt.find((t) => t.id === id)).filter((t): t is NonNullable<typeof t> => !!t);
   const usedWorkouts = new Set<string>();
   for (const t of plannedT) {
     const w = workouts.find((x) => x.templateId === t.id) ?? workouts.find((x) => !usedWorkouts.has(x.id) && x.modalityId === t.modalityId);

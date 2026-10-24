@@ -21,6 +21,7 @@ export function TrainingScreen() {
   const [params, setParams] = useSearchParams();
   const workouts = useByDate('workout', date);
   const skips = useByDate('skip', date);
+  const extras = useByDate('extra', date);
   const mods = useAll('modality');
   const tmpls = useAll('wtemplate');
   const plans = useAll('plan');
@@ -39,7 +40,7 @@ export function TrainingScreen() {
     }
   }, [params, tmpls]);
 
-  const planned = plannedTraining(planFor(plans ?? [], 'training', date), date)
+  const planned = plannedTraining(planFor(plans ?? [], 'training', date), date, extras)
     .map((id) => tmpls?.find((t) => t.id === id)).filter((t): t is NonNullable<typeof t> => !!t);
   const modName = (id?: string) => mods?.find((m) => m.id === id)?.name ?? 'Treino';
   const mod = mods?.find((m) => m.id === draft?.modalityId);

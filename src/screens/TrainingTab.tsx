@@ -50,6 +50,7 @@ export function TrainingTab() {
   const we = addDays(ws, 6);
   const workouts = useByRange('workout', ws, we);
   const skips = useByRange('skip', ws, we);
+  const extras = useByRange('extra', ws, we);
   const history = useByRange('workout', addDays(todayKey(), -120), todayKey());
   const wellness = useByRange('wellness', ws, we);
   const plans = useAll('plan');
@@ -62,7 +63,7 @@ export function TrainingTab() {
   if (!workouts || !plans || !tmpls || !mods || !skips) return <div className="screen"><TopBar /></div>;
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(ws, i));
-  const plannedOf = (d: DateKey) => plannedTraining(planFor(plans, 'training', d), d).map((id) => tmpls.find((t) => t.id === id)).filter((t): t is WorkoutTemplate => !!t);
+  const plannedOf = (d: DateKey) => plannedTraining(planFor(plans, 'training', d), d, extras).map((id) => tmpls.find((t) => t.id === id)).filter((t): t is WorkoutTemplate => !!t);
   const doneOf = (d: DateKey) => workouts.filter((w) => w.date === d);
   const modName = (id: string) => mods.find((m) => m.id === id)?.name ?? 'Treino';
 
