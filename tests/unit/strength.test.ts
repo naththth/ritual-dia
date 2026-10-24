@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { defaultExercises, variationOptions, suggestLoad, plannedLoad, programFor, withPlanned } from '../../src/domain/strength';
+import { exercisesFromNote, defaultExercises, variationOptions, suggestLoad, plannedLoad, programFor, withPlanned } from '../../src/domain/strength';
 import type { Workout, StrengthExercise } from '../../src/db/types';
 
 const ex = (p: Partial<StrengthExercise> = {}): StrengthExercise => ({ id: 'a', group: 'Pernas', name: 'Agachamento livre', sets: 3, reps: 10, loadKg: 40, ...p });
@@ -43,5 +43,21 @@ describe('musculação', () => {
     const p = programFor({ muscles: ['Costas'] }, [], '2026-10-17');
     expect(p.exercises).toHaveLength(2);
     expect(withPlanned([ex()])[0].planned).toEqual({ name: 'Agachamento livre', sets: 3, reps: 10, loadKg: 40 });
+  });
+});
+
+describe('roteiro escrito no treino', () => {
+  const note = 'Bi-sets.\n\n1. Agachamento goblet ou livre 3x6-10\n2. Barra fixa assistida ou puxada neutra 3x6-10\n3. Flexão de braço ou supino reto 3x8-12\n4. Mesa flexora 3x10-12\n5. Elevação lateral 2x12-15\n6. Dead bug 3x8 por lado';
+  it('vira os exercícios do dia, com o topo da faixa', () => {
+    const e = exercisesFromNote(note);
+    expect(e.map((x) => x.name)).toEqual(['Agachamento goblet', 'Barra fixa assistida', 'Flexão de braço', 'Mesa flexora', 'Elevação lateral', 'Dead bug']);
+    expect(e.map((x) => x.group)).toEqual(['Pernas', 'Costas', 'Peito', 'Pernas', 'Ombros', 'Core']);
+    expect(e[0]).toMatchObject({ sets: 3, reps: 10 });
+    expect(e[4]).toMatchObject({ sets: 2, reps: 15 });
+  });
+  it('sem roteiro, cai na sessão montada pelos grupos', () => {
+    expect(exercisesFromNote('só texto')).toEqual([]);
+    expect(defaultExercises(['Pernas'], 'só texto')).toHaveLength(2);
+    expect(defaultExercises(['Pernas'], note)).toHaveLength(6);
   });
 });

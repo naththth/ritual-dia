@@ -29,8 +29,36 @@ export const groupsOf = (muscles?: string[]): string[] => {
   return Array.from(new Set(gs));
 };
 
-/** Sessão sugerida para os grupos do treino, quando ela ainda não escolheu exercícios. */
-export function defaultExercises(muscles?: string[]): StrengthExercise[] {
+const GROUP_HINTS: [RegExp, string][] = [
+  [/p[ée]lvica|gl[úu]teo|ponte|abdu/i, 'Glúteos'],
+  [/agacha|flexora|extensora|leg press|afundo|stiff|passada/i, 'Pernas'],
+  [/barra fixa|puxada|remada|pulldown/i, 'Costas'],
+  [/flex[ãa]o|supino|crucifixo|crossover/i, 'Peito'],
+  [/lateral|frontal|desenvolvimento|face pull|arnold/i, 'Ombros'],
+  [/rosca|tr[íi]ceps/i, 'Braços'],
+  [/dead bug|prancha|abdominal|pallof|eleva[çc][ãa]o de pernas/i, 'Core']
+];
+
+/** Lê o roteiro escrito no treino ("1. Agachamento goblet ou livre 3x6-10") e devolve os exercícios.
+ *  Com "A ou B", fica o que casa com o catálogo (senão o primeiro); repetições = topo da faixa. */
+export function exercisesFromNote(note?: string): StrengthExercise[] {
+  const out: StrengthExercise[] = [];
+  for (const line of (note ?? '').split('\n')) {
+    const m = line.match(/^\s*\d+[.)]\s+(.+?)\s+(\d+)\s*[x×]\s*(\d+)(?:\s*-\s*(\d+))?/i);
+    if (!m) continue;
+    const alts = m[1].split(/\s+ou\s+/i).map((a) => a.trim()).filter(Boolean);
+    const name = alts.find((a) => exerciseGroupOf(a)) ?? alts[0];
+    const group = exerciseGroupOf(name) ?? GROUP_HINTS.find(([re]) => re.test(name))?.[1];
+    if (!group) continue;
+    out.push({ id: newExerciseId(), group, name: name.charAt(0).toUpperCase() + name.slice(1), sets: Number(m[2]), reps: Number(m[4] ?? m[3]) });
+  }
+  return out;
+}
+
+/** Sessão do treino quando ela ainda não escolheu exercícios: o roteiro escrito, ou uma montada pelos grupos. */
+export function defaultExercises(muscles?: string[], note?: string): StrengthExercise[] {
+  const fromNote = exercisesFromNote(note);
+  if (fromNote.length) return fromNote;
   const groups = groupsOf(muscles);
   const per = groups.length > 3 ? 1 : PER_GROUP;
   return groups.flatMap((g) => EXERCISE_CATALOG[g].slice(0, per).map((name) => ({ id: newExerciseId(), group: g, name, sets: 3, reps: DEFAULT_REPS[g] ?? 10 })));
@@ -87,8 +115,8 @@ export function plannedLoad(ex: StrengthExercise, done: Workout[], today: DateKe
 }
 
 /** O programado do dia, com as cargas já calculadas. */
-export function programFor(t: Pick<WorkoutTemplate, 'exercises' | 'muscles'>, done: Workout[], today: DateKey): { exercises: StrengthExercise[]; why: Record<string, string> } {
-  const base = t.exercises?.length ? t.exercises : defaultExercises(t.muscles);
+export function programFor(t: Pick<WorkoutTemplate, 'exercises' | 'muscles' | 'note'>, done: Workout[], today: DateKey): { exercises: StrengthExercise[]; why: Record<string, string> } {
+  const base = t.exercises?.length ? t.exercises : defaultExercises(t.muscles, t.note);
   const why: Record<string, string> = {};
   const exercises = base.map((ex) => {
     const p = plannedLoad(ex, done, today);

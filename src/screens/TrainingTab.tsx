@@ -326,7 +326,7 @@ function WorkoutFeedback({ w }: { w: Workout }) {
 function PlannedStrength({ t, history, date, onDone }: { t: WorkoutTemplate; history: Workout[]; date: DateKey; onDone: (exs: StrengthExercise[]) => void }) {
   // Na primeira vez, grava a sessão sugerida no modelo: dali em diante o que ela escolher fica.
   useEffect(() => {
-    if (!t.exercises?.length) { const d = defaultExercises(t.muscles); if (d.length) update<'wtemplate'>(t.id, { exercises: d }); }
+    if (!t.exercises?.length) { const d = defaultExercises(t.muscles, t.note); if (d.length) update<'wtemplate'>(t.id, { exercises: d }); }
   }, [t.id, t.exercises?.length]);
   const { exercises, why } = programFor(t, history, date);
   if (!t.exercises?.length && !exercises.length) return <button className="pill-act pa-blue" style={{ marginTop: 10 }} data-testid="train-done" onClick={() => onDone([])}>Feito</button>;
