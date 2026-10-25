@@ -728,3 +728,20 @@ button.food-line { width: 100%; text-align: left; }
 .ex-sum { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .ex-sum li { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; font-size: 14.5px; }
 .ex-sum li > span:nth-child(2) { font-weight: 700; }
+
+/* Treinadora: barra de cima (memória, conversas anteriores, nova conversa) e campo de mensagem no rodapé da folha */
+.coach-bar { position: sticky; top: -4px; z-index: 1; background: var(--paper); padding: 4px 0 6px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 0 0 8px; font-size: 14px; min-height: 24px; }
+.coach-bar:empty { display: none; }
+.coach-past { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.coach-past button { width: 100%; text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border-radius: 14px; background: var(--paper-2); line-height: 1.35; }
+.coach-past b { font-weight: 600; font-size: 14.5px; }
+.sheet .sh-foot:has(.composer) { border-top: 1px solid var(--line); padding: 10px 14px calc(10px + var(--safe-b)); }
+.composer { flex: 1; min-width: 0; display: flex; align-items: flex-end; gap: 4px; padding: 4px 4px 4px 16px; border-radius: 26px; background: var(--card); border: 1.5px solid var(--line-2); transition: border-color .15s; }
+.composer:focus-within { border-color: var(--ink-2); }
+.composer textarea { flex: 1; min-width: 0; min-height: 42px; max-height: 140px; margin: 0; padding: 10px 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; outline: none; resize: none; line-height: 1.4; font-size: 16px; overflow-y: auto; scrollbar-width: none; }
+.composer textarea::-webkit-scrollbar { display: none; }
+.composer textarea::placeholder { color: var(--ink-2); opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.composer .mic-btn.mic-compact { width: 42px; height: 42px; border: 0; background: transparent; }
+.composer .mic-btn.mic-compact.on { background: var(--wine); }
+.composer-send { flex: 0 0 auto; width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; background: var(--wine); color: var(--wine-ink); transition: opacity .15s; }
+.composer-send:disabled { opacity: .3; }

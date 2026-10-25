@@ -1,17 +1,18 @@
 // A treinadora na aba Treino: ela conta como foi, o que é diferente nos treinos e nos dias, e o app se ajusta.
 import { useEffect, useRef, useState } from 'react';
-import { Check, Send, Sparkles, Undo2, X } from 'lucide-react';
+import { ArrowLeft, Check, History, Plus, Send, Sparkles, Undo2, X } from 'lucide-react';
 import { Sheet } from '../ui/ui';
 import { useSettings } from '../db/hooks';
 import { update } from '../db/db';
 import { toast } from '../state/store';
 import { MicButton, appendText } from '../ui/Dictation';
 import { aiAvailable } from '../domain/ai';
-import { approveProposal, askCoach, loadCoachChat, saveCoachChat, undoCoach, type CoachMsg, type CoachProposal } from '../domain/coach';
+import { approveProposal, archiveCoachChat, askCoach, loadCoachSessions, openCoachChat, saveCoachChat, undoCoach, type CoachMsg, type CoachProposal, type CoachSession } from '../domain/coach';
 import type { WorkoutStep } from '../db/types';
 import { PlanChat } from './specialist';
 
 const DAYS = ['', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
+const when = (t: number) => { const d = new Date(t); return `${DAYS[d.getDay() || 7]} ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}, ${d.toTimeString().slice(0, 5)}`; };
 const EXAMPLES = [
   'Hoje não vou à yoga, monta um pedal de 45 min no lugar',
   'Toda musculação de terça e quinta à noite é LPO',
@@ -39,10 +40,41 @@ function CoachSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [planOpen, setPlanOpen] = useState(false);
   const [showKnown, setShowKnown] = useState(false);
-  const endRef = useRef<HTMLDivElement>(null);
+  const [past, setPast] = useState<CoachSession[]>([]);
+  const [viewing, setViewing] = useState<CoachSession | null>(null);
+  const [showPast, setShowPast] = useState(false);
+  const logRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const opened = useRef(false);
 
-  useEffect(() => { if (open) void loadCoachChat().then(setMsgs); }, [open]);
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [msgs.length, busy]);
+  // A rolagem é da folha (sh-body), não da lista: desce até a última mensagem.
+  const toBottom = (smooth: boolean) => {
+    const box = logRef.current?.closest('.sh-body') as HTMLElement | null;
+    if (!box) return;
+    const go = () => box.scrollTo({ top: box.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+    go();
+    requestAnimationFrame(() => requestAnimationFrame(go)); // de novo depois que o layout (e a animação da folha) assentar
+  };
+
+  useEffect(() => {
+    if (!open) { opened.current = false; setViewing(null); setShowPast(false); return; }
+    void (async () => { const m = await openCoachChat(); setPast(await loadCoachSessions()); setMsgs(m); })(); // nessa ordem: abrir pode encerrar a conversa parada
+  }, [open]);
+  useEffect(() => {
+    if (!open || viewing) return;
+    // Ao abrir: direto no fim, sem animação. Depois: desce suave a cada mensagem enviada ou recebida.
+    toBottom(opened.current);
+    opened.current = true;
+  }, [msgs.length, busy, open, viewing]);
+
+  useEffect(() => { if (viewing) (logRef.current?.closest('.sh-body') ?? document.querySelector('[data-testid="coach"] .sh-body'))?.scrollTo({ top: 0 }); }, [viewing]);
+
+  const newChat = async () => {
+    if (busy) return;
+    await archiveCoachChat(msgs);
+    setMsgs([]); setPast(await loadCoachSessions()); setShowPast(false); setViewing(null);
+    inputRef.current?.focus();
+  };
 
   const commit = (list: CoachMsg[]) => { setMsgs(list); void saveCoachChat(list); };
 
@@ -51,6 +83,7 @@ function CoachSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
     if (!t || busy) return;
     const list = [...msgs, { from: 'me' as const, text: t, at: Date.now() }];
     commit(list); setInput(''); setBusy(true);
+    if (inputRef.current) inputRef.current.style.height = '';
     try {
       const reply = await askCoach(t, msgs);
       commit([...list, reply]);
@@ -86,27 +119,68 @@ function CoachSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const lastWithUndo = msgs.map((m) => !!m.undo?.length && !m.undone).lastIndexOf(true);
 
   return (
-    <Sheet open={open} onClose={onClose} title="Treinadora" sub="Conte como foi e o que é diferente; eu ajusto no app" testId="coach">
-      {(rules.length > 0 || prefs.length > 0) && (
-        <div className="coach-known">
+    <Sheet open={open} onClose={onClose} title="Treinadora" sub="Conte como foi e o que é diferente; eu ajusto no app" testId="coach"
+      footer={viewing ? (
+        <button className="btn btn-soft grow" onClick={() => setViewing(null)}><ArrowLeft size={16} /> Voltar à conversa de agora</button>
+      ) : (
+        <div className="composer">
+          <textarea ref={inputRef} value={input} rows={1} aria-label="Mensagem para a treinadora" data-testid="coach-input" placeholder="Conte para a treinadora…"
+            onChange={(e) => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = `${Math.min(140, e.target.scrollHeight)}px`; }}
+            onFocus={() => setTimeout(() => toBottom(true), 250)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && window.matchMedia('(pointer: fine)').matches) { e.preventDefault(); void send(); } }} />
+          <MicButton compact label="Falar" onText={(t) => setInput((x) => appendText(x, t))} />
+          <button className="composer-send" onClick={() => void send()} disabled={!input.trim() || busy} aria-label="Enviar" data-testid="coach-send"><Send size={18} /></button>
+        </div>
+      )}>
+      <div className="coach-bar">
+        {(rules.length > 0 || prefs.length > 0) && !viewing && (
           <button className="link" onClick={() => setShowKnown(!showKnown)}>{showKnown ? 'Ocultar' : 'O que eu já sei'} ({rules.length + prefs.length})</button>
-          {showKnown && (
-            <ul>
-              {rules.map((r) => (
-                <li key={r.id}>
-                  <span><b>Regra.</b> {r.text}{r.weekdays?.length ? ` · ${r.weekdays.map((d) => DAYS[d]).join(', ')}` : ''}{r.from || r.to ? ` · ${r.from ?? '00:00'}–${r.to ?? '23:59'}` : ''}</span>
-                  <button className="icon-btn" aria-label="Remover regra" onClick={() => removeRule(r.id)}><X size={16} /></button>
-                </li>
-              ))}
-              {prefs.map((p) => (
-                <li key={p}><span>{p}</span><button className="icon-btn" aria-label="Remover preferência" onClick={() => removePref(p)}><X size={16} /></button></li>
-              ))}
-            </ul>
-          )}
+        )}
+        <span className="grow" />
+        {past.length > 0 && !viewing && <button className="link" onClick={() => setShowPast(!showPast)} data-testid="coach-past"><History size={14} style={{ verticalAlign: '-2px' }} /> Anteriores</button>}
+        {msgs.some((m) => m.from === 'me') && !viewing && <button className="link" onClick={() => void newChat()} disabled={busy} data-testid="coach-new"><Plus size={14} style={{ verticalAlign: '-2px' }} /> Nova conversa</button>}
+      </div>
+      {showKnown && !viewing && (
+        <div className="coach-known">
+          <ul>
+            {rules.map((r) => (
+              <li key={r.id}>
+                <span><b>Regra.</b> {r.text}{r.weekdays?.length ? ` · ${r.weekdays.map((d) => DAYS[d]).join(', ')}` : ''}{r.from || r.to ? ` · ${r.from ?? '00:00'}–${r.to ?? '23:59'}` : ''}</span>
+                <button className="icon-btn" aria-label="Remover regra" onClick={() => removeRule(r.id)}><X size={16} /></button>
+              </li>
+            ))}
+            {prefs.map((p) => (
+              <li key={p}><span>{p}</span><button className="icon-btn" aria-label="Remover preferência" onClick={() => removePref(p)}><X size={16} /></button></li>
+            ))}
+          </ul>
         </div>
       )}
+      {showPast && !viewing && (
+        <ul className="coach-past" data-testid="coach-past-list">
+          {past.map((c) => (
+            <li key={c.id}>
+              <button onClick={() => { setViewing(c); setShowPast(false); }}>
+                <span className="small muted">{when(c.start)}</span>
+                <b>{c.title || 'Conversa'}</b>
+                {c.done.length ? <span className="small">{c.done.length} {c.done.length === 1 ? 'mudança' : 'mudanças'} no app</span> : null}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
 
-      <div className="chat" data-testid="coach-log">
+      {viewing ? (
+        <div className="chat" data-testid="coach-old">
+          <p className="small muted" style={{ margin: '4px 0' }}>Conversa de {when(viewing.start)}, encerrada. O que mudou no app continua valendo.</p>
+          {viewing.msgs.map((m, i) => (
+            <div key={i} className={`bubble ${m.from}`}>
+              <p>{m.text}</p>
+              {m.done?.length ? <div className="nf coach-done"><b>{m.undone ? 'Desfeito' : 'Mudei no app'}</b><ul className={m.undone ? 'struck' : ''}>{m.done.map((d, k) => <li key={k}>{d}</li>)}</ul></div> : null}
+            </div>
+          ))}
+        </div>
+      ) : (
+      <div className="chat" data-testid="coach-log" ref={logRef}>
         {!msgs.length && (
           <div className="bubble ai">
             <p>Me conte o que o app precisa saber sobre os seus treinos: o que o relógio registra errado, o que muda em cada dia, como você se sentiu. Eu corrijo os registros, crio regras para as próximas vezes e guardo o que deve valer para os planos.</p>
@@ -134,16 +208,8 @@ function CoachSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
           </div>
         ))}
         {busy && <div className="bubble ai typing"><Sparkles size={15} /> Lendo seus treinos…</div>}
-        <div ref={endRef} />
       </div>
-
-      <div className="chat-input">
-        <textarea value={input} rows={1} aria-label="Mensagem para a treinadora" data-testid="coach-input" placeholder="Ex.: a musculação de ontem foi LPO"
-          onChange={(e) => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = `${Math.min(140, e.target.scrollHeight)}px`; }}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && window.matchMedia('(pointer: fine)').matches) { e.preventDefault(); void send(); } }} />
-        <MicButton compact label="Falar" onText={(t) => setInput((x) => appendText(x, t))} />
-        <button className="chat-send icon" onClick={() => void send()} disabled={!input.trim() || busy} aria-label="Enviar" data-testid="coach-send"><Send size={18} /></button>
-      </div>
+      )}
       <PlanChat domain="training" open={planOpen} onClose={() => setPlanOpen(false)} />
     </Sheet>
   );

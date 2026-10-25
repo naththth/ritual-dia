@@ -3,6 +3,7 @@ import { db, all, byDateRange, get, remove, restore, update, upsert, uid, getMet
 import { addDays, isoWeekday, todayKey, type DateKey } from '../lib/dates';
 import { planFor, plannedTraining } from './rules';
 import { askAI } from './ai';
+import { exerciseVolume, topLoad } from './strength';
 import type { AnyRecord, Intensity, TrainingRule, Workout, WorkoutStep } from '../db/types';
 
 /** Treino que a treinadora montou para um dia e espera o aprovo dela antes de entrar no app e no MyWhoosh. */
@@ -38,13 +39,53 @@ export interface CoachMsg {
 }
 
 const KEY = 'coach-chat';
+const SESS = 'coach-sessions';
 const DAY = ['', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
+/** Sem mensagem há mais que isto, a conversa vira sessão encerrada e a próxima abertura começa do zero. */
+export const COACH_STALE_MS = 6 * 3600_000;
+
+/** Conversa encerrada: só o assunto e o que mudou no app vão para as próximas conversas. */
+export interface CoachSession { id: string; start: number; end: number; title: string; done: string[]; msgs: CoachMsg[] }
 
 export async function loadCoachChat(): Promise<CoachMsg[]> {
   return (await getMeta<CoachMsg[]>(KEY)) ?? [];
 }
 export async function saveCoachChat(list: CoachMsg[]) {
   await setMeta(KEY, list.slice(-40));
+}
+export async function loadCoachSessions(): Promise<CoachSession[]> {
+  return (await getMeta<CoachSession[]>(SESS)) ?? [];
+}
+
+/** Resume a conversa em assunto (a primeira fala dela) e no que de fato mudou no app (sem o que foi desfeito). */
+export function summarizeSession(msgs: CoachMsg[]): CoachSession {
+  const first = msgs.find((m) => m.from === 'me')?.text.trim() ?? '';
+  const done = msgs.flatMap((m) => (m.undone ? [] : m.done ?? []));
+  const start = msgs[0]?.at ?? Date.now();
+  return {
+    id: `cs${start.toString(36)}`, start, end: msgs[msgs.length - 1]?.at ?? start,
+    title: first.length > 70 ? `${first.slice(0, 68).trimEnd()}…` : first,
+    done: Array.from(new Set(done)).slice(0, 12),
+    // Guardada para consulta; sem as cópias de registros do desfazer, que só valem na conversa aberta.
+    msgs: msgs.map(({ undo, ...m }) => m)
+  };
+}
+
+/** Encerra a conversa atual: vai para as anteriores (se ela chegou a falar algo) e a atual fica vazia. */
+export async function archiveCoachChat(msgs: CoachMsg[]) {
+  if (msgs.some((m) => m.from === 'me')) {
+    const list = await loadCoachSessions();
+    await setMeta(SESS, [summarizeSession(msgs), ...list].slice(0, 30));
+  }
+  await setMeta(KEY, []);
+}
+
+/** Ao abrir: continua a conversa do momento ou, se parada há horas, encerra e começa outra. */
+export async function openCoachChat(now = Date.now()): Promise<CoachMsg[]> {
+  const msgs = await loadCoachChat();
+  const last = msgs[msgs.length - 1]?.at ?? 0;
+  if (msgs.length && now - last > COACH_STALE_MS) { await archiveCoachChat(msgs); return []; }
+  return msgs;
 }
 
 const hhmm = (iso?: string) => { if (!iso) return undefined; const d = new Date(iso); return Number.isNaN(d.getTime()) ? undefined : d.toTimeString().slice(0, 5); };
@@ -57,16 +98,24 @@ async function context(text: string, history: CoachMsg[]) {
   const extras = await byDateRange('extra', addDays(today, -7), addDays(today, 7));
   const tp = planFor(plans, 'training', today);
   const tname = (id?: string) => tmpls.find((t) => t.id === id)?.name;
+  const sessions = (await loadCoachSessions()).slice(0, 3);
   return {
     hoje: today,
     dia_semana_hoje: isoWeekday(today),
     fala_dela: text,
+    // Só a conversa aberta vai inteira; das anteriores, o assunto e o que mudou.
+    conversas_anteriores: sessions.map((c) => ({ data: new Date(c.start).toISOString().slice(0, 10), assunto: c.title, mudou_no_app: c.done.slice(0, 6) })),
     conversa: history.slice(-12).map((m) => ({ quem: m.from === 'me' ? 'ela' : 'treinadora', texto: m.text, feito: m.done })),
     modalidades: mods.filter((m) => !m.archived).map((m) => ({ id: m.id, nome: m.name })),
     treinos_recentes: workouts.map((w) => ({
       id: w.id, data: w.date, dia_semana: isoWeekday(w.date), horario: hhmm(w.startTime), nome: w.name ?? tname(w.templateId),
       modalidade_id: w.modalityId, origem: w.metrics?.source ?? 'registro manual', esporte_do_relogio: w.metrics?.sport,
       minutos: w.duration, intensidade: w.intensity, esforco: w.rpe, como_foi: w.feeling, reclassificado_de: w.reclassifiedFrom,
+      // Musculação: o que ela lançou no card do treino (carga da série mais pesada, carga de cada série e o programado).
+      exercicios: w.exercises?.length ? w.exercises.map((e) => ({
+        nome: e.name, series: e.sets, reps: e.reps, carga_kg: topLoad(e), cargas_por_serie: e.setLoads?.length ? e.setLoads : undefined,
+        volume_kg: exerciseVolume(e), programado: e.planned ? { nome: e.planned.name, series: e.planned.sets, reps: e.planned.reps, carga_kg: topLoad(e.planned) } : undefined
+      })) : undefined,
       metricas: w.metrics ? { tss: w.metrics.tss, np: w.metrics.np, potencia_media: w.metrics.avgPower, fc_media: w.metrics.avgHr, kcal: w.metrics.kcal, km: w.metrics.distanceKm } : undefined
     })),
     plano_da_semana: [1, 2, 3, 4, 5, 6, 7].map((d) => ({ dia: d, nome_dia: DAY[d], treinos: (tp?.training?.[d] ?? []).map((id) => tmpls.find((t) => t.id === id)).filter(Boolean).map((t) => ({ template_id: t!.id, nome: t!.name, modalidade_id: t!.modalityId, horario: t!.time, minutos: t!.duration })) })),
