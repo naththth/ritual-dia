@@ -81,7 +81,7 @@ test('rotina da noite por etapa e área, com produto que ela já tem', async ({ 
   await page.getByRole('button', { name: 'Pronto' }).click();
   const rosto = page.getByTestId('skin-sec-pos-rosto').locator('[data-testid=product-pick]');
   await expect(rosto.first()).toContainText('Sérum B5');
-  await expect(rosto.first().locator('.num-badge')).toHaveText('1');
+  await expect(rosto.first().getByTestId('step-line')).toContainText('Passo 1');
   await page.getByTestId('reorder-pos-rosto').click();
   await page.getByTestId('reorder-row').first().getByRole('button', { name: 'Descer' }).click();
   await expect(page.getByTestId('reorder-row').first()).toContainText('Retinol 0.3');

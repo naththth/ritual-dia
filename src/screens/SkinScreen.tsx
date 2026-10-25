@@ -13,7 +13,7 @@ import { cycleInfo } from '../domain/cycle';
 import { useCycle } from './cycle';
 import { saveSkin, skinId, deleteRecord } from '../domain/actions';
 import { update } from '../db/db';
-import { AREAS, OWNED, STEPS, applicationOrder, layerOf, productStep, shortUse, type Area, type Step } from '../domain/skinSteps';
+import { AREAS, OWNED, STEPS, applicationOrder, layerLabel, layerOf, productStep, shortUse, type Area, type Step } from '../domain/skinSteps';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import { SpecialistLink } from './specchat';
 import { ProductThumb } from '../ui/ProductThumb';
@@ -263,8 +263,9 @@ export function ProductPick({ p, on, onClick, tag, num }: { p: Product; on: bool
   return (
     <button className={`pick ${on ? 'on' : ''}`} onClick={onClick} aria-pressed={on} data-testid="product-pick">
       <span className={`check ${on ? 'on' : ''}`} aria-hidden>{on && '✓'}</span>
-      <span className="thumb-wrap"><ProductThumb p={p} />{num != null && <i className="num-badge" aria-label={`Passo ${num}`}>{num}</i>}</span>
+      <ProductThumb p={p} />
       <span className="grow">
+        {num != null && <span className="step-line" data-testid="step-line">Passo {num} · {layerLabel(layerOf(p))}</span>}
         <span className="brand">{p.brand}</span><br />
         <span className="nm">{p.name}</span>
         {num != null && shortUse(p) && <span className="use-line">{shortUse(p)}</span>}
