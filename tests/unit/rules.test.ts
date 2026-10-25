@@ -67,6 +67,8 @@ describe('planos por dia da semana', () => {
   it('alerta de conferência só com dois ativos marcados por ela', () => {
     expect(activesTogether(['ret', 'hid'], products)).toEqual([]);
     expect(activesTogether(['ret', 'bha'], products).map((p) => p.id)).toEqual(['ret', 'bha']);
+    const corpo = { ...products.find((p) => p.id === 'bha')!, id: 'bhac', area: 'corpo' as const };
+    expect(activesTogether(['ret', 'bhac'], [...products, corpo])).toEqual([]);
   });
   it('versão vigente respeita a data: o passado mantém o plano antigo', () => {
     const v2: Plan = { ...plan, id: 'p2', validFrom: '2026-11-01', skin: { ...plan.skin!, pm: { base: ['hid'], days: {} } } };

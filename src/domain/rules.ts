@@ -78,9 +78,12 @@ export function planSaveTarget(current: Plan | undefined, today: DateKey): { mod
 }
 
 /** Ativos marcados por ela que aparecem juntos no mesmo período (alerta de conferência, não regra). */
+/** Ativos fortes que se encontram na mesma pele: só conta quando são da mesma área (retinol no rosto e ácido no corpo não se somam). */
 export function activesTogether(ids: string[], products: Product[]): Product[] {
   const act = products.filter((p) => p.active && ids.includes(p.id));
-  return act.length >= 2 ? act : [];
+  const byArea = new Map<string, Product[]>();
+  for (const p of act) { const a = p.area ?? 'rosto'; byArea.set(a, [...(byArea.get(a) ?? []), p]); }
+  return [...byArea.values()].filter((l) => l.length >= 2).flat();
 }
 
 /* ---------------- Hábitos ---------------- */

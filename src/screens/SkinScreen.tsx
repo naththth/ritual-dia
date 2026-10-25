@@ -230,7 +230,7 @@ export function SkinScreen() {
 
       {alert.length > 0 && (
         <p className="notice" style={{ marginTop: 12 }} role="note">
-          Você marcou {alert.map((p) => p.name).join(' e ')} como ativos e eles estão juntos neste período. Confira se é isso mesmo. É só um lembrete, não uma recomendação.
+          Você marcou {alert.map((p) => p.name).join(' e ')} como ativos e eles estão juntos {({ rosto: 'no rosto', corpo: 'no corpo', cabelo: 'no couro cabeludo' } as Record<string, string>)[alert[0].area ?? 'rosto']} neste período. Confira se é isso mesmo. É só um lembrete, não uma recomendação.
         </p>
       )}
 
