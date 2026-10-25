@@ -1,7 +1,9 @@
 // Conversa com a treinadora na aba Treino: ela conta o que aconteceu, a IA traduz em ações e o app aplica.
 import { db, all, byDateRange, get, remove, restore, update, upsert, uid, getMeta, setMeta } from '../db/db';
 import { addDays, isoWeekday, todayKey, type DateKey } from '../lib/dates';
-import { planFor, plannedTraining } from './rules';
+import { planFor, plannedFood, plannedTraining } from './rules';
+import { portionText, totals } from './nutrition';
+import { wellnessForAI } from './wellness';
 import { askAI } from './ai';
 import { exerciseVolume, topLoad } from './strength';
 import type { AnyRecord, Intensity, TrainingRule, Workout, WorkoutStep } from '../db/types';
@@ -99,6 +101,8 @@ async function context(text: string, history: CoachMsg[]) {
   const tp = planFor(plans, 'training', today);
   const tname = (id?: string) => tmpls.find((t) => t.id === id)?.name;
   const sessions = (await loadCoachSessions()).slice(0, 3);
+  const food = await foodContext(today, plans, settings);
+  const wellness = (await byDateRange('wellness', addDays(today, -3), today)).sort((a, b) => a.date.localeCompare(b.date)).map(wellnessForAI);
   return {
     hoje: today,
     dia_semana_hoje: isoWeekday(today),
@@ -133,7 +137,37 @@ async function context(text: string, history: CoachMsg[]) {
     })),
     pulados: skips.map((s) => ({ data: s.date, template_id: s.ref, nome: tname(s.ref) })),
     regras_de_classificacao: (settings?.trainingRules ?? []).map((r) => ({ id: r.id, descricao: r.text, de_modalidade_id: r.fromModalityId, para_modalidade_id: r.toModalityId, dias_semana: r.weekdays, de: r.from, ate: r.to })),
-    preferencias_de_treino: settings?.aiPrefs?.training ?? ''
+    preferencias_de_treino: settings?.aiPrefs?.training ?? '',
+    // Visão do resto do dia dela, em resumo: o que comeu (hoje e ontem), metas e recuperação.
+    alimentacao: food,
+    sono_e_recuperacao: wellness
+  };
+}
+
+/** Refeições de hoje e de ontem com horário, itens e macros, mais as metas do dia: o suficiente para falar de pré e pós-treino. */
+async function foodContext(today: DateKey, plans: Awaited<ReturnType<typeof all<'plan'>>>, settings?: Awaited<ReturnType<typeof get<'settings'>>>) {
+  const [meals, foods, mtmpls, water] = await Promise.all([byDateRange('meal', addDays(today, -1), today), all('food'), all('mtemplate'), byDateRange('water', today, today)]);
+  const label = (id: string) => settings?.mealTypes?.find((m) => m.id === id)?.label ?? id;
+  const r1 = (n?: number) => (n == null ? undefined : Math.round(n));
+  const macros = (n: { kcal: number; p: number; c: number; f: number }) => ({ kcal: r1(n.kcal), proteina_g: r1(n.p), carbo_g: r1(n.c), gordura_g: r1(n.f) });
+  const planItems = Object.values(plannedFood(planFor(plans, 'food', today), today)).flatMap((id) => mtmpls.find((t) => t.id === id)?.items ?? []);
+  const planTot = planItems.length ? totals(planItems, foods).n : undefined;
+  const t = settings?.targets;
+  const eatenToday = totals(meals.filter((m) => m.date === today).flatMap((m) => m.items), foods);
+  return {
+    refeicoes: meals.filter((m) => m.items?.length).sort((a, b) => a.date.localeCompare(b.date) || a.createdAt - b.createdAt).map((m) => {
+      const tot = totals(m.items, foods);
+      return {
+        data: m.date, refeicao: label(m.mealType), horario_planejado: settings?.mealTimes?.[m.mealType], registrada_as: hhmm(new Date(m.createdAt).toISOString()),
+        itens: m.items.map((i) => { const f = foods.find((x) => x.id === i.foodId); return `${f?.name ?? '?'} (${portionText(f, i)})`; }),
+        ...macros(tot.n), itens_sem_tabela: tot.missing || undefined, como_foi: m.feeling || undefined
+      };
+    }),
+    total_hoje: macros(eatenToday.n),
+    meta_do_dia: { kcal: r1(t?.kcal ?? planTot?.kcal), proteina_g: r1(t?.p ?? planTot?.p), carbo_g: r1(t?.c ?? planTot?.c), gordura_g: r1(t?.f ?? planTot?.f), origem: t?.kcal ? 'metas dela' : planTot ? 'plano alimentar' : undefined },
+    agua_hoje_ml: water.reduce((a, w) => a + (w.ml ?? 0), 0) || undefined,
+    restricoes: settings?.foodPrefs?.length ? settings.foodPrefs : undefined,
+    preferencias_alimentacao: settings?.aiPrefs?.food || undefined
   };
 }
 

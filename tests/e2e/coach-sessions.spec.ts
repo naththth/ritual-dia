@@ -26,6 +26,9 @@ test('treinadora: cargas no contexto, rolagem no fim e conversas em sessões', a
     const base = { deleted: 0, dirty: 0, updatedAt: 5, createdAt: 5 };
     st.put({ ...base, id: 'workout:icu:i77', kind: 'workout', date: '2026-10-25', modalityId: 'mod:musculacao', duration: 50, startTime: '2026-10-25T13:00:00Z', metrics: { source: 'intervals', sport: 'WeightTraining' },
       exercises: [{ id: 'e1', group: 'Pernas', name: 'Leg press', sets: 3, reps: 10, loadKg: 120, setLoads: [100, 110, 120], planned: { name: 'Leg press', sets: 3, reps: 10, loadKg: 100 } }] });
+    // Almoço depois do treino, para a treinadora comentar o pós-treino.
+    st.put({ ...base, id: 'food:t-frango', kind: 'food', name: 'Frango grelhado', type: 'Proteínas', portions: ['100 g'], n: { kcal: 160, p: 32, c: 0, f: 3 } });
+    st.put({ ...base, id: 'meal:t-almoco', kind: 'meal', date: '2026-10-25', mealType: 'almoco', items: [{ foodId: 'food:t-frango', portion: '150 g' }], createdAt: new Date('2026-10-25T12:40:00-03:00').getTime() });
     const g = st.get('settings');
     await new Promise((r) => { g.onsuccess = r; });
     st.put({ ...g.result, onboarded: true });
@@ -53,6 +56,10 @@ test('treinadora: cargas no contexto, rolagem no fim e conversas em sessões', a
   const w = ctx.treinos_recentes.find((x: any) => x.id === 'workout:icu:i77');
   expect(w.exercicios[0]).toMatchObject({ nome: 'Leg press', carga_kg: 120, cargas_por_serie: [100, 110, 120], volume_kg: 3300 });
   expect(ctx.conversa.length).toBeLessThanOrEqual(12);
+  const almoco = ctx.alimentacao.refeicoes.find((m: any) => m.data === '2026-10-25');
+  expect(almoco).toMatchObject({ registrada_as: '12:40', proteina_g: 48, kcal: 240 });
+  expect(almoco.itens[0]).toContain('Frango grelhado');
+  expect(Array.isArray(ctx.sono_e_recuperacao)).toBe(true);
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/coach-sessions.png' });
 
   // Sete horas depois: conversa nova, com a anterior resumida.
