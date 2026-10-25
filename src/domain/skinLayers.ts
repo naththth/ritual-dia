@@ -26,12 +26,15 @@ export async function applyLayer(p: Product, x: { camada?: unknown; ordem?: unkn
 
 /** Pede à dermatologista a camada, a posição e o uso dos produtos (todos os que ela tem, ou só os indicados). */
 export async function organizeProducts(onlyIds?: string[], onlyMissing = false): Promise<number> {
-  const products = (await all('product')).filter((p) => (onlyIds ? onlyIds.includes(p.id) : OWNED.has(p.status)) && (!onlyMissing || !p.howShort || !p.layer));
-  if (!products.length) return 0;
+  const owned = (await all('product')).filter((p) => OWNED.has(p.status) || onlyIds?.includes(p.id));
+  const targets = new Set(owned.filter((p) => (!onlyIds || onlyIds.includes(p.id)) && (!onlyMissing || !p.howShort || !p.layer)).map((p) => p.id));
+  if (!targets.size) return 0;
+  // Vão todos os produtos que ela tem, para a posição do novo sair coerente com os outros; grava só nos pedidos.
+  const products = owned;
   let changed = 0;
-  // Em lotes, para a resposta não ficar grande demais.
-  for (let i = 0; i < products.length; i += 40) {
-    const chunk = products.slice(i, i + 40);
+  // Tudo de uma vez, para a ordem dentro de cada camada sair coerente; lotes só acima de 100 produtos.
+  for (let i = 0; i < products.length; i += 100) {
+    const chunk = products.slice(i, i + 100);
     const ctx = {
       camadas: layersForAI(),
       produtos: chunk.map((p, k) => ({
@@ -42,7 +45,7 @@ export async function organizeProducts(onlyIds?: string[], onlyMissing = false):
     const r = await askAI<any>('skin_layers', ctx);
     for (const x of Array.isArray(r?.produtos) ? r.produtos : []) {
       const p = chunk[Number(String(x?.codigo ?? '').slice(1)) - 1];
-      if (p && (await applyLayer(p, x))) changed++;
+      if (p && targets.has(p.id) && (await applyLayer(p, x))) changed++;
     }
   }
   return changed;
