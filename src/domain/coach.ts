@@ -187,6 +187,7 @@ export async function askCoach(text: string, history: CoachMsg[]): Promise<Coach
   const validMod = (id?: string) => !!id && mods.some((m) => m.id === id);
   const label = (w: Workout) => `${modName(w.modalityId)} de ${DAY[isoWeekday(w.date)]} ${w.date.slice(8, 10)}/${w.date.slice(5, 7)}`;
   let rulesChanged = false;
+  let ftpChanged = false;
   let proposal: CoachProposal | undefined;
 
   for (const a of Array.isArray(r?.acoes) ? r.acoes : []) {
@@ -271,6 +272,16 @@ export async function askCoach(text: string, history: CoachMsg[]): Promise<Coach
           note: String(a.nota ?? '').trim() || undefined,
           replaces: (Array.isArray(a.substitui_template_ids) ? a.substitui_template_ids : []).map(String).filter((id: string) => tmpls.some((t) => t.id === id))
         };
+      } else if (a?.tipo === 'atualizar_ftp') {
+        // FTP novo dito por ela (ex.: o que ela configurou no MyWhoosh): vale para watts das propostas e vai ao intervals.icu.
+        const v = Math.round(Number(a.ftp));
+        const s = await get<'settings'>('settings');
+        if (!s || !(v >= 60 && v <= 500)) { failed.push('O FTP veio sem um valor válido em watts.'); continue; }
+        if (s.ftp === v) continue;
+        await snap('settings');
+        await update<'settings'>('settings', { ftp: v });
+        done.push(`FTP agora é ${v} W (era ${s.ftp ?? 'vazio'}).`);
+        ftpChanged = true;
       } else if (a?.tipo === 'pular_planejado') {
         const date = String(a.data ?? '') as DateKey;
         const tpl = await get<'wtemplate'>(String(a.template_id));
@@ -295,6 +306,19 @@ export async function askCoach(text: string, history: CoachMsg[]): Promise<Coach
       }
       done.push(`Apliquei a ${n} ${n === 1 ? 'treino já registrado' : 'treinos já registrados'}.`);
     }
+  }
+
+  // Leva o FTP novo ao intervals.icu já, sem esperar a sincronização da hora cheia.
+  if (ftpChanged) {
+    try {
+      const st = await get<'settings'>('settings');
+      if (st?.intervals?.connected) {
+        const { syncNow } = await import('../sync/sync');
+        const { syncIntervalsNow } = await import('../sync/services');
+        await syncNow(); await syncIntervalsNow(3);
+        done.push('Mandei o FTP novo ao intervals.icu.');
+      }
+    } catch { failed.push('Não consegui mandar o FTP ao intervals agora; vai na próxima sincronização.'); }
   }
 
   return {
