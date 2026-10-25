@@ -81,3 +81,25 @@ describe('editar o treino reescreve o roteiro', () => {
     expect(noteWithExercises(undefined, [exs[1]])).toBe('1. Mesa flexora 3x12');
   });
 });
+
+describe('carga por série', () => {
+  it('lança 60 → 70 → 80 digitando só nas séries que mudam', async () => {
+    const { withSetLoad, loadText, exerciseVolume, topLoad } = await import('../../src/domain/strength');
+    let e = ex({ loadKg: undefined });
+    e = { ...e, ...withSetLoad(e, 0, 60) };
+    expect(loadText(e)).toBe('60 kg');
+    e = { ...e, ...withSetLoad(e, 1, 70) };
+    e = { ...e, ...withSetLoad(e, 2, 80) };
+    expect(e.setLoads).toEqual([60, 70, 80]);
+    expect(topLoad(e)).toBe(80);
+    expect(e.loadKg).toBe(80);
+    expect(loadText(e)).toBe('60 → 70 → 80 kg');
+    expect(exerciseVolume(e)).toBe(2100);
+  });
+  it('progride pela série mais pesada e mantém a rampa', () => {
+    const planned = { name: 'Agachamento livre', sets: 3, reps: 10, loadKg: 80 };
+    const s = suggestLoad('Agachamento livre', [wo('2026-10-10', [ex({ loadKg: 80, setLoads: [60, 70, 80], planned })])]);
+    expect(s?.loadKg).toBe(84);
+    expect(s?.setLoads).toEqual([63, 73.5, 84]);
+  });
+});

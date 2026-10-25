@@ -719,6 +719,11 @@ button.food-line { width: 100%; text-align: left; }
 .ex-nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .ex-num { display: flex; flex-direction: column; gap: 2px; }
 .ex-num input { min-height: 44px; text-align: center; font-weight: 700; }
+.ex-nums-2 { grid-template-columns: repeat(2, 1fr); }
+.ex-loads { display: flex; flex-direction: column; gap: 4px; }
+.ex-load-row { display: grid; gap: 6px; }
+.ex-num-c .tiny { text-align: center; }
+.ex-num-c input { min-height: 40px; padding-left: 2px; padding-right: 2px; min-width: 0; width: 100%; }
 .ex-add { display: flex; align-items: center; gap: 8px; }
 .ex-sum { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .ex-sum li { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; font-size: 14.5px; }

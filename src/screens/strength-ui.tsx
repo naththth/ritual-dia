@@ -3,14 +3,14 @@ import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import type { StrengthExercise } from '../db/types';
 import { todayKey } from '../lib/dates';
-import { EXERCISE_CATALOG, OTHER_OPTION, exerciseLine, newExerciseId, variationOptions, withPlanned } from '../domain/strength';
+import { EXERCISE_CATALOG, OTHER_OPTION, exerciseLine, exerciseVolume, loadsPerSet, newExerciseId, resizeSets, variationOptions, withPlanned, withSetLoad } from '../domain/strength';
 
-function NumField({ label, value, onChange, step, testid }: { label: string; value?: number; onChange: (n?: number) => void; step: string; testid: string }) {
+function NumField({ label, value, onChange, step, testid, compact }: { label: string; value?: number; onChange: (n?: number) => void; step: string; testid: string; compact?: boolean }) {
   const [txt, setTxt] = useState(value == null ? '' : String(value).replace('.', ','));
   const typed = txt.trim() === '' || Number.isNaN(Number(txt.replace(',', '.'))) ? undefined : Number(txt.replace(',', '.'));
   const shown = typed === value ? txt : value == null ? '' : String(value).replace('.', ',');
   return (
-    <label className="ex-num">
+    <label className={compact ? 'ex-num ex-num-c' : 'ex-num'}>
       <span className="tiny">{label}</span>
       <input type="text" inputMode="decimal" data-step={step} value={shown} data-testid={testid} aria-label={label}
         onChange={(e) => {
@@ -36,14 +36,23 @@ export function ExerciseEditor({ value, onChange, why = {}, compare = false }: {
               <button className="icon-btn" aria-label={`Remover ${e.name}`} onClick={() => onChange(value.filter((x) => x.id !== e.id))}><Trash2 size={16} /></button>
             </div>
             <select value={e.name} aria-label={`Exercício ${i + 1}`} data-testid="exercise-select"
-              onChange={(ev) => (ev.target.value === OTHER_OPTION ? patch(e.id, { round: (e.round ?? 0) + 1 }) : patch(e.id, { name: ev.target.value, loadKg: ev.target.value === e.name ? e.loadKg : undefined, loadAt: undefined }))}>
+              onChange={(ev) => (ev.target.value === OTHER_OPTION ? patch(e.id, { round: (e.round ?? 0) + 1 }) : patch(e.id, { name: ev.target.value, loadKg: ev.target.value === e.name ? e.loadKg : undefined, setLoads: ev.target.value === e.name ? e.setLoads : undefined, loadAt: undefined }))}>
               {opts.map((n) => <option key={n} value={n}>{n}</option>)}
               <option value={OTHER_OPTION}>Trazer outras opções…</option>
             </select>
-            <div className="ex-nums">
-              <NumField label="Séries" value={e.sets} onChange={(n) => patch(e.id, { sets: Math.max(1, Math.round(n ?? 1)) })} step="1" testid="ex-sets" />
+            <div className="ex-nums ex-nums-2">
+              <NumField label="Séries" value={e.sets} onChange={(n) => patch(e.id, resizeSets(e, Math.min(10, Math.max(1, Math.round(n ?? 1)))))} step="1" testid="ex-sets" />
               <NumField label="Repetições" value={e.reps} onChange={(n) => patch(e.id, { reps: Math.max(1, Math.round(n ?? 1)) })} step="1" testid="ex-reps" />
-              <NumField label="Carga (kg)" value={e.loadKg} onChange={(n) => patch(e.id, { loadKg: n, loadAt: n == null ? undefined : todayKey() })} step="0.5" testid="ex-load" />
+            </div>
+            <div className="ex-loads">
+              <span className="tiny">Carga por série (kg)</span>
+              <div className="ex-load-row" style={{ gridTemplateColumns: `repeat(${Math.min(e.sets, 5)}, 1fr)` }}>
+                {loadsPerSet(e).map((kg, si) => (
+                  <NumField key={si} compact label={`${si + 1}ª`} value={e.setLoads?.length ? e.setLoads[si] ?? undefined : kg} step="0.5" testid={si === 0 ? 'ex-load' : 'ex-load-set'}
+                    onChange={(n) => { const l = withSetLoad(e, si, n); patch(e.id, { ...l, loadAt: l.loadKg == null ? undefined : todayKey() }); }} />
+                ))}
+              </div>
+              {(() => { const v = exerciseVolume(e); return v ? <span className="tiny muted">Volume: {Math.round(v).toLocaleString('pt-BR')} kg</span> : null; })()}
             </div>
             {why[e.id] && <span className="tiny muted">Carga {why[e.id]}.</span>}
             {compare && e.planned && (e.planned.name !== e.name || exerciseLine(e.planned) !== exerciseLine(e)) && <span className="tiny muted">Programado: {e.planned.name !== e.name ? `${e.planned.name}, ` : ''}{exerciseLine(e.planned)}</span>}

@@ -16,7 +16,7 @@ import { effectiveSleep, effectiveHrv, wellnessForAI } from '../domain/wellness'
 import { db, update } from '../db/db';
 import { MicButton, appendText } from '../ui/Dictation';
 import type { StrengthExercise, Workout, WorkoutTemplate } from '../db/types';
-import { programFor, defaultExercises, reconcileWithNote, noteWithExercises, parseNoteLine } from '../domain/strength';
+import { programFor, defaultExercises, reconcileWithNote, noteWithExercises, parseNoteLine, loadText, topLoad, loadsPerSet, exerciseVolume } from '../domain/strength';
 import { ExerciseEditor, LogExercises } from './strength-ui';
 import { aiAvailable, askAI, applyTrainingResult } from '../domain/ai';
 import { fmt } from '../domain/nutrition';
@@ -96,7 +96,7 @@ export function TrainingTab() {
         carga_atual: (() => { const l = trainingLoad(history ?? [], addDays(todayKey(), -120), todayKey()).slice(-1)[0]; return l ? { fitness_ctl: Math.round(l.ctl), fadiga_atl: Math.round(l.atl), forma_tsb: Math.round(l.tsb) } : null; })(),
         sono_e_recuperacao_28_dias: (await db.records.where('[kind+date]').between(['wellness', addDays(todayKey(), -28)], ['wellness', todayKey()], true, true).toArray()).filter((r: any) => !r.deleted).map((w: any) => wellnessForAI(w)),
         diario_14_dias: (await db.records.where('[kind+date]').between(['journal', addDays(todayKey(), -14)], ['journal', todayKey()], true, true).toArray()).filter((r: any) => !r.deleted).map((j: any) => ({ data: j.date, energia: j.energy, sono: j.sleep, estresse: j.stress })),
-        treinos_feitos_28_dias: recent.map((w) => ({ data: w.date, modalidade: modName(w.modalityId), minutos: w.duration, do_plano: !!w.fromPlan, metricas: w.metrics ? { ...w.metrics, laps: undefined } : undefined, esforco_percebido: w.rpe, como_foi: w.feeling, exercicios: w.exercises?.map((e) => ({ exercicio: e.name, series: e.sets, repeticoes: e.reps, carga_kg: e.loadKg, programado: e.planned })) }))
+        treinos_feitos_28_dias: recent.map((w) => ({ data: w.date, modalidade: modName(w.modalityId), minutos: w.duration, do_plano: !!w.fromPlan, metricas: w.metrics ? { ...w.metrics, laps: undefined } : undefined, esforco_percebido: w.rpe, como_foi: w.feeling, exercicios: w.exercises?.map((e) => ({ exercicio: e.name, series: e.sets, repeticoes: e.reps, carga_kg_serie_mais_pesada: topLoad(e), carga_kg_por_serie: loadsPerSet(e), volume_kg: exerciseVolume(e), programado: e.planned })) }))
       });
       setReview({ analise: String(r.analise ?? ''), proposta: r.templates?.length ? r : undefined });
     } catch (e: any) { toast(e.message, undefined, 'error'); } finally { setBusy(false); }
@@ -327,7 +327,7 @@ function StrengthNote({ note, exercises }: { note?: string; exercises: StrengthE
   const lines = (note ?? '').split('\n');
   const hasList = lines.some((l) => parseNoteLine(l));
   const used = new Set<string>();
-  const kg = (e?: StrengthExercise) => (e?.loadKg != null ? <b> · {String(e.loadKg).replace('.', ',')} kg</b> : null);
+  const kg = (e?: StrengthExercise) => { const l = e ? loadText(e) : undefined; return l ? <b> · {l}</b> : null; };
   return (
     <div className="small wt-note" data-testid="strength-note">
       {(note ?? '').trim() ? lines.map((l, i) => {

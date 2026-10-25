@@ -61,9 +61,16 @@ test('musculação programada com carga, variações e lançamento do que foi fe
 
   // o Garmin errou os exercícios: ela corrige o que fez e o programado fica para comparar
   await card.getByTestId('exercise-log-open').click();
-  await card.getByTestId('ex-load').first().fill('32');
+  // carga por série: ela sobe de série para série; as seguintes acompanham até ela mudar
+  const row1 = card.getByTestId('exercise-row').first();
+  await row1.getByTestId('ex-load').fill('32');
+  await expect(row1.getByTestId('ex-load-set').nth(0)).toHaveValue('32');
+  await row1.getByTestId('ex-load-set').nth(0).fill('36');
+  await row1.getByTestId('ex-load-set').nth(1).fill('40');
+  await expect(row1).toContainText('Volume: 1.080 kg');
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/strength-sets.png', fullPage: true });
   await card.getByTestId('exercise-log-save').click();
-  await expect(card.getByTestId('exercise-summary')).toContainText('32 kg');
+  await expect(card.getByTestId('exercise-summary')).toContainText('32 → 36 → 40 kg');
   await expect(card.getByTestId('exercise-summary')).toContainText('programado');
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/strength-done.png', fullPage: true });
   const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
