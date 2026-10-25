@@ -14,9 +14,9 @@ export const AREAS: { id: Area; label: string }[] = [
 ];
 
 const RINSE = /enx[aá]gu|enxagu|retire com [aá]gua|remova com [aá]gua|aplique (no|sobre o) (cabelo|corpo|rosto) molhad|com a pele molhada|no banho|durante o banho/;
-const WASH_HAIR = /shampoo|xampu|condicionador|co-?wash|m[aá]scara (capilar|de (hidrata|nutri|reconstru))|pr[eé]-?shampoo|esfoliante (de|do) couro|detox capilar|acidificante/;
-const WASH_BODY = /sabonete|gel de banho|body wash|shower|[oó]leo de banho|esfoliante|bucha|espuma de banho|limpeza/;
-const WASH_FACE = /limpeza|cleanser|demaquilante|[aá]gua micelar|espuma|balm de limpeza|[oó]leo de limpeza|sabonete|esfoliante|m[aá]scara de argila|clay mask|peeling/;
+const WASH_HAIR = /shampoo|xampu|shampoing|\bbain\b|fondant|masquintense|masque|rinse-?off|apr[eè]s-?shampo|condicionador|co-?wash|m[aá]scara (capilar|de (hidrata|nutri|reconstru))|pr[eé]-?shampoo|esfoliante (de|do) couro|detox capilar|acidificante/;
+const WASH_BODY = /sabonete|gel de banho|gel & espuma de banho|douche|gommage|scrub|\bwash\b|body wash|shower|[oó]leo de banho|esfoliante|bucha|espuma de banho|limpeza/;
+const WASH_FACE = /limpeza|cleanser|cleansing|nettoyant|moussant|micellar|micelar|h2o|mud mask|demaquilante|[aá]gua micelar|espuma|balm de limpeza|[oó]leo de limpeza|sabonete|esfoliante|m[aá]scara de argila|clay mask|peeling/;
 const LEAVE_ON = /leave-?in|sem enx[aá]gue|t[oô]nico|s[eé]rum|[oó]leo de pontas|finalizador|creme de pentear|protetor t[eé]rmico|reparador de pontas|hidratante|lo[cç][aã]o|creme|fps|protetor solar|desodorante|perfume|body splash/;
 
 /** Em que etapa o produto entra: o que ela escolheu ou, sem escolha, o que o tipo, o nome e o modo de uso indicam. */
@@ -26,7 +26,7 @@ export function productStep(p: Pick<Product, 'step' | 'group' | 'area' | 'name' 
   const how = `${p.info?.howToUse ?? ''}`.toLowerCase();
   const area = p.area ?? 'rosto';
   if (/sem enx[aá]gue|leave-?in/.test(name + ' ' + how)) return 'pos';
-  if (/de limpeza|demaquilante|cleanser|sabonete|shampoo|xampu|condicionador|gel de banho|body wash/.test(name)) return 'banho';
+  if (/de limpeza|demaquilante|cleanser|cleansing|sabonete|shampoo|xampu|shampoing|condicionador|gel de banho|body wash|douche|gommage|rinse-?off/.test(name)) return 'banho';
   if (area === 'cabelo') return WASH_HAIR.test(name) || (RINSE.test(how) && !LEAVE_ON.test(name)) ? 'banho' : 'pos';
   if (area === 'corpo') return WASH_BODY.test(name) || (RINSE.test(how) && !LEAVE_ON.test(name)) ? 'banho' : 'pos';
   if (p.group === 'limpeza') return 'banho';

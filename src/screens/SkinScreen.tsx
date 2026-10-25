@@ -15,6 +15,8 @@ import { saveSkin, skinId, deleteRecord } from '../domain/actions';
 import { update } from '../db/db';
 import { AREAS, OWNED, STEPS, productStep, type Area, type Step } from '../domain/skinSteps';
 import { SpecialistLink } from './specchat';
+import { ProductThumb } from '../ui/ProductThumb';
+export { ProductThumb };
 import type { Product, ProductGroup, SkinCondition } from '../db/types';
 import { PhotoStrip } from './photos';
 import { ProductForm } from './library/ProductForm';
@@ -179,32 +181,24 @@ export function SkinScreen() {
 
       {STEPS.map((st) => {
         const ids = shown.filter((id) => byId.get(id) && stepOfId(id) === st.id);
-        const withItems = AREAS.filter((a) => ids.some((id) => areaOfId(id) === a.id));
-        const without = AREAS.filter((a) => !withItems.includes(a));
         return (
           <section key={st.id} className="stage" data-testid={`stage-${st.id}`} aria-label={st.label}>
             <div className="stage-head">
               <h3>{st.label}</h3>
               <span className="hint">{st.hint}</span>
             </div>
-            {withItems.map((a) => {
+            {/* Rosto, cabelo e corpo sempre à vista: o que está vazio mostra só o botão de adicionar. */}
+            {AREAS.map((a) => {
               const list = ids.filter((id) => areaOfId(id) === a.id);
               const n = list.filter((id) => used.includes(id)).length;
               return (
-                <div key={a.id} className="stage-area" data-testid={`skin-sec-${st.id}-${a.id}`}>
-                  <h4 className="sec-cap">{a.label} <span>{n} de {list.length}</span></h4>
+                <div key={a.id} className={`stage-area${list.length ? '' : ' empty'}`} data-testid={`skin-sec-${st.id}-${a.id}`}>
+                  <h4 className="sec-cap">{a.label} <span>{list.length ? `${n} de ${list.length}` : 'nada hoje'}</span></h4>
                   {list.map((id) => <ProductPick key={id} p={byId.get(id)!} on={used.includes(id)} onClick={() => toggle(id)} tag={!planned.includes(id) ? 'fora do plano' : byDerm.has(id) ? 'da dermato, hoje' : undefined} />)}
-                  <button className="add-in" onClick={() => setPicker({ step: st.id, area: a.id })} data-testid={`skin-add-${st.id}-${a.id}`}><Plus size={16} />Outro produto de {a.label.toLowerCase()}</button>
+                  <button className="add-in" onClick={() => setPicker({ step: st.id, area: a.id })} data-testid={`skin-add-${st.id}-${a.id}`}><Plus size={16} />{list.length ? `Outro produto de ${a.label.toLowerCase()}` : `Adicionar produto de ${a.label.toLowerCase()}`}</button>
                 </div>
               );
             })}
-            {!ids.length && <p className="stage-empty">Nada {planned.length ? 'planejado' : 'marcado'} {st.id === 'banho' ? 'no banho' : 'depois do banho'}.</p>}
-            {without.length > 0 && (
-              <div className="stage-more">
-                <span className="small muted">{ids.length ? 'Usou algo também em' : 'Adicionar o que usou em'}</span>
-                {without.map((a) => <button key={a.id} className="chip" onClick={() => setPicker({ step: st.id, area: a.id })} data-testid={`skin-add-${st.id}-${a.id}`}><Plus size={14} />{a.label}</button>)}
-              </div>
-            )}
           </section>
         );
       })}
@@ -249,6 +243,7 @@ export function ProductPick({ p, on, onClick, tag }: { p: Product; on: boolean; 
   return (
     <button className={`pick ${on ? 'on' : ''}`} onClick={onClick} aria-pressed={on} data-testid="product-pick">
       <span className={`check ${on ? 'on' : ''}`} aria-hidden>{on && '✓'}</span>
+      <ProductThumb p={p} />
       <span className="grow">
         <span className="brand">{p.brand}</span><br />
         <span className="nm">{p.name}</span>

@@ -14,6 +14,9 @@ import { create, update } from '../../db/db';
 import type { Product, ProductGroup, ProductInfo, ProductStatus } from '../../db/types';
 import { GROUPS, areaOf } from '../../domain/defaults';
 import { productStep } from '../../domain/skinSteps';
+import { autoImage, searchProductImage, thumbFromFile } from '../../domain/productImage';
+import { ProductThumb } from '../../ui/ProductThumb';
+import { RefreshCw } from 'lucide-react';
 import { Chip } from '../../ui/ui';
 import { toast } from '../../state/store';
 
@@ -36,6 +39,8 @@ export function ProductForm({ product, initial, onDone }: { product?: Product; i
     if (!list.length && !d.name?.trim()) { toast('Tire uma foto ou escreva o nome do produto.', undefined, 'error'); return; }
     setReading(true); setReadNote('');
     try {
+      // A foto da embalagem também vira a miniatura, se ainda não houver uma.
+      if (list[0] && !d.image) { const t = await thumbFromFile(list[0]); setD((x) => ({ ...x, image: x.image ?? t })); }
       const imgs = await Promise.all(list.map((f) => shrinkImage(f)));
       const r = await aiProductInfo(d.brand, d.name, imgs);
       if (!r.ok) { toast(r.note, undefined, 'error'); return; }
@@ -54,11 +59,29 @@ export function ProductForm({ product, initial, onDone }: { product?: Product; i
     } catch (e: any) { toast(e.message, undefined, 'error'); } finally { setReading(false); }
   };
   const camPick = usePhotoPicker({ onFiles: (fs) => identify(fs), multiple: true });
+  // Miniatura: outra da internet (pula as já vistas) ou uma foto dela.
+  const [imgBusy, setImgBusy] = useState(false);
+  const [skip, setSkip] = useState(0);
+  const another = async () => {
+    if (!d.name?.trim()) { toast('Escreva o nome do produto primeiro.', undefined, 'error'); return; }
+    setImgBusy(true);
+    try {
+      const next = d.image ? skip + 1 : 0;
+      const r = await searchProductImage({ brand: d.brand ?? '', name: d.name ?? '' }, next);
+      if (r) { set({ image: r.image, imageSrc: r.source, imageTried: undefined }); setSkip(r.index); }
+      else toast(next ? 'Não achei outra foto. Você pode tirar uma.' : 'Não achei foto deste produto. Você pode tirar uma.', undefined, 'error');
+    } catch (e: any) { toast(e.message, undefined, 'error'); } finally { setImgBusy(false); }
+  };
+  const ownPick = usePhotoPicker({ onFiles: async (fs) => { const t = await thumbFromFile(fs[0]); set({ image: t, imageSrc: undefined }); }, testId: 'product-own-photo' });
   const save = async () => {
     if (!d.name?.trim()) { toast('Informe o nome do produto.', undefined, 'error'); return; }
     const data = { ...d, name: d.name.trim(), brand: (d.brand ?? '').trim() } as Product;
-    if (product) { const r = await update<'product'>(product.id, data); toast('Produto salvo'); onDone(r); }
-    else { const r = await create('product', data); toast('Produto cadastrado'); onDone(r); }
+    if (product) {
+      const renamed = product.name !== data.name || product.brand !== data.brand;
+      const r = await update<'product'>(product.id, renamed && !d.image ? { ...data, imageTried: undefined } : data);
+      toast('Produto salvo'); onDone(r);
+      if (r && renamed && !r.image) autoImage(r);
+    } else { const r = await create('product', data); toast('Produto cadastrado'); onDone(r); autoImage(r); }
   };
   return (
     <div data-testid="product-form">
@@ -70,7 +93,18 @@ export function ProductForm({ product, initial, onDone }: { product?: Product; i
           <p className="field-hint" style={{ flexBasis: '100%', margin: 0 }}>Frente e verso ajudam: o verso traz a lista de ingredientes e o modo de uso.</p>
         </div>
       )}
-      <span className="label" style={{ marginTop: aiAvailable() ? 12 : 0 }}>Marca</span>
+      <div className="pf-photo" data-testid="product-thumb">
+        <ProductThumb p={{ image: d.image, brand: d.brand ?? '', name: d.name ?? '' }} size={72} />
+        <div className="pf-photo-acts">
+          <span className="small muted">{d.image ? (d.imageSrc ? 'Foto achada na internet' : 'Sua foto') : 'Sem foto ainda'}</span>
+          <div className="row wrap" style={{ gap: 6 }}>
+            {aiAvailable() && <button className="btn btn-soft btn-sm" disabled={imgBusy} onClick={another} data-testid="product-img-search"><RefreshCw size={15} /> {imgBusy ? 'Buscando…' : d.image ? 'Outra da internet' : 'Buscar na internet'}</button>}
+            <button className="btn btn-soft btn-sm" onClick={ownPick.open}><Camera size={15} /> Tirar foto</button>
+          </div>
+        </div>
+        {ownPick.el}
+      </div>
+      <span className="label" style={{ marginTop: 12 }}>Marca</span>
       <input value={d.brand ?? ''} onChange={(e) => set({ brand: e.target.value })} aria-label="Marca" />
       <span className="label">Nome</span>
       <input value={d.name ?? ''} onChange={(e) => set({ name: e.target.value })} aria-label="Nome do produto" />

@@ -1,7 +1,9 @@
 import { useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { planFor } from '../../domain/rules';
-import { Plus, Search, Star, Trash2, Archive, ArchiveRestore, Sparkles } from 'lucide-react';
+import { Plus, Search, Star, Trash2, Archive, ArchiveRestore, Sparkles, Image as ImageIcon } from 'lucide-react';
+import { ProductThumb } from '../../ui/ProductThumb';
+import { fillProductImages } from '../../domain/productImage';
 import { aiAvailable, aiProductInfo } from '../../domain/ai';
 import { PageHead } from '../common';
 import { useAll } from '../../db/hooks';
@@ -86,6 +88,7 @@ export function Products() {
     <>
       <AddButton label="Cadastrar produto" onClick={() => setEdit({})} />
       <FillProductInfo />
+      <FillProductImages />
       <div style={{ position: 'relative', marginBottom: 10 }}>
         <Search size={18} style={{ position: 'absolute', left: 14, top: 15, color: 'var(--ink-2)' }} />
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar produto" style={{ paddingLeft: 40 }} aria-label="Buscar produto" />
@@ -95,6 +98,7 @@ export function Products() {
       <div className="list" style={{ marginTop: 8 }}>
         {list.map((p) => (
           <button key={p.id} className="lib-item" onClick={() => setEdit(p)}>
+            <ProductThumb p={p} />
             <span className="grow"><span className="tiny muted" style={{ fontWeight: 600 }}>{p.brand}</span><br /><span style={{ fontWeight: 650 }}>{p.name}</span>{p.info?.purpose && <><br /><span className="small muted clamp2">{p.info.purpose}</span></>}</span>
             <span className={`prio ${p.status === 'em_uso' ? 'media' : 'baixa'}`}>{STATUS_LABEL[p.status]}</span>
           </button>
@@ -458,6 +462,30 @@ export function Categories() {
 }
 
 /** Completa, em lote, a ficha dos produtos em uso que ainda não têm "para que serve" e "modo de uso". */
+/** Fotos das embalagens que ainda faltam, buscadas na internet de uma vez. */
+function FillProductImages() {
+  const products = useAll('product');
+  const [busy, setBusy] = useState<string | null>(null);
+  const missing = (products ?? []).filter((p) => !p.image && !['arquivado', 'de_outra'].includes(p.status));
+  const fresh = missing.filter((p) => !p.imageTried);
+  if (!missing.length || !aiAvailable()) return null;
+  const run = async () => {
+    setBusy('Buscando fotos…');
+    try {
+      // Os que já foram tentados sem sucesso entram de novo só quando ela pede.
+      if (!fresh.length) for (const p of missing) await update<'product'>(p.id, { imageTried: undefined } as any);
+      if (!fresh.length) { const { syncNow } = await import('../../sync/sync'); await syncNow(); }
+      const r = await fillProductImages((done, left) => setBusy(`Buscando fotos… ${done} prontas, faltam ${left}`));
+      toast(r.done ? `${r.done} ${r.done === 1 ? 'foto encontrada' : 'fotos encontradas'}${r.failed ? `; ${r.failed} sem foto na internet` : ''}` : 'Não achei fotos novas. Você pode tirar a foto no produto.');
+    } catch (e: any) { toast(e.message, undefined, 'error'); } finally { setBusy(null); }
+  };
+  return (
+    <button className="btn btn-soft btn-block" style={{ margin: '0 0 10px' }} onClick={run} disabled={!!busy} data-testid="fill-images">
+      <ImageIcon size={18} />{busy ?? `Buscar fotos na internet (${missing.length} sem foto)`}
+    </button>
+  );
+}
+
 function FillProductInfo() {
   const products = useAll('product');
   const [run, setRun] = useState<{ done: number; total: number } | null>(null);

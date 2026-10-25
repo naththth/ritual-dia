@@ -43,7 +43,8 @@ async function seed(page: Page) {
     p('product:retinol', 'C', 'Retinol', 'tratamentos', 'rosto', { active: true });
     p('product:shampoo', 'D', 'Shampoo suave', 'cabelo', 'cabelo');
     p('product:oleo', 'E', 'Óleo de pontas', 'cabelo', 'cabelo', { status: 'guardado' });
-    p('product:locao', 'F', 'Loção de ureia', 'corpo', 'corpo');
+    p('product:locao', 'F', 'Loção de ureia', 'corpo', 'corpo', { image: 'data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==' });
+    p('product:gelbanho', 'G', 'Gel & Espuma de Banho', 'corpo', 'corpo');
     st.put({ ...base, id: 'plan:skin1', kind: 'plan', domain: 'skin', validFrom: '2026-10-01', skin: { am: { base: ['product:gel'], days: {} }, pm: { base: ['product:gel', 'product:retinol', 'product:shampoo', 'product:locao'], days: {} }, recovery: { am: [], pm: [] } } });
     st.put({ ...base, id: 'food:t-frango', kind: 'food', name: 'Frango grelhado', type: 'Proteínas', portions: ['100 g'], n: { kcal: 160, p: 32, c: 0, f: 3 } });
     const g = st.get('settings');
@@ -62,6 +63,12 @@ test('rotina da noite por etapa e área, com produto que ela já tem', async ({ 
   await expect(page.getByTestId('skin-sec-banho-cabelo')).toContainText('Shampoo suave');
   await expect(page.getByTestId('skin-sec-pos-rosto')).toContainText('Retinol');
   await expect(page.getByTestId('skin-sec-pos-corpo')).toContainText('Loção de ureia');
+  await expect(page.getByTestId('skin-sec-pos-corpo').locator('img.pthumb')).toHaveCount(1);
+  // Corpo no banho aparece mesmo sem nada planejado; o gel de banho vai para lá.
+  await page.getByTestId('skin-add-banho-corpo').click();
+  await page.locator('.sheet [data-testid=product-pick]', { hasText: 'Gel & Espuma de Banho' }).click();
+  await page.getByRole('button', { name: 'Pronto' }).click();
+  await expect(page.getByTestId('skin-sec-banho-corpo')).toContainText('Gel & Espuma de Banho');
   // Depois do banho, cabelo: nada no plano; ela põe o óleo que tem guardado.
   await page.getByTestId('stage-pos').getByTestId('skin-add-pos-cabelo').click();
   await expect(page.locator('.sheet')).toContainText('Cabelo · depois do banho');

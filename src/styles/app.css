@@ -788,3 +788,11 @@ button.food-line { width: 100%; text-align: left; }
 .stage-head { flex-wrap: wrap; row-gap: 2px; }
 .stage-head h3 { white-space: nowrap; }
 [data-testid="skin-use-all"] { white-space: nowrap; }
+
+/* Miniatura da embalagem antes do nome */
+.pthumb { flex: 0 0 auto; border-radius: 12px; object-fit: contain; background: #fff; border: 1px solid var(--line); display: block; }
+.pthumb-empty { display: grid; place-items: center; background: var(--rose); color: var(--rose-ink); border: 0; font-weight: 800; font-size: 13px; letter-spacing: .02em; }
+.pick { gap: 10px; }
+.pf-photo { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: var(--r-m); background: var(--paper-2); }
+.pf-photo-acts { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.lib-item .pthumb { margin-right: -2px; }

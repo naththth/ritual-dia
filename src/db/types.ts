@@ -166,6 +166,12 @@ export interface Product extends Base {
   active?: boolean; // ativo potencialmente irritante, marcado por ela
   /** Em que momento da rotina entra: no banho (lava e enxágua) ou depois dele. Sem isto, o app deduz pelo tipo e pelo nome. */
   step?: 'banho' | 'pos';
+  /** Miniatura da embalagem (data URL pequena), achada na internet ou tirada por ela, para reconhecer o produto de relance. */
+  image?: string;
+  /** De onde veio a miniatura achada na internet. */
+  imageSrc?: string;
+  /** A busca de foto já foi tentada e não achou nada (não tenta de novo sozinha). */
+  imageTried?: boolean;
   openedAt?: DateKey;
   note?: string;
   sourceId?: string;
