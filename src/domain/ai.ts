@@ -8,7 +8,7 @@ import type { Plan, Product, WorkoutStep } from '../db/types';
 import { addDays, isoWeekday, todayKey, type DateKey } from '../lib/dates';
 import { planFor, plannedSkin, plannedTraining } from './rules';
 
-export type AITask = 'skin_plan' | 'training_plan' | 'food_plan' | 'day_brief' | 'training_review' | 'week_review' | 'wellness_read' | 'label_read' | 'targets' | 'doc_read' | 'product_read' | 'plate_read' | 'plan_chat' | 'training_coach';
+export type AITask = 'skin_plan' | 'training_plan' | 'food_plan' | 'day_brief' | 'training_review' | 'week_review' | 'wellness_read' | 'label_read' | 'targets' | 'doc_read' | 'product_read' | 'plate_read' | 'plan_chat' | 'training_coach' | 'skin_coach' | 'food_coach';
 
 /** Só nos testes automáticos: uma IA simulada injetada pela página de teste. */
 const testAI = () => (typeof window !== 'undefined' ? (window as any).__RITUAL_TEST_AI as ((task: string, ctx: any) => any) | undefined : undefined);
@@ -47,14 +47,14 @@ export async function askAI<T = any>(task: AITask, context: unknown, images?: { 
     if (docs.length) extra.exames_e_documentos = docsForAI(docs as any);
     const cyc = await cycleForAI(((ctx as any).data ?? (ctx as any).date ?? todayKey()) as DateKey, pf);
     if (cyc) extra.ciclo_menstrual = cyc;
-    const prefKey = task === 'plan_chat' ? ((ctx as any).dominio as 'skin' | 'training' | 'food') : ({ skin_plan: 'skin', training_plan: 'training', training_review: 'training', training_coach: 'training', food_plan: 'food' } as const)[task as 'skin_plan'];
+    const prefKey = task === 'plan_chat' ? ((ctx as any).dominio as 'skin' | 'training' | 'food') : ({ skin_plan: 'skin', training_plan: 'training', training_review: 'training', training_coach: 'training', food_plan: 'food', skin_coach: 'skin', food_coach: 'food' } as const)[task as 'skin_plan'];
     const pref = prefKey ? st?.aiPrefs?.[prefKey]?.trim() : undefined;
     if (pref) extra.preferencias_dela = pref;
     ctx = { ...extra, ...(ctx as object) };
   }
   const { data, error } = await Promise.race([
     supabase.functions.invoke('ritual-ai', { body: { task, context: ctx, images, files } }),
-    new Promise<never>((_, rej) => setTimeout(() => rej(new Error('A IA demorou demais para responder. Tente de novo.')), files?.length || task === 'skin_plan' || task === 'plan_chat' ? 150000 : 90000))
+    new Promise<never>((_, rej) => setTimeout(() => rej(new Error('A IA demorou demais para responder. Tente de novo.')), files?.length || images?.length || task === 'skin_plan' || task === 'plan_chat' ? 150000 : 90000))
   ]);
   if (error) {
     let msg = error.message;
@@ -256,11 +256,11 @@ export async function aiDayBrief(date: DateKey) {
     observacoes_dela: settings?.aiContext ?? '',
     escolhidas_para_hoje: pending.filter((t) => t.plannedDate === date).map((t) => t.title),
     tarefas_pendentes: pending.slice(0, 60).map((t) => ({ id: t.id, titulo: t.title, prioridade: t.priority, categoria: t.categoryId.replace('cat:', ''), subcategoria: t.subcategory, observacao: t.description, proximo_passo: t.nextStep, data_compromisso: t.appointmentDate, escolhida_para: t.plannedDate })),
-    pele_plano_manha: plannedSkin(skinPlan, date, 'am', products).map(name),
-    pele_plano_noite: plannedSkin(skinPlan, date, 'pm', products).map(name),
+    pele_plano_manha: plannedSkin(skinPlan, date, 'am', products, false, { skips, extras }).map(name),
+    pele_plano_noite: plannedSkin(skinPlan, date, 'pm', products, false, { skips, extras }).map(name),
     // O app já calcula se a noite pede tirar o ativo; a frase de pele deve concordar com isso.
     ajuste_da_rotina_da_noite_sugerido_pelo_app: (() => {
-      const adj = nightAdjust({ plannedPm: plannedSkin(skinPlan, date, 'pm', products), recoveryPm: skinPlan?.skin?.recovery?.pm ?? [], products, amLog: skinLogs.find((l) => l.date === date && l.period === 'am'), workouts: doneToday, plannedWorkouts: tr as any });
+      const adj = nightAdjust({ plannedPm: plannedSkin(skinPlan, date, 'pm', products, false, { skips, extras }), recoveryPm: skinPlan?.skin?.recovery?.pm ?? [], products, amLog: skinLogs.find((l) => l.date === date && l.period === 'am'), workouts: doneToday, plannedWorkouts: tr as any });
       return adj?.kind === 'swap' ? { sugestao: adj.title, motivos: adj.reasons } : undefined;
     })(),
     hora_agora: hora,

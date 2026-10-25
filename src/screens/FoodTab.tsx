@@ -11,6 +11,7 @@ import { fmt, itemNutr, portionText, totals } from '../domain/nutrition';
 import { MACRO_COLORS, MacroBar, MacroLine } from './food-ui';
 import { remove } from '../db/db';
 import { DEFAULT_MEAL_TIMES } from './today';
+import { SpecialistButton } from './specchat';
 import type { MealItem } from '../db/types';
 
 export function FoodTab() {
@@ -24,9 +25,10 @@ export function FoodTab() {
   const foods = useAll('food');
   const plans = useAll('plan');
   const tmpls = useAll('mtemplate');
+  const extras = useByDate('extra', date);
   if (!settings || !meals || !foods || !tmpls || !plans || !water || !workouts || !skips) return <div className="screen"><TopBar /></div>;
   const showN = settings.showNutrition !== false;
-  const planned = plannedFood(planFor(plans, 'food', date), date);
+  const planned = plannedFood(planFor(plans, 'food', date), date, extras);
   const planItems: MealItem[] = Object.values(planned).flatMap((id) => tmpls.find((t) => t.id === id)?.items ?? []);
   const planTot = planItems.length ? totals(planItems, foods).n : undefined;
   const eaten = totals(meals.flatMap((m) => m.items), foods);
@@ -43,6 +45,7 @@ export function FoodTab() {
       <TopBar />
       <div className="row between" style={{ margin: '8px 0 10px' }}>
         <h1 className="section-title" style={{ fontSize: 32, fontWeight: 500, margin: 0 }}>Alimentação</h1>
+        <SpecialistButton domain="food" />
       </div>
       <AreaNav area="alimentacao" />
       <div style={{ height: 10 }} />

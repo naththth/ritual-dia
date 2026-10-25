@@ -164,6 +164,8 @@ export interface Product extends Base {
   period: 'am' | 'pm' | 'ambos';
   status: ProductStatus;
   active?: boolean; // ativo potencialmente irritante, marcado por ela
+  /** Em que momento da rotina entra: no banho (lava e enxágua) ou depois dele. Sem isto, o app deduz pelo tipo e pelo nome. */
+  step?: 'banho' | 'pos';
   openedAt?: DateKey;
   note?: string;
   sourceId?: string;
@@ -371,13 +373,16 @@ export interface DevRequest extends Base {
   summary?: string;
 }
 
-/** Treino que entra num dia específico fora do plano semanal (ex.: pedal montado com a treinadora no lugar da yoga). */
+/** O que entra num dia específico fora do plano semanal: o pedal montado com a treinadora no lugar da yoga,
+ *  o produto que a dermatologista pôs na noite de hoje, a refeição que a nutricionista trocou no almoço. */
 export interface PlanExtra extends Base {
   kind: 'extra';
   date: DateKey;
-  domain: 'training';
-  ref: string; // wtemplate id
-  by?: 'treinadora';
+  /** Sem domínio nos registros antigos: eram todos de treino. */
+  domain?: 'training' | 'skin' | 'food';
+  /** Treino: id do wtemplate. Pele: "am:<produto>" ou "pm:<produto>". Alimentação: "<refeição>:<mtemplate>". */
+  ref: string;
+  by?: 'treinadora' | 'dermato' | 'nutri';
 }
 
 export interface DayBrief extends Base {

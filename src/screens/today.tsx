@@ -71,7 +71,7 @@ export function useTimeline(date: DateKey): TLItem[] | undefined {
 
   for (const period of ['am', 'pm'] as const) {
     const log = skin.find((s) => s.period === period);
-    let planned = plannedSkin(skinPlan, date, period, products);
+    let planned = plannedSkin(skinPlan, date, period, products, false, { skips, extras });
     let adjustNote = '';
     if (period === 'pm' && !log) {
       const skipped = new Set(skips.filter((x) => x.domain === 'training').map((x) => x.ref));
@@ -81,7 +81,7 @@ export function useTimeline(date: DateKey): TLItem[] | undefined {
       });
       let choice: string | null = null; try { choice = localStorage.getItem(`night-adjust:${date}`); } catch { /* */ }
       if (adj?.kind === 'swap' && choice !== 'kept') {
-        if (choice === 'applied') { planned = adj.useRecovery ? plannedSkin(skinPlan, date, 'pm', products, true) : planned.filter((id) => !adj.remove.includes(id)); adjustNote = 'Sem ativo hoje: '; }
+        if (choice === 'applied') { planned = adj.useRecovery ? plannedSkin(skinPlan, date, 'pm', products, true, { skips, extras }) : planned.filter((id) => !adj.remove.includes(id)); adjustNote = 'Sem ativo hoje: '; }
         else adjustNote = 'Ajuste sugerido para hoje · ';
       }
     }
@@ -95,7 +95,7 @@ export function useTimeline(date: DateKey): TLItem[] | undefined {
     });
   }
 
-  const plannedMeals = plannedFood(planFor(plans, 'food', date), date);
+  const plannedMeals = plannedFood(planFor(plans, 'food', date), date, extras);
   for (const m of settings.mealTypes) {
     const meal = meals.find((x) => x.mealType === m.id && x.items.length);
     const tpl = plannedMeals[m.id] ? mt.find((t) => t.id === plannedMeals[m.id]) : undefined;
@@ -220,9 +220,10 @@ export function TodayStats({ date }: { date: DateKey }) {
   const foods = useAll('food');
   const plans = useAll('plan');
   const tmpls = useAll('mtemplate');
+  const extras = useByDate('extra', date);
   if (!meals || !water || !workouts || !foods) return null;
   const eaten = totals(meals.flatMap((m) => m.items), foods).n;
-  const plannedItems = Object.values(plannedFood(planFor(plans ?? [], 'food', date), date)).flatMap((id) => tmpls?.find((t) => t.id === id)?.items ?? []);
+  const plannedItems = Object.values(plannedFood(planFor(plans ?? [], 'food', date), date, extras)).flatMap((id) => tmpls?.find((t) => t.id === id)?.items ?? []);
   const goal = settings?.targets?.kcal ?? (plannedItems.length ? totals(plannedItems, foods).n.kcal : undefined);
   const ml = water.reduce((a, w) => a + w.ml, 0);
   const burned = workouts.reduce((a, w) => a + (w.metrics?.kcal ?? 0), 0);

@@ -37,6 +37,7 @@ export function FoodScreen() {
   const foods = useAll('food');
   const tmpls = useAll('mtemplate');
   const plans = useAll('plan');
+  const dayExtras = useByDate('extra', date);
   const recent = useLiveQuery(() => byDateRange('meal', addDays(date, -21), addDays(date, -1)), [date]);
   const meal = meals?.find((m) => m.mealType === type);
   const [items, setItems] = useState<MealItem[]>([]);
@@ -56,7 +57,7 @@ export function FoodScreen() {
     setItems(meal?.items ?? []);
   }, [key, meals]);
 
-  const plannedTplId = plannedFood(planFor(plans ?? [], 'food', date), date)[type];
+  const plannedTplId = plannedFood(planFor(plans ?? [], 'food', date), date, dayExtras)[type];
   const plannedTpl = tmpls?.find((t) => t.id === plannedTplId);
   const activeFoods = (foods ?? []).filter((f) => !f.archived);
   const recentIds = useMemo(() => {

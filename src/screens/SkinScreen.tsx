@@ -12,13 +12,13 @@ import { effectiveSleep } from '../domain/wellness';
 import { cycleInfo } from '../domain/cycle';
 import { useCycle } from './cycle';
 import { saveSkin, skinId, deleteRecord } from '../domain/actions';
+import { update } from '../db/db';
+import { AREAS, OWNED, STEPS, productStep, type Area, type Step } from '../domain/skinSteps';
+import { SpecialistLink } from './specchat';
 import type { Product, ProductGroup, SkinCondition } from '../db/types';
 import { PhotoStrip } from './photos';
 import { ProductForm } from './library/ProductForm';
 
-const SECTIONS: { area: 'rosto' | 'corpo' | 'cabelo'; label: string }[] = [
-  { area: 'rosto', label: 'Rosto' }, { area: 'corpo', label: 'Corpo' }, { area: 'cabelo', label: 'Cabelo' }
-];
 
 export function SkinScreen() {
   const date = useApp((s) => s.date);
@@ -47,7 +47,8 @@ export function SkinScreen() {
   const [used, setUsed] = useState<string[]>([]);
   const [note, setNote] = useState('');
   const [showNote, setShowNote] = useState(false);
-  const [picker, setPicker] = useState(false);
+  /** Onde ela tocou em "adicionar": o seletor abre já filtrado por etapa e área. */
+  const [picker, setPicker] = useState<{ step: Step; area: Area } | null>(null);
   const [loadedKey, setLoadedKey] = useState('');
 
   const key = `${date}:${period}:${log?.updatedAt ?? 'none'}`;
@@ -63,7 +64,8 @@ export function SkinScreen() {
   }, [key, logs]);
 
   const [dropped, setDropped] = useState<string[]>([]);
-  const basePlanned = useMemo(() => plannedSkin(plan, date, period, products ?? [], recovery), [plan, date, period, products, recovery]);
+  const dayMods = useMemo(() => ({ skips: skips ?? [], extras: dayExtras ?? [] }), [skips, dayExtras]);
+  const basePlanned = useMemo(() => plannedSkin(plan, date, period, products ?? [], recovery, dayMods), [plan, date, period, products, recovery, dayMods]);
   const planned = basePlanned.filter((id) => !dropped.includes(id));
   // Ajuste da noite: pele de hoje, ativo da manhã, treino, sono e ciclo. Só aparece antes de registrar a noite.
   const adjustKey = `night-adjust:${date}`;
@@ -74,11 +76,11 @@ export function SkinScreen() {
     const plannedW = plannedTraining(planFor(plans ?? [], 'training', date), date, dayExtras).map((id) => (tmpls ?? []).find((t) => t.id === id)).filter((t): t is NonNullable<typeof t> => !!t && !skipped.has(t.id));
     const w = (wellness ?? [])[0];
     return nightAdjust({
-      plannedPm: plannedSkin(plan, date, 'pm', products), recoveryPm: plan?.skin?.recovery?.pm ?? [], products,
+      plannedPm: plannedSkin(plan, date, 'pm', products, false, dayMods), recoveryPm: plan?.skin?.recovery?.pm ?? [], products,
       amLog: logs?.find((l) => l.period === 'am'), liveSignals: signals, liveCondition: condition,
       workouts: workouts ?? [], plannedWorkouts: plannedW, sleepH: effectiveSleep(w)?.h, phase: cycleInfo(date, cStats, profile)?.phase
     });
-  }, [period, log, products, plan, date, logs, signals, condition, workouts, wellness, tmpls, plans, skips, dayExtras, cStats, profile]);
+  }, [period, log, products, plan, date, logs, signals, condition, workouts, wellness, tmpls, plans, skips, dayExtras, dayMods, cStats, profile]);
   const decide = (c: 'applied' | 'kept') => { setChoice(c); try { localStorage.setItem(adjustKey, c); } catch { /* */ } };
   const applyAdjust = () => {
     if (!adjust) return;
@@ -91,7 +93,17 @@ export function SkinScreen() {
   const extras = used.filter((id) => !planned.includes(id));
   const alert = activesTogether(used, products ?? []);
   const toggle = (id: string) => setUsed((u) => (u.includes(id) ? u.filter((x) => x !== id) : [...u, id]));
-  const areaOfId = (id: string) => byId.get(id)?.area ?? 'rosto';
+  const areaOfId = (id: string) => (byId.get(id)?.area ?? 'rosto') as Area;
+  const stepOfId = (id: string) => { const p = byId.get(id); return p ? productStep(p) : 'pos'; };
+  // Combinado com a dermatologista para este dia: aparece marcado no produto.
+  const byDerm = new Set((dayExtras ?? []).filter((e) => e.domain === 'skin' && e.ref.startsWith(`${period}:`)).map((e) => e.ref.slice(period.length + 1)));
+  const shown = [...planned, ...extras];
+  const pick = (id: string, target: { step: Step; area: Area }) => {
+    const p = byId.get(id);
+    // Escolhido numa etapa diferente da que o app deduziu: passa a ficar nessa etapa daqui em diante.
+    if (p && !used.includes(id) && productStep(p) !== target.step) void update<'product'>(id, { step: target.step });
+    toggle(id);
+  };
   const hasBodyOrHair = planned.some((id) => areaOfId(id) !== 'rosto') || used.some((id) => areaOfId(id) !== 'rosto');
   const toggleSignal = (id: string) => setSignals((x) => { const n = { ...x }; if (n[id]) delete n[id]; else n[id] = 1; return n; });
 
@@ -155,36 +167,52 @@ export function SkinScreen() {
         <button className={`chip ${recovery ? 'on c-rose' : ''}`} onClick={() => setRecovery(!recovery)} aria-pressed={recovery} style={{ minHeight: 38 }}>Modo recuperação</button>
       </div>
       {recovery && planned.length === 0 && <p className="notice calm">Você ainda não montou a lista de recuperação. Configure em Rotina de cuidados, aba Recuperação.</p>}
-
-      {planned.length > 0 && (
-        <>
-          <div className="row between" style={{ marginBottom: 4 }}>
-            <span className="small muted">{recovery ? 'Lista de recuperação' : 'Do seu plano para hoje'}</span>
-            <button className="link" onClick={() => setUsed((u) => Array.from(new Set([...u, ...planned])))} data-testid="skin-use-all">Usei tudo</button>
-          </div>
-          {SECTIONS.map((sec) => {
-            const ids = planned.filter((id) => areaOfId(id) === sec.area);
-            if (!ids.length) return null;
-            return (
-              <div key={sec.area} data-testid={`skin-sec-${sec.area}`}>
-                <h3 className="sec-cap">{sec.label}</h3>
-                {ids.map((id) => <ProductPick key={id} p={byId.get(id)!} on={used.includes(id)} onClick={() => toggle(id)} />)}
-              </div>
-            );
-          })}
-        </>
-      )}
       {planned.length === 0 && !recovery && (
-        <p className="notice calm">Sem plano para este dia. Escolha os produtos da sua lista ou <button className="link" style={{ minHeight: 0 }} onClick={() => nav('/cuidados/rotina')}>monte o plano</button>.</p>
+        <p className="notice calm">Sem plano para este dia. Marque abaixo o que usou ou <button className="link" style={{ minHeight: 0 }} onClick={() => nav('/cuidados/rotina')}>monte o plano</button>.</p>
+      )}
+      {planned.length > 0 && (
+        <div className="row between" style={{ marginBottom: -4 }}>
+          <span className="small muted">{recovery ? 'Lista de recuperação' : 'Do seu plano para hoje'} · {used.length} de {shown.length} marcados</span>
+          <button className="link" onClick={() => setUsed((u) => Array.from(new Set([...u, ...planned])))} data-testid="skin-use-all">Usei tudo</button>
+        </div>
       )}
 
-      {extras.length > 0 && (
-        <>
-          <span className="label">Fora do plano</span>
-          {extras.map((id) => byId.get(id) && <ProductPick key={id} p={byId.get(id)!} on onClick={() => toggle(id)} />)}
-        </>
-      )}
-      <button className="btn btn-soft btn-block" style={{ marginTop: 10 }} onClick={() => setPicker(true)} data-testid="skin-add-from-list"><Plus size={18} />Da minha lista</button>
+      {STEPS.map((st) => {
+        const ids = shown.filter((id) => byId.get(id) && stepOfId(id) === st.id);
+        const withItems = AREAS.filter((a) => ids.some((id) => areaOfId(id) === a.id));
+        const without = AREAS.filter((a) => !withItems.includes(a));
+        return (
+          <section key={st.id} className="stage" data-testid={`stage-${st.id}`} aria-label={st.label}>
+            <div className="stage-head">
+              <h3>{st.label}</h3>
+              <span className="hint">{st.hint}</span>
+            </div>
+            {withItems.map((a) => {
+              const list = ids.filter((id) => areaOfId(id) === a.id);
+              const n = list.filter((id) => used.includes(id)).length;
+              return (
+                <div key={a.id} className="stage-area" data-testid={`skin-sec-${st.id}-${a.id}`}>
+                  <h4 className="sec-cap">{a.label} <span>{n} de {list.length}</span></h4>
+                  {list.map((id) => <ProductPick key={id} p={byId.get(id)!} on={used.includes(id)} onClick={() => toggle(id)} tag={!planned.includes(id) ? 'fora do plano' : byDerm.has(id) ? 'da dermato, hoje' : undefined} />)}
+                  <button className="add-in" onClick={() => setPicker({ step: st.id, area: a.id })} data-testid={`skin-add-${st.id}-${a.id}`}><Plus size={16} />Outro produto de {a.label.toLowerCase()}</button>
+                </div>
+              );
+            })}
+            {!ids.length && <p className="stage-empty">Nada {planned.length ? 'planejado' : 'marcado'} {st.id === 'banho' ? 'no banho' : 'depois do banho'}.</p>}
+            {without.length > 0 && (
+              <div className="stage-more">
+                <span className="small muted">{ids.length ? 'Usou algo também em' : 'Adicionar o que usou em'}</span>
+                {without.map((a) => <button key={a.id} className="chip" onClick={() => setPicker({ step: st.id, area: a.id })} data-testid={`skin-add-${st.id}-${a.id}`}><Plus size={14} />{a.label}</button>)}
+              </div>
+            )}
+          </section>
+        );
+      })}
+
+      <div className="row between" style={{ marginTop: 14, gap: 10, flexWrap: 'wrap' }}>
+        <span className="small muted" style={{ flex: '1 1 160px' }}>Quer mudar a rotina de hoje ou da semana?</span>
+        <SpecialistLink domain="skin" label="Falar com a dermatologista" />
+      </div>
 
       {alert.length > 0 && (
         <p className="notice" style={{ marginTop: 12 }} role="note">
@@ -211,12 +239,12 @@ export function SkinScreen() {
         <button className="btn btn-ink grow" onClick={() => save(false)} data-testid="skin-save">Salvar {PERIOD_LABEL[period]}</button>
       </div>
 
-      <ProductPicker open={picker} onClose={() => setPicker(false)} selected={used} onToggle={toggle} />
+      <ProductPicker open={!!picker} onClose={() => setPicker(null)} selected={used} onToggle={(id) => (picker ? pick(id, picker) : toggle(id))} area={picker?.area} step={picker?.step} />
     </div>
   );
 }
 
-export function ProductPick({ p, on, onClick }: { p: Product; on: boolean; onClick: () => void }) {
+export function ProductPick({ p, on, onClick, tag }: { p: Product; on: boolean; onClick: () => void; tag?: string }) {
   if (!p) return null;
   return (
     <button className={`pick ${on ? 'on' : ''}`} onClick={onClick} aria-pressed={on} data-testid="product-pick">
@@ -224,42 +252,53 @@ export function ProductPick({ p, on, onClick }: { p: Product; on: boolean; onCli
       <span className="grow">
         <span className="brand">{p.brand}</span><br />
         <span className="nm">{p.name}</span>
+        {tag && <><br /><span className="step-tag">{tag}</span></>}
       </span>
       {p.active && <span className="prio baixa">ativo</span>}
     </button>
   );
 }
 
-export function ProductPicker({ open, onClose, selected, onToggle, area }: { open: boolean; onClose: () => void; selected: string[]; onToggle: (id: string) => void; area?: 'rosto' | 'corpo' | 'cabelo' }) {
+export function ProductPicker({ open, onClose, selected, onToggle, area, step }: { open: boolean; onClose: () => void; selected: string[]; onToggle: (id: string) => void; area?: 'rosto' | 'corpo' | 'cabelo'; step?: Step }) {
   const products = useAll('product');
   const [q, setQ] = useState('');
   const [group, setGroup] = useState<ProductGroup | ''>('');
   const [showAll, setShowAll] = useState(false);
   const [adding, setAdding] = useState(false);
+  useEffect(() => { if (open) { setQ(''); setGroup(''); setAdding(false); } }, [open, area, step]);
+  // Por padrão, tudo o que ela tem (em uso, guardado, para conferir); com o filtro, também o que acabou ou quer comprar.
   const list = (products ?? [])
-    .filter((p) => showAll ? !['arquivado', 'de_outra'].includes(p.status) : p.status === 'em_uso')
-    .filter((p) => !area || p.area === area || !!group)
+    .filter((p) => showAll ? !['arquivado', 'de_outra'].includes(p.status) : OWNED.has(p.status))
+    .filter((p) => !area || p.area === area)
     .filter((p) => !group || p.group === group)
     .filter((p) => !q || `${p.brand} ${p.name}`.toLowerCase().includes(q.toLowerCase()))
-    .sort((a, b) => a.brand.localeCompare(b.brand));
+    .sort((a, b) => (step ? Number(productStep(b) === step) - Number(productStep(a) === step) : 0) || Number(b.status === 'em_uso') - Number(a.status === 'em_uso') || a.brand.localeCompare(b.brand));
+  const areaLabel = AREAS.find((a) => a.id === area)?.label;
+  const stepLabel = STEPS.find((s) => s.id === step)?.label.toLowerCase();
+  const tagOf = (p: Product) => {
+    const bits = [p.status !== 'em_uso' ? STATUS_SHORT[p.status] : '', step && productStep(p) !== step ? `passa para ${stepLabel}` : ''].filter(Boolean);
+    return bits.length ? bits.join(' · ') : undefined;
+  };
   return (
-    <Sheet open={open} onClose={onClose} title="Minha lista" sub="Toque para marcar como usado" footer={<button className="btn btn-ink" onClick={onClose}>Pronto</button>}>
+    <Sheet open={open} onClose={onClose} title={areaLabel ? `${areaLabel}${stepLabel ? ` · ${stepLabel}` : ''}` : 'Minha lista'} sub="Os produtos que você tem. Toque para marcar como usado." footer={<button className="btn btn-ink" onClick={onClose}>Pronto</button>}>
       {adding ? (
-        <ProductForm onDone={(p) => { setAdding(false); if (p) onToggle(p.id); }} />
+        <ProductForm initial={{ area: area ?? 'rosto', group: area === 'cabelo' ? 'cabelo' : area === 'corpo' ? 'corpo' : step === 'banho' ? 'limpeza' : 'hidratacao', step }} onDone={(p) => { setAdding(false); if (p) onToggle(p.id); }} />
       ) : (
         <>
           <div style={{ position: 'relative', marginBottom: 10 }}>
             <Search size={18} style={{ position: 'absolute', left: 14, top: 15, color: 'var(--ink-2)' }} />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar produto" style={{ paddingLeft: 40 }} aria-label="Buscar produto" />
           </div>
-          <div className="chips scroll" style={{ marginBottom: 10 }}>
-            <Chip on={!group} onClick={() => setGroup('')}>Todos</Chip>
-            {GROUPS.map((g) => <Chip key={g.id} color="rose" on={group === g.id} onClick={() => setGroup(group === g.id ? '' : g.id)}>{g.label}</Chip>)}
-          </div>
-          {list.map((p) => <ProductPick key={p.id} p={p} on={selected.includes(p.id)} onClick={() => onToggle(p.id)} />)}
-          {list.length === 0 && <Empty text={showAll ? 'Nenhum produto encontrado.' : 'Nenhum produto em uso com esse filtro.'} />}
+          {!area && (
+            <div className="chips scroll" style={{ marginBottom: 10 }}>
+              <Chip on={!group} onClick={() => setGroup('')}>Todos</Chip>
+              {GROUPS.map((g) => <Chip key={g.id} color="rose" on={group === g.id} onClick={() => setGroup(group === g.id ? '' : g.id)}>{g.label}</Chip>)}
+            </div>
+          )}
+          {list.map((p) => <ProductPick key={p.id} p={p} on={selected.includes(p.id)} onClick={() => onToggle(p.id)} tag={tagOf(p)} />)}
+          {list.length === 0 && <Empty text={q ? 'Nenhum produto com esse nome.' : areaLabel ? `Nenhum produto de ${areaLabel.toLowerCase()} cadastrado.` : 'Nenhum produto com esse filtro.'} />}
           <div className="row wrap" style={{ marginTop: 12 }}>
-            <button className="link" onClick={() => setShowAll(!showAll)}>{showAll ? 'Mostrar só os em uso' : 'Incluir guardados e para conferir'}</button>
+            <button className="link" onClick={() => setShowAll(!showAll)}>{showAll ? 'Só os que tenho' : 'Incluir os que acabaram'}</button>
             <button className="btn btn-soft btn-sm" onClick={() => setAdding(true)}><Plus size={16} />Cadastrar produto</button>
           </div>
         </>
@@ -267,3 +306,5 @@ export function ProductPicker({ open, onClose, selected, onToggle, area }: { ope
     </Sheet>
   );
 }
+
+const STATUS_SHORT: Record<string, string> = { guardado: 'guardado', conferir: 'para conferir', acabou: 'acabou', quero_comprar: 'quero comprar' };

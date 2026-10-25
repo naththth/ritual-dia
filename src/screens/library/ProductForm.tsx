@@ -13,6 +13,7 @@ export function useOtherPerson(): string | undefined {
 import { create, update } from '../../db/db';
 import type { Product, ProductGroup, ProductInfo, ProductStatus } from '../../db/types';
 import { GROUPS, areaOf } from '../../domain/defaults';
+import { productStep } from '../../domain/skinSteps';
 import { Chip } from '../../ui/ui';
 import { toast } from '../../state/store';
 
@@ -20,8 +21,8 @@ export const STATUS_LABEL: Record<ProductStatus, string> = {
   em_uso: 'Em uso', guardado: 'Guardado', acabou: 'Acabou', quero_comprar: 'Quero comprar', conferir: 'Conferir', de_outra: 'De outra pessoa', arquivado: 'Arquivado'
 };
 
-export function ProductForm({ product, onDone }: { product?: Product; onDone: (p?: Product) => void }) {
-  const [d, setD] = useState<Partial<Product>>(product ?? { brand: '', name: '', group: 'hidratacao', area: 'rosto', period: 'ambos', status: 'em_uso', active: false });
+export function ProductForm({ product, initial, onDone }: { product?: Product; initial?: Partial<Product>; onDone: (p?: Product) => void }) {
+  const [d, setD] = useState<Partial<Product>>(product ?? { brand: '', name: '', group: 'hidratacao', area: 'rosto', period: 'ambos', status: 'em_uso', active: false, ...initial });
   const set = (p: Partial<Product>) => setD((x) => ({ ...x, ...p }));
   const other = useOtherPerson();
   const [reading, setReading] = useState(false);
@@ -75,6 +76,9 @@ export function ProductForm({ product, onDone }: { product?: Product; onDone: (p
       <input value={d.name ?? ''} onChange={(e) => set({ name: e.target.value })} aria-label="Nome do produto" />
       <span className="label">Tipo</span>
       <div className="chips">{GROUPS.map((g) => <Chip key={g.id} color="rose" on={d.group === g.id} onClick={() => set({ group: g.id as ProductGroup, area: areaOf(g.id as ProductGroup) })}>{g.label}</Chip>)}</div>
+      <span className="label">Quando usa</span>
+      <div className="chips" data-testid="product-step">{([['banho', 'No banho'], ['pos', 'Depois do banho']] as const).map(([id, l]) => <Chip key={id} on={productStep(d as Product) === id} onClick={() => set({ step: id })}>{l}</Chip>)}</div>
+      {!d.step && <p className="field-hint">Deduzido pelo tipo e pelo nome. Toque para fixar.</p>}
       <span className="label">Período preferido</span>
       <div className="chips">{([['am', 'Manhã'], ['pm', 'Noite'], ['ambos', 'Ambos']] as const).map(([id, l]) => <Chip key={id} on={d.period === id} onClick={() => set({ period: id })}>{l}</Chip>)}</div>
       <span className="label">Situação</span>

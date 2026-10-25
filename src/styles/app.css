@@ -745,3 +745,46 @@ button.food-line { width: 100%; text-align: left; }
 .composer .mic-btn.mic-compact.on { background: var(--wine); }
 .composer-send { flex: 0 0 auto; width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; background: var(--wine); color: var(--wine-ink); transition: opacity .15s; }
 .composer-send:disabled { opacity: .3; }
+
+/* Conversa com a dermatologista e a nutricionista: fotos no compositor e nas mensagens, propostas */
+.composer-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.composer-pics { display: flex; gap: 8px; padding: 0 4px; }
+.cp-pic { position: relative; width: 56px; height: 56px; border-radius: 12px; overflow: hidden; border: 1.5px solid var(--line-2); }
+.cp-pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cp-pic button { position: absolute; top: 2px; right: 2px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: rgba(50, 25, 18, .78); color: var(--paper); }
+.composer-icon { flex: 0 0 auto; width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; color: var(--ink-2); }
+.composer-icon:disabled { opacity: .35; }
+.composer:has(.composer-icon) { padding-left: 14px; }
+.bubble-pics { display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+.bubble-pics img { width: 84px; height: 84px; object-fit: cover; border-radius: 12px; display: block; }
+.rp-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.rp-list li { display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-s); }
+.rp-when { font-weight: 700; font-size: 13.5px; }
+.rp-in, .rp-out { font-size: 14px; line-height: 1.35; }
+.rp-in i, .rp-out i { font-style: normal; font-weight: 800; font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; padding: 1px 7px; border-radius: 999px; margin-right: 6px; vertical-align: 1px; }
+.rp-in i { background: var(--olive); color: var(--olive-ink); }
+.rp-out i { background: var(--rose); color: var(--rose-ink); }
+.fp-meal { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-s); }
+.fp-meal ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+.spec-link { min-height: 36px; font-size: 13.5px; padding: 0 12px; }
+
+/* Rotina do dia por etapa (no banho, depois do banho) e área (rosto, cabelo, corpo) */
+.stage { margin-top: 16px; padding: 14px 14px 12px; border-radius: var(--r-l); background: var(--card); border: 1.5px solid var(--line); }
+.stage-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.stage-head h3 { margin: 0; font-family: var(--f-display); font-weight: 600; font-size: 20px; }
+.stage-head .hint { font-size: 12.5px; color: var(--ink-2); font-weight: 600; }
+.stage-area + .stage-area { margin-top: 4px; }
+.stage-area .sec-cap { margin: 12px 0 6px; display: flex; align-items: center; justify-content: space-between; }
+.stage-area .sec-cap span { font-weight: 700; letter-spacing: 0; text-transform: none; font-size: 12.5px; color: var(--ink-3); }
+.stage .pick { background: var(--paper); }
+.stage .pick.on { background: #fffaf0; }
+.add-in { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 44px; margin-top: 8px; padding: 0 12px; border-radius: var(--r-m); border: 1.5px dashed var(--line-2); color: var(--ink-2); font-weight: 650; font-size: 14px; }
+.add-in:active { background: var(--paper-2); }
+.stage-more { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1.5px dotted var(--line-2); }
+.stage-more .small { flex-basis: 100%; }
+.stage-more .chip { min-height: 38px; }
+.stage-empty { margin: 8px 0 0; font-size: 14px; color: var(--ink-2); }
+.pick .step-tag { font-size: 11.5px; font-weight: 700; color: var(--ink-3); }
+.stage-head { flex-wrap: wrap; row-gap: 2px; }
+.stage-head h3 { white-space: nowrap; }
+[data-testid="skin-use-all"] { white-space: nowrap; }

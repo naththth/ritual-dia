@@ -160,7 +160,7 @@ test('cadastrar alimento e produto aparecem na hora para uso', async ({ page }) 
   await expect(page.getByTestId('day-screen')).toBeVisible();
   await expect(page.getByTestId('timeline')).toContainText('Patinho');
   await page.goto('./#/pele?p=pm');
-  await page.getByTestId('skin-add-from-list').click();
+  await page.getByTestId('skin-add-pos-rosto').click();
   await page.getByRole('button', { name: 'Cadastrar produto' }).click();
   await page.getByLabel('Marca').fill('Nova');
   await page.getByLabel('Nome do produto').fill('Bálsamo noturno');
@@ -490,10 +490,10 @@ test('rotina de cuidados: rosto, corpo e cabelo juntos na noite, com avaliação
 
   // segunda à noite: rosto, corpo e cabelo na mesma rotina
   await page.goto('./#/pele?p=pm');
-  await expect(page.getByTestId('skin-sec-corpo')).toContainText('Loção de ureia');
-  await expect(page.getByTestId('skin-sec-cabelo')).toContainText('Shampoo suave');
+  await expect(page.getByTestId('skin-sec-pos-corpo')).toContainText('Loção de ureia');
+  await expect(page.getByTestId('skin-sec-banho-cabelo')).toContainText('Shampoo suave');
   await expect(page.getByTestId('body-hair-signals')).toBeVisible();
-  if (process.env.SHOTS) { await page.getByTestId('skin-sec-corpo').scrollIntoViewIfNeeded(); await page.screenshot({ path: '/tmp/claude-0/shots/rotina-noite.png' }); await page.goto('./#/plano/skin'); await page.getByRole('tab', { name: 'Noite' }).click(); await page.screenshot({ path: '/tmp/claude-0/shots/plano-noite.png' }); }
+  if (process.env.SHOTS) { await page.getByTestId('skin-sec-pos-corpo').scrollIntoViewIfNeeded(); await page.screenshot({ path: '/tmp/claude-0/shots/rotina-noite.png' }); await page.goto('./#/plano/skin'); await page.getByRole('tab', { name: 'Noite' }).click(); await page.screenshot({ path: '/tmp/claude-0/shots/plano-noite.png' }); }
   await page.goto('./#/');
   await expect(page.getByTestId('tl-skin-pm')).toContainText('Rotina da noite');
   await expect(page.getByTestId('tl-skin-pm')).toContainText('Shampoo suave');
@@ -552,7 +552,7 @@ test('noite se adapta: vermelhidão de manhã tira o ativo da noite', async ({ p
   await expect(page.getByTestId('plan-skin')).toBeHidden();
   // manhã com vermelhidão
   await page.goto('./#/pele?p=am');
-  await expect(page.getByTestId('skin-sec-rosto')).toBeVisible();
+  await expect(page.getByTestId('skin-sec-pos-rosto')).toContainText('Creme hidratante');
   await page.getByTestId('sig-vermelhidao').click();
   await page.getByTestId('skin-save').click();
   await expect(page.getByTestId('skin-screen')).toBeHidden();
@@ -564,8 +564,8 @@ test('noite se adapta: vermelhidão de manhã tira o ativo da noite', async ({ p
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/noite-ajuste.png' });
   await page.getByTestId('night-adjust-apply').click();
   await expect(page.getByTestId('night-adjust-done')).toBeVisible();
-  await expect(page.getByTestId('skin-sec-rosto')).not.toContainText('Retinol');
-  await expect(page.getByTestId('skin-sec-rosto')).toContainText('Creme hidratante');
+  await expect(page.getByTestId('skin-sec-pos-rosto')).not.toContainText('Retinol');
+  await expect(page.getByTestId('skin-sec-pos-rosto')).toContainText('Creme hidratante');
   await page.goto('./#/');
   await expect(page.getByTestId('tl-skin-pm')).toContainText('Sem ativo hoje');
   await expect(page.getByTestId('tl-skin-pm')).not.toContainText('Retinol');

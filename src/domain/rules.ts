@@ -14,14 +14,21 @@ export function planFor(plans: Plan[], domain: PlanDomain, date: DateKey): Plan 
     .sort((a, b) => (a.validFrom < b.validFrom ? 1 : a.validFrom > b.validFrom ? -1 : b.updatedAt - a.updatedAt))[0];
 }
 
+/** Mudanças de um dia só (combinadas com a dermatologista ou a nutricionista): o que entra e o que sai. */
+export interface DayMods { skips?: { date: DateKey; domain: string; ref: string; deleted?: 0 | 1 }[]; extras?: { date: DateKey; domain?: string; ref: string; deleted?: 0 | 1 }[] }
+
 /** Produtos planejados para a data e período, ordenados pela sequência de aplicação. */
 export function plannedSkin(
-  plan: Plan | undefined, date: DateKey, period: SkinPeriod, products: Product[], recovery = false
+  plan: Plan | undefined, date: DateKey, period: SkinPeriod, products: Product[], recovery = false, mods?: DayMods
 ): string[] {
-  if (!plan?.skin) return [];
   const byId = new Map(products.map((p) => [p.id, p]));
-  let ids: string[];
-  if (period === 'corpo' || period === 'cabelo') {
+  const pre = `${period}:`;
+  const dayOut = new Set((mods?.skips ?? []).filter((s) => s.date === date && s.domain === 'skin' && !s.deleted && s.ref.startsWith(pre)).map((s) => s.ref.slice(pre.length)));
+  const dayIn = (mods?.extras ?? []).filter((e) => e.date === date && e.domain === 'skin' && !e.deleted && e.ref.startsWith(pre)).map((e) => e.ref.slice(pre.length));
+  if (!plan?.skin && !dayIn.length) return [];
+  let ids: string[] = [];
+  if (!plan?.skin) { /* só o combinado do dia */ }
+  else if (period === 'corpo' || period === 'cabelo') {
     const pp = period === 'corpo' ? plan.skin.body : plan.skin.hair;
     if (!pp) return [];
     const wd = isoWeekday(date);
@@ -36,6 +43,8 @@ export function plannedSkin(
     // Recuperação troca só a parte do rosto; corpo e cabelo seguem o plano do dia.
     if (recovery) ids = [...(plan.skin.recovery[period] ?? []), ...ids.filter((id) => (byId.get(id)?.area ?? 'rosto') !== 'rosto')];
   }
+  // O combinado para o dia vale por cima do plano e da recuperação.
+  if (dayOut.size || dayIn.length) ids = [...ids.filter((id) => !dayOut.has(id)), ...dayIn.filter((id) => !ids.includes(id) && !dayOut.has(id))];
   const usable = ids.filter((id) => {
     const p = byId.get(id);
     return p && p.status !== 'arquivado' && p.status !== 'de_outra';
@@ -49,14 +58,20 @@ export function plannedSkin(
 }
 
 /** Treinos do dia: os do plano semanal mais os avulsos combinados para aquela data (extras). */
-export function plannedTraining(plan: Plan | undefined, date: DateKey, extras?: { date: DateKey; ref: string; deleted?: 0 | 1 }[]): string[] {
+export function plannedTraining(plan: Plan | undefined, date: DateKey, extras?: { date: DateKey; domain?: string; ref: string; deleted?: 0 | 1 }[]): string[] {
   const base = plan?.training?.[isoWeekday(date)] ?? [];
-  const add = (extras ?? []).filter((e) => e.date === date && !e.deleted).map((e) => e.ref);
+  const add = (extras ?? []).filter((e) => e.date === date && !e.deleted && (e.domain ?? 'training') === 'training').map((e) => e.ref);
   return add.length ? Array.from(new Set([...base, ...add])) : base;
 }
 
-export function plannedFood(plan: Plan | undefined, date: DateKey): Record<string, string | null> {
-  return plan?.food?.[isoWeekday(date)] ?? {};
+/** Refeições planejadas do dia; a troca combinada com a nutricionista para aquela data vale no lugar do plano. */
+export function plannedFood(plan: Plan | undefined, date: DateKey, extras?: DayMods['extras']): Record<string, string | null> {
+  const base = plan?.food?.[isoWeekday(date)] ?? {};
+  const day = (extras ?? []).filter((e) => e.date === date && e.domain === 'food' && !e.deleted);
+  if (!day.length) return base;
+  const out = { ...base };
+  for (const e of day.sort((a: any, b: any) => (a.updatedAt ?? 0) - (b.updatedAt ?? 0))) { const i = e.ref.indexOf(':'); if (i > 0) out[e.ref.slice(0, i)] = e.ref.slice(i + 1); }
+  return out;
 }
 
 /** Ao salvar um plano: se a versão vigente começou antes de hoje, cria nova versão a partir de hoje

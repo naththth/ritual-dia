@@ -11,9 +11,10 @@ export function DayNutrition({ date }: { date: DateKey }) {
   const foods = useAll('food');
   const plans = useAll('plan');
   const tmpls = useAll('mtemplate');
+  const extras = useByDate('extra', date);
   if (!foods || !meals || settings?.showNutrition === false) return null;
   const eaten = totals(meals.flatMap((m) => m.items), foods);
-  const planned = plannedFood(planFor(plans ?? [], 'food', date), date);
+  const planned = plannedFood(planFor(plans ?? [], 'food', date), date, extras);
   const planItems: MealItem[] = Object.values(planned).flatMap((id) => tmpls?.find((t) => t.id === id)?.items ?? []);
   const plan = planItems.length ? totals(planItems, foods).n : undefined;
   const t = settings?.targets;

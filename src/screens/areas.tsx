@@ -9,6 +9,7 @@ import { shortLabel, todayKey } from '../lib/dates';
 import { SkinPlan, TrainingPlan, FoodPlan } from './PlanScreen';
 import { Products, Foods, MealTemplates, Modalities, WorkoutTemplates, Habits, Goals } from './library/LibraryScreen';
 import { SpecialistCard } from './specialist';
+import { SpecialistButton } from './specchat';
 
 export const AREAS = {
   treino: { title: 'Treino', tabs: [{ to: '/treino', label: 'Semana' }, { to: '/treino/plano', label: 'Plano' }, { to: '/treino/sessoes', label: 'Sessões' }] },
@@ -32,11 +33,18 @@ export function AreaNav({ area }: { area: AreaId }) {
   );
 }
 
+/** Quem atende em cada área: a treinadora fica na aba Semana do Treino; as outras, em todas as abas da área. */
+const SPEC: Partial<Record<AreaId, 'skin' | 'food'>> = { cuidados: 'skin', alimentacao: 'food' };
+
 function AreaPage({ area, children, testId }: { area: AreaId; children: ReactNode; testId: string }) {
+  const spec = SPEC[area];
   return (
     <div className="screen" data-testid={testId}>
       <TopBar />
-      <h1 className="section-title" style={{ fontSize: 32, fontWeight: 500, margin: '8px 0 10px' }}>{AREAS[area].title}</h1>
+      <div className="row between" style={{ alignItems: 'center' }}>
+        <h1 className="section-title" style={{ fontSize: 32, fontWeight: 500, margin: '8px 0 10px' }}>{AREAS[area].title}</h1>
+        {spec && <SpecialistButton domain={spec} />}
+      </div>
       <AreaNav area={area} />
       <div style={{ marginTop: 14 }}>{children}</div>
     </div>

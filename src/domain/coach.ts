@@ -146,11 +146,11 @@ async function context(text: string, history: CoachMsg[]) {
 
 /** Refeições de hoje e de ontem com horário, itens e macros, mais as metas do dia: o suficiente para falar de pré e pós-treino. */
 async function foodContext(today: DateKey, plans: Awaited<ReturnType<typeof all<'plan'>>>, settings?: Awaited<ReturnType<typeof get<'settings'>>>) {
-  const [meals, foods, mtmpls, water] = await Promise.all([byDateRange('meal', addDays(today, -1), today), all('food'), all('mtemplate'), byDateRange('water', today, today)]);
+  const [meals, foods, mtmpls, water, extras] = await Promise.all([byDateRange('meal', addDays(today, -1), today), all('food'), all('mtemplate'), byDateRange('water', today, today), byDateRange('extra', today, today)]);
   const label = (id: string) => settings?.mealTypes?.find((m) => m.id === id)?.label ?? id;
   const r1 = (n?: number) => (n == null ? undefined : Math.round(n));
   const macros = (n: { kcal: number; p: number; c: number; f: number }) => ({ kcal: r1(n.kcal), proteina_g: r1(n.p), carbo_g: r1(n.c), gordura_g: r1(n.f) });
-  const planItems = Object.values(plannedFood(planFor(plans, 'food', today), today)).flatMap((id) => mtmpls.find((t) => t.id === id)?.items ?? []);
+  const planItems = Object.values(plannedFood(planFor(plans, 'food', today), today, extras)).flatMap((id) => mtmpls.find((t) => t.id === id)?.items ?? []);
   const planTot = planItems.length ? totals(planItems, foods).n : undefined;
   const t = settings?.targets;
   const eatenToday = totals(meals.filter((m) => m.date === today).flatMap((m) => m.items), foods);
