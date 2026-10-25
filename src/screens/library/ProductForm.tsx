@@ -81,7 +81,10 @@ export function ProductForm({ product, initial, onDone }: { product?: Product; i
       const r = await update<'product'>(product.id, renamed && !d.image ? { ...data, imageTried: undefined } : data);
       toast('Produto salvo'); onDone(r);
       if (r && renamed && !r.image) autoImage(r);
-    } else { const r = await create('product', data); toast('Produto cadastrado'); onDone(r); autoImage(r); }
+    } else {
+      const r = await create('product', data); toast('Produto cadastrado'); onDone(r); autoImage(r);
+      import('../../domain/skinLayers').then((m) => m.organizeSoon([r.id]));
+    }
   };
   return (
     <div data-testid="product-form">

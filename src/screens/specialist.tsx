@@ -116,6 +116,11 @@ async function adapter(domain: Domain, herText: string) {
         const plan = decode(r);
         const cur = planFor(await all('plan'), 'skin', todayKey());
         await savePlan('skin', cur, { skin: { ...plan.skin, body: undefined, hair: undefined } });
+        // Todo plano novo sai na ordem de aplicação e com o modo de uso de cada produto.
+        const ids = new Set<string>();
+        for (const per of ['am', 'pm'] as const) { plan.skin[per].base.forEach((id) => ids.add(id)); Object.values(plan.skin[per].days).forEach((d) => d.add.forEach((id) => ids.add(id))); plan.skin.recovery[per].forEach((id) => ids.add(id)); }
+        const { organizeSoon } = await import('../domain/skinLayers');
+        organizeSoon([...ids]);
       },
       slim: (c: any) => ({ ...c, produtos: (c.produtos ?? []).map((p: any) => ({ id: p.id, nome: p.nome, marca: p.marca, tipo: p.tipo, area: p.area, ativo: p.ativo, ativos: p.ativos })) })
     };

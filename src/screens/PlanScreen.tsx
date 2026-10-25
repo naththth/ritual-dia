@@ -13,6 +13,7 @@ import { Check } from 'lucide-react';
 import { update } from '../db/db';
 import { toast } from '../state/store';
 import { GROUP_RANK } from '../domain/defaults';
+import { applicationOrder } from '../domain/skinSteps';
 import { careProgress } from '../domain/care';
 import { ChatButton } from './specialist';
 
@@ -61,7 +62,7 @@ export function SkinPlan({ embedded = false }: { embedded?: boolean } = {}) {
   const inUse = products.filter((p) => p.status === 'em_uso');
   const faceInUse = inUse.filter((p) => (p.area ?? 'rosto') === 'rosto');
   const byId = new Map(products.map((p) => [p.id, p]));
-  const sortIds = (ids: string[]) => [...ids].sort((a, b) => (GROUP_RANK[byId.get(a)?.group ?? 'hidratacao'] - GROUP_RANK[byId.get(b)?.group ?? 'hidratacao']));
+  const sortIds = (ids: string[]) => applicationOrder(ids, byId as Map<string, Product>);
   /** Lista em tópicos, separada por área, na ordem de aplicação. */
   const groups = (ids: string[], suffix = '', tone = '') => AREAS.map((ar) => {
     const n = sortIds(ids).filter((id) => (byId.get(id)?.area ?? 'rosto') === ar.id).map((id) => byId.get(id)?.name).filter(Boolean) as string[];

@@ -9,6 +9,8 @@ import { areaOf, GROUPS } from './defaults';
 import { applyWeekChanges, emptySkinPlan, OWNED, productStep, type RoutineChange } from './skinSteps';
 import { chatMemory, undoLog, type SkinProposal, type SpecMsg } from './specchat';
 import type { Product, ProductGroup, ProductStatus } from '../db/types';
+import { layerOf } from './skinSteps';
+import { applyLayer, layersForAI, organizeSoon } from './skinLayers';
 
 const DAY = ['', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
 const DAY_LONG = ['todos os dias', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'];
@@ -65,7 +67,7 @@ export async function askDerm(text: string, history: SpecMsg[], images?: { mime:
     fala_dela: text, fotos_nesta_mensagem: images?.length || undefined,
     ...(await chatMemory('skin', history, 'dermatologista')),
     produtos: list.map((p) => ({
-      codigo: c(p.id), marca: p.brand, nome: p.name, area: p.area ?? 'rosto', etapa: productStep(p), tipo: p.group, situacao: p.status,
+      codigo: c(p.id), marca: p.brand, nome: p.name, area: p.area ?? 'rosto', etapa: productStep(p), camada: layerOf(p), posicao: p.layerPos ? p.layerPos / 10 : undefined, uso: p.howShort, tipo: p.group, situacao: p.status,
       ativo_forte: !!p.active || undefined, periodo_preferido: p.period, ativos: p.info?.actives, para_que_serve: p.info?.purpose, modo_de_uso: p.info?.howToUse, cuidados: p.info?.cautions
     })),
     plano_semanal: plan?.skin ? { manha: period('am'), noite: period('pm'), recuperacao: { manha: codes(plan.skin.recovery?.am ?? []), noite: codes(plan.skin.recovery?.pm ?? []) }, diagnostico: plan.skin.diagnosis } : null,
@@ -83,7 +85,8 @@ export async function askDerm(text: string, history: SpecMsg[], images?: { mime:
     registros_recentes: logs.sort((a, b) => a.date.localeCompare(b.date)).map((l) => ({ data: l.date, periodo: l.period, condicao: l.condition, sinais: Object.keys(l.signals ?? {}).length ? l.signals : undefined, usados: codes(l.productIds), pulou: l.skipped || undefined, recuperacao: l.recovery || undefined, obs: l.note })),
     treinos_feitos: workouts.map((w) => ({ data: w.date, modalidade: modName(w.modalityId), minutos: w.duration })),
     sono_e_recuperacao: wellness.sort((a, b) => a.date.localeCompare(b.date)).map(wellnessForAI),
-    preferencias_de_cuidados: settings?.aiPrefs?.skin ?? ''
+    preferencias_de_cuidados: settings?.aiPrefs?.skin ?? '',
+    camadas: layersForAI()
   };
   const r = await askAI<any>('skin_coach', ctx, images);
 
@@ -137,6 +140,16 @@ export async function askDerm(text: string, history: SpecMsg[], images?: { mime:
         await snap(p.id);
         await update<'product'>(p.id, patch);
         done.push(`${p.name}: ${what.join(', ')}.`);
+      } else if (a?.tipo === 'organizar_produtos') {
+        const moved: string[] = [];
+        for (const x of Array.isArray(a.produtos) ? a.produtos : []) {
+          const id = resolve(x?.produto);
+          const p = id ? await get<'product'>(id) : undefined;
+          if (!p) continue;
+          await snap(p.id);
+          if (await applyLayer(p, x)) moved.push(p.name);
+        }
+        if (moved.length) done.push(`Ordem e modo de uso ajustados: ${moved.join(', ')}.`);
       } else if (a?.tipo === 'propor_rotina') {
         const scope = a.escopo === 'semana' ? 'semana' : 'dia';
         const changes: RoutineChange[] = [];
@@ -161,6 +174,7 @@ export async function askDerm(text: string, history: SpecMsg[], images?: { mime:
       }
     } catch (e: any) { failed.push(String(e?.message ?? e)); }
   }
+  if (created.size) organizeSoon([...created.values()].map((p) => p.id));
   const msgText = String(r?.mensagem ?? '').trim().replace(/\bp(\d+)\b/g, (m0, n) => byCode.get(`p${n}`)?.name ?? m0);
   return {
     from: 'ai', at: Date.now(),
@@ -196,6 +210,7 @@ export async function approveDerm(p: SkinProposal): Promise<{ undo: { id: string
       }
       done.push(describeChange(c, name));
     }
+    organizeSoon(p.changes.flatMap((c) => c.add));
   } else {
     const today = todayKey();
     const cur = planFor(await all('plan'), 'skin', today);
@@ -204,6 +219,7 @@ export async function approveDerm(p: SkinProposal): Promise<{ undo: { id: string
     if (target.mode === 'update') { await snap(target.id); await update<'plan'>(target.id, { skin }); }
     else { const id = uid('plan'); undo.push({ id }); await create('plan', { id, domain: 'skin', validFrom: target.validFrom, skin } as any); }
     for (const c of p.changes) done.push(describeChange(c, name));
+    organizeSoon(p.changes.flatMap((c) => c.add));
     done.push('A rotina da semana vale a partir de hoje; os dias anteriores ficam como estavam.');
   }
   return { undo, done };

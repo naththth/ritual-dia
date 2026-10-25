@@ -166,6 +166,11 @@ export interface Product extends Base {
   active?: boolean; // ativo potencialmente irritante, marcado por ela
   /** Em que momento da rotina entra: no banho (lava e enxágua) ou depois dele. Sem isto, o app deduz pelo tipo e pelo nome. */
   step?: 'banho' | 'pos';
+  /** Camada na ordem de aplicação (ex.: rosto_tonico, rosto_serum) e posição dentro dela. Definidas pela dermatologista ou por ela. */
+  layer?: string;
+  layerPos?: number;
+  /** Como usar, em 1 a 2 linhas, para aparecer na rotina. */
+  howShort?: string;
   /** Miniatura da embalagem (data URL pequena), achada na internet ou tirada por ela, para reconhecer o produto de relance. */
   image?: string;
   /** De onde veio a miniatura achada na internet. */

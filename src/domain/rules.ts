@@ -3,7 +3,7 @@ import { isoWeekday, weekStart, addDays, monthStart, monthEnd, type DateKey } fr
 import type {
   Habit, HabitLog, Plan, PlanDomain, Product, SkinPeriod, Task, SuggestionLog, Workout, Priority
 } from '../db/types';
-import { GROUP_RANK } from './defaults';
+import { applicationOrder } from './skinSteps';
 
 /* ---------------- Planos ---------------- */
 
@@ -49,12 +49,8 @@ export function plannedSkin(
     const p = byId.get(id);
     return p && p.status !== 'arquivado' && p.status !== 'de_outra';
   });
-  const pos = new Map(ids.map((id, i) => [id, i]));
-  return usable.sort((a, b) => {
-    const ga = GROUP_RANK[byId.get(a)!.group];
-    const gb = GROUP_RANK[byId.get(b)!.group];
-    return ga - gb || pos.get(a)! - pos.get(b)!;
-  });
+  // Ordem de aplicação: etapa, área, camada e posição na camada; empate mantém a ordem do plano.
+  return applicationOrder(usable, byId);
 }
 
 /** Treinos do dia: os do plano semanal mais os avulsos combinados para aquela data (extras). */

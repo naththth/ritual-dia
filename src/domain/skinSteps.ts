@@ -22,6 +22,8 @@ const LEAVE_ON = /leave-?in|sem enx[aá]gue|t[oô]nico|s[eé]rum|[oó]leo de pon
 /** Em que etapa o produto entra: o que ela escolheu ou, sem escolha, o que o tipo, o nome e o modo de uso indicam. */
 export function productStep(p: Pick<Product, 'step' | 'group' | 'area' | 'name' | 'originalCategory' | 'info'>): Step {
   if (p.step) return p.step;
+  const lay = (p as Partial<Product>).layer;
+  if (lay) { const st = LAYERS_STEP[lay]; if (st) return st; }
   const name = `${p.name ?? ''} ${p.originalCategory ?? ''}`.toLowerCase();
   const how = `${p.info?.howToUse ?? ''}`.toLowerCase();
   const area = p.area ?? 'rosto';
@@ -31,6 +33,94 @@ export function productStep(p: Pick<Product, 'step' | 'group' | 'area' | 'name' 
   if (area === 'corpo') return WASH_BODY.test(name) || (RINSE.test(how) && !LEAVE_ON.test(name)) ? 'banho' : 'pos';
   if (p.group === 'limpeza') return 'banho';
   return WASH_FACE.test(name) && !LEAVE_ON.test(name) ? 'banho' : 'pos';
+}
+
+/* ---------- Camadas: a ordem de aplicação dentro de cada etapa e área ---------- */
+
+/** Camadas na ordem em que se aplica. A dermatologista diz em que camada cada produto fica e a ordem dentro dela. */
+export const LAYERS: { id: string; area: Area; step: Step; label: string }[] = [
+  { id: 'rosto_oleo_limpeza', area: 'rosto', step: 'banho', label: 'Limpeza oleosa' },
+  { id: 'rosto_limpeza', area: 'rosto', step: 'banho', label: 'Limpeza' },
+  { id: 'rosto_esfoliante', area: 'rosto', step: 'banho', label: 'Esfoliante ou máscara de enxágue' },
+  { id: 'rosto_tonico', area: 'rosto', step: 'pos', label: 'Tônico, loção ou pad' },
+  { id: 'rosto_essencia', area: 'rosto', step: 'pos', label: 'Essência' },
+  { id: 'rosto_serum', area: 'rosto', step: 'pos', label: 'Ampola ou sérum' },
+  { id: 'rosto_tratamento', area: 'rosto', step: 'pos', label: 'Tratamento' },
+  { id: 'rosto_olhos', area: 'rosto', step: 'pos', label: 'Olhos' },
+  { id: 'rosto_creme', area: 'rosto', step: 'pos', label: 'Hidratante' },
+  { id: 'rosto_oleo', area: 'rosto', step: 'pos', label: 'Óleo ou máscara noturna' },
+  { id: 'rosto_fps', area: 'rosto', step: 'pos', label: 'Protetor solar' },
+  { id: 'rosto_labios', area: 'rosto', step: 'pos', label: 'Lábios' },
+  { id: 'cabelo_pre', area: 'cabelo', step: 'banho', label: 'Pré-shampoo' },
+  { id: 'cabelo_shampoo', area: 'cabelo', step: 'banho', label: 'Shampoo' },
+  { id: 'cabelo_condicionador', area: 'cabelo', step: 'banho', label: 'Condicionador ou máscara' },
+  { id: 'cabelo_couro', area: 'cabelo', step: 'pos', label: 'Couro cabeludo' },
+  { id: 'cabelo_leave_in', area: 'cabelo', step: 'pos', label: 'Leave-in' },
+  { id: 'cabelo_termico', area: 'cabelo', step: 'pos', label: 'Protetor térmico' },
+  { id: 'cabelo_finalizador', area: 'cabelo', step: 'pos', label: 'Óleo ou finalizador' },
+  { id: 'corpo_limpeza', area: 'corpo', step: 'banho', label: 'Limpeza' },
+  { id: 'corpo_esfoliante', area: 'corpo', step: 'banho', label: 'Esfoliante' },
+  { id: 'corpo_serum', area: 'corpo', step: 'pos', label: 'Sérum corporal' },
+  { id: 'corpo_hidratante', area: 'corpo', step: 'pos', label: 'Hidratante' },
+  { id: 'corpo_oleo', area: 'corpo', step: 'pos', label: 'Óleo' },
+  { id: 'corpo_outros', area: 'corpo', step: 'pos', label: 'Proteção e outros' }
+];
+const LAYER_RANK = new Map(LAYERS.map((l, i) => [l.id, i]));
+export const LAYER_IDS = new Set(LAYERS.map((l) => l.id));
+
+type LayerInput = Pick<Product, 'step' | 'group' | 'area' | 'name' | 'originalCategory' | 'info' | 'layer'>;
+
+/** Camada do produto: a que a dermatologista ou ela definiu ou, sem isso, a que o tipo e o nome indicam. */
+export function layerOf(p: LayerInput): string {
+  const area = (p.area ?? 'rosto') as Area;
+  if (p.layer && LAYER_IDS.has(p.layer) && p.layer.startsWith(area)) return p.layer;
+  const n = `${p.name ?? ''} ${p.originalCategory ?? ''}`.toLowerCase();
+  const step = productStep(p);
+  if (area === 'cabelo') {
+    if (step === 'banho') return /pr[eé]-?shampo/.test(n) ? 'cabelo_pre' : /shampoo|xampu|shampoing|\bbain\b|co-?wash/.test(n) ? 'cabelo_shampoo' : 'cabelo_condicionador';
+    if (/t[eé]rmic|thermique|heat/.test(n)) return 'cabelo_termico';
+    if (/leave-?in|sem enx[aá]gue/.test(n)) return 'cabelo_leave_in';
+    if (/t[oô]nico|couro|scalp|anti-?chute|queda|hair loss|ampoule|ampola|root/.test(n)) return 'cabelo_couro';
+    return 'cabelo_finalizador';
+  }
+  if (area === 'corpo') {
+    if (step === 'banho') return /esfolia|gommage|scrub/.test(n) ? 'corpo_esfoliante' : 'corpo_limpeza';
+    if (/antiatrito|anti-?atrito|desodorante|fps|protetor/.test(n)) return 'corpo_outros';
+    if (/s[eé]rum|serum/.test(n)) return 'corpo_serum';
+    if (/[oó]leo|\boil\b|huile/.test(n)) return 'corpo_oleo';
+    return 'corpo_hidratante';
+  }
+  if (step === 'banho') return /oil|[oó]leo|balm|bálsamo/.test(n) ? 'rosto_oleo_limpeza' : /mud|argila|clay|esfolia|peeling|scrub/.test(n) ? 'rosto_esfoliante' : 'rosto_limpeza';
+  if (p.group === 'fps' || /\bspf\b|\bfps\b|\bsun\b|solar|sunstick/.test(n)) return 'rosto_fps';
+  if (/\blip\b|l[aá]bio/.test(n)) return 'rosto_labios';
+  if (p.group === 'olhos' || /\beye|olho|olheira/.test(n)) return 'rosto_olhos';
+  if (/\bpad\b|t[oô]nico|toner|\blotion\b|\bloção\b|[aá]gua termal|mist/.test(n)) return 'rosto_tonico';
+  if (/ess[eê]ncia|essence/.test(n)) return 'rosto_essencia';
+  if (p.group === 'tratamentos' || /retin|bha|aha|[aá]cido|azel|benz|per[oó]xido|acne|curativo|spot|blemish gel/.test(n)) return 'rosto_tratamento';
+  if (p.group === 'seruns' || /s[eé]rum|serum|ampoule|ampola|capsule ampoule/.test(n)) return 'rosto_serum';
+  if (/sleeping|overnight|noturn|night mask|[oó]leo facial|face oil/.test(n)) return 'rosto_oleo';
+  return 'rosto_creme';
+}
+export const layerLabel = (id: string) => LAYERS.find((l) => l.id === id)?.label ?? '';
+
+/** Ordem de aplicação: etapa (banho antes), área, camada e, dentro da camada, a posição que a dermatologista ou ela definiu. */
+export function applicationOrder(ids: string[], byId: Map<string, Product>): string[] {
+  const pos = new Map(ids.map((id, i) => [id, i]));
+  const key = (id: string) => {
+    const p = byId.get(id)!;
+    const l = layerOf(p);
+    return [STEPS.findIndex((s) => s.id === (LAYERS.find((x) => x.id === l)?.step ?? productStep(p))), AREAS.findIndex((a) => a.id === (p.area ?? 'rosto')), LAYER_RANK.get(l) ?? 99, p.layerPos ?? 999, pos.get(id) ?? 0];
+  };
+  return ids.filter((id) => byId.has(id)).sort((a, b) => { const ka = key(a), kb = key(b); for (let i = 0; i < ka.length; i++) if (ka[i] !== kb[i]) return ka[i] - kb[i]; return 0; });
+}
+
+/** Modo de uso em 1 a 2 linhas: o resumo da dermatologista ou, sem ele, o começo do modo de uso da ficha. */
+export function shortUse(p: Pick<Product, 'howShort' | 'info'>): string | undefined {
+  if (p.howShort?.trim()) return p.howShort.trim();
+  const h = p.info?.howToUse?.trim();
+  if (!h) return undefined;
+  const first = h.split(/(?<=[.!?])\s+/).slice(0, 2).join(' ');
+  return first.length > 150 ? `${first.slice(0, 147).trimEnd()}…` : first;
 }
 
 export const areaOfProduct = (p?: Pick<Product, 'area'>): Area => (p?.area ?? 'rosto') as Area;
@@ -78,3 +168,6 @@ export function applyWeekChanges(skin: NonNullable<Plan['skin']>, changes: Routi
 }
 
 export const emptySkinPlan = (): NonNullable<Plan['skin']> => ({ am: { base: [], days: {} }, pm: { base: [], days: {} }, recovery: { am: [], pm: [] } });
+
+/** Etapa de cada camada (para quem tem camada definida pela dermatologista). */
+const LAYERS_STEP: Record<string, Step> = Object.fromEntries(LAYERS.map((l) => [l.id, l.step]));

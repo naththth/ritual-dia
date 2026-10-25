@@ -15,7 +15,7 @@ async function seed(page: Page) {
         return {
           mensagem: 'Hoje à noite sem retinol; o sérum calmante entra no lugar.',
           acoes: [
-            { tipo: 'propor_rotina', escopo: 'dia', titulo: 'Noite calma', mudancas: [{ periodo: 'pm', data: ctx.hoje, entra: [code(ctx, 'Sérum calmante')], sai: [code(ctx, 'Retinol')] }], nota: 'Amanhã você volta ao plano.' },
+            { tipo: 'propor_rotina', escopo: 'dia', titulo: 'Noite calma', mudancas: [{ periodo: 'pm', data: ctx.hoje, entra: [code(ctx, 'Sérum B5')], sai: [code(ctx, 'Retinol 0.3')] }], nota: 'Amanhã você volta ao plano.' },
             { tipo: 'guardar_preferencia', texto: 'Pele reage a retinol depois de sol forte' }
           ]
         };
@@ -39,8 +39,8 @@ async function seed(page: Page) {
     const base = { deleted: 0, dirty: 0, updatedAt: 5, createdAt: 5 };
     const p = (id: string, brand: string, name: string, group: string, area: string, extra: any = {}) => st.put({ ...base, id, kind: 'product', brand, name, group, area, period: 'ambos', status: 'em_uso', ...extra });
     p('product:gel', 'A', 'Gel de limpeza', 'limpeza', 'rosto');
-    p('product:serum', 'B', 'Sérum calmante', 'seruns', 'rosto');
-    p('product:retinol', 'C', 'Retinol', 'tratamentos', 'rosto', { active: true });
+    p('product:serum', 'B', 'Sérum B5', 'seruns', 'rosto');
+    p('product:retinol', 'C', 'Retinol 0.3', 'tratamentos', 'rosto', { active: true });
     p('product:shampoo', 'D', 'Shampoo suave', 'cabelo', 'cabelo');
     p('product:oleo', 'E', 'Óleo de pontas', 'cabelo', 'cabelo', { status: 'guardado' });
     p('product:locao', 'F', 'Loção de ureia', 'corpo', 'corpo', { image: 'data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==' });
@@ -61,7 +61,7 @@ test('rotina da noite por etapa e área, com produto que ela já tem', async ({ 
   await page.goto('./#/pele?p=pm');
   await expect(page.getByTestId('skin-sec-banho-rosto')).toContainText('Gel de limpeza');
   await expect(page.getByTestId('skin-sec-banho-cabelo')).toContainText('Shampoo suave');
-  await expect(page.getByTestId('skin-sec-pos-rosto')).toContainText('Retinol');
+  await expect(page.getByTestId('skin-sec-pos-rosto')).toContainText('Retinol 0.3');
   await expect(page.getByTestId('skin-sec-pos-corpo')).toContainText('Loção de ureia');
   await expect(page.getByTestId('skin-sec-pos-corpo').locator('img.pthumb')).toHaveCount(1);
   // Corpo no banho aparece mesmo sem nada planejado; o gel de banho vai para lá.
@@ -75,6 +75,18 @@ test('rotina da noite por etapa e área, com produto que ela já tem', async ({ 
   await page.locator('.sheet [data-testid=product-pick]', { hasText: 'Óleo de pontas' }).click();
   await page.getByRole('button', { name: 'Pronto' }).click();
   await expect(page.getByTestId('skin-sec-pos-cabelo')).toContainText('fora do plano');
+  // Ordem de aplicação: o sérum entra antes do retinol, com número; "Mudar ordem" troca e vale dali em diante.
+  await page.getByTestId('skin-add-pos-rosto').click();
+  await page.locator('.sheet [data-testid=product-pick]', { hasText: 'Sérum B5' }).click();
+  await page.getByRole('button', { name: 'Pronto' }).click();
+  const rosto = page.getByTestId('skin-sec-pos-rosto').locator('[data-testid=product-pick]');
+  await expect(rosto.first()).toContainText('Sérum B5');
+  await expect(rosto.first().locator('.num-badge')).toHaveText('1');
+  await page.getByTestId('reorder-pos-rosto').click();
+  await page.getByTestId('reorder-row').first().getByRole('button', { name: 'Descer' }).click();
+  await expect(page.getByTestId('reorder-row').first()).toContainText('Retinol 0.3');
+  await page.getByTestId('reorder-pos-rosto').click();
+  await expect(rosto.first()).toContainText('Retinol 0.3');
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/rotina-etapas.png', fullPage: true });
   await page.getByTestId('skin-save').click();
   await expect(page.getByTestId('skin-screen')).toBeHidden();
@@ -89,8 +101,8 @@ test('dermatologista muda a noite de hoje e a semana; nutricionista troca o jant
   await page.getByTestId('spec-send').click();
   const prop = page.getByTestId('spec-proposal');
   await expect(prop).toContainText('Noite de dom 25/10');
-  await expect(prop).toContainText('Sérum calmante');
-  await expect(prop).toContainText('Retinol');
+  await expect(prop).toContainText('Sérum B5');
+  await expect(prop).toContainText('Retinol 0.3');
   const ctx = await page.evaluate(() => (window as any).__ctx.skin_coach);
   expect(ctx.produtos.find((p: any) => p.nome === 'Shampoo suave').etapa).toBe('banho');
   expect(ctx.produtos.find((p: any) => p.nome === 'Óleo de pontas').situacao).toBe('guardado');
@@ -101,9 +113,9 @@ test('dermatologista muda a noite de hoje e a semana; nutricionista troca o jant
   await page.getByRole('button', { name: 'Fechar' }).click();
 
   await page.goto('./#/pele?p=pm');
-  await expect(page.getByTestId('skin-sec-pos-rosto')).toContainText('Sérum calmante');
+  await expect(page.getByTestId('skin-sec-pos-rosto')).toContainText('Sérum B5');
   await expect(page.getByTestId('skin-sec-pos-rosto')).toContainText('da dermato, hoje');
-  await expect(page.getByTestId('skin-sec-pos-rosto')).not.toContainText('Retinol');
+  await expect(page.getByTestId('skin-sec-pos-rosto')).not.toContainText('Retinol 0.3');
 
   // Pela rotina do dia: proposta para a semana, que vale nos próximos dias.
   await page.getByTestId('spec-link-skin').click();
@@ -115,7 +127,7 @@ test('dermatologista muda a noite de hoje e a semana; nutricionista troca o jant
   await page.getByRole('button', { name: 'Fechar' }).click();
   await page.getByRole('button', { name: 'Próximo dia' }).click();
   await expect(page.getByTestId('skin-sec-pos-cabelo')).toContainText('Óleo de pontas');
-  await expect(page.getByTestId('skin-sec-pos-rosto')).toContainText('Retinol');
+  await expect(page.getByTestId('skin-sec-pos-rosto')).toContainText('Retinol 0.3');
 
   // Nutricionista: jantar de hoje trocado depois do aprovo.
   await page.goto('./#/alimentacao');

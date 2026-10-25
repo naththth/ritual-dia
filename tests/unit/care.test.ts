@@ -75,3 +75,42 @@ describe('troca de refeição do dia', () => {
     expect(itemFrom('f1', '1 un.', null)).toEqual({ foodId: 'f1', portion: '1 un.' });
   });
 });
+
+import { applicationOrder, layerOf, shortUse } from '../../src/domain/skinSteps';
+describe('ordem de aplicação', () => {
+  const P = (id: string, x: Partial<Product>) => prod(id, x);
+  const list = [
+    P('fps', { group: 'fps', name: 'Hyalu-Cica Water-Fit Sun Serum' }),
+    P('creme', { group: 'hidratacao', name: 'Atobarrier 365 Cream' }),
+    P('amp', { group: 'seruns', name: 'Madagascar Centella Ampoule' }),
+    P('ton', { group: 'hidratacao', name: 'Gokujyun Lotion' }),
+    P('oil', { group: 'limpeza', name: 'Gokujyun Cleansing Oil' }),
+    P('gel', { group: 'limpeza', name: 'Sensibio Gel Moussant' }),
+    P('ret', { group: 'tratamentos', name: 'Retinol 0.3', active: true }),
+    P('ess', { group: 'seruns', name: 'Advanced Snail Radiance Dual Essence' }),
+    P('eye', { group: 'olhos', name: 'K-Ox Eyes' })
+  ];
+  const byId = new Map(list.map((p) => [p.id, p]));
+  it('segue as camadas do rosto, do banho ao protetor', () => {
+    expect(applicationOrder(list.map((p) => p.id), byId)).toEqual(['oil', 'gel', 'ton', 'ess', 'amp', 'ret', 'eye', 'creme', 'fps']);
+  });
+  it('cabelo e corpo pelas camadas', () => {
+    expect(layerOf(prod('a', { area: 'cabelo', group: 'cabelo', name: 'Genesis Bain Hydra-Fortifiant' }))).toBe('cabelo_shampoo');
+    expect(layerOf(prod('b', { area: 'cabelo', group: 'cabelo', name: 'Genesis Fondant Renforçateur' }))).toBe('cabelo_condicionador');
+    expect(layerOf(prod('c', { area: 'cabelo', group: 'cabelo', name: 'Genesis Défense Thermique' }))).toBe('cabelo_termico');
+    expect(layerOf(prod('d', { area: 'cabelo', group: 'cabelo', name: 'Genesis Sérum Anti-Chute Fortifiant' }))).toBe('cabelo_couro');
+    expect(layerOf(prod('e', { area: 'corpo', group: 'corpo', name: 'Artichaut Soin Corps Complet Gommage Corps' }))).toBe('corpo_esfoliante');
+    expect(layerOf(prod('f', { area: 'corpo', group: 'corpo', name: 'Amande Sublime Huile Souplesse' }))).toBe('corpo_oleo');
+  });
+  it('posição definida vale dentro da camada e a camada definida vale sobre a dedução', () => {
+    const a = P('a', { group: 'seruns', name: 'Sérum A', layerPos: 20 });
+    const b = P('b', { group: 'seruns', name: 'Sérum B', layerPos: 10 });
+    const t = P('t', { group: 'seruns', name: 'Sérum que é tônico', layer: 'rosto_tonico' });
+    const m = new Map([a, b, t].map((p) => [p.id, p]));
+    expect(applicationOrder(['a', 'b', 't'], m)).toEqual(['t', 'b', 'a']);
+  });
+  it('uso curto: o da dermatologista ou o começo do modo de uso', () => {
+    expect(shortUse({ howShort: 'Duas gotas.' })).toBe('Duas gotas.');
+    expect(shortUse({ info: { howToUse: 'Aplique à noite. Espere secar. Depois hidrate. Evite olhos.' } })).toBe('Aplique à noite. Espere secar.');
+  });
+});

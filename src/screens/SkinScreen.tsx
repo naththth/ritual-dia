@@ -13,7 +13,8 @@ import { cycleInfo } from '../domain/cycle';
 import { useCycle } from './cycle';
 import { saveSkin, skinId, deleteRecord } from '../domain/actions';
 import { update } from '../db/db';
-import { AREAS, OWNED, STEPS, productStep, type Area, type Step } from '../domain/skinSteps';
+import { AREAS, OWNED, STEPS, applicationOrder, layerOf, productStep, shortUse, type Area, type Step } from '../domain/skinSteps';
+import { ArrowDown, ArrowUp } from 'lucide-react';
 import { SpecialistLink } from './specchat';
 import { ProductThumb } from '../ui/ProductThumb';
 export { ProductThumb };
@@ -99,7 +100,18 @@ export function SkinScreen() {
   const stepOfId = (id: string) => { const p = byId.get(id); return p ? productStep(p) : 'pos'; };
   // Combinado com a dermatologista para este dia: aparece marcado no produto.
   const byDerm = new Set((dayExtras ?? []).filter((e) => e.domain === 'skin' && e.ref.startsWith(`${period}:`)).map((e) => e.ref.slice(period.length + 1)));
-  const shown = [...planned, ...extras];
+  const shown = applicationOrder([...planned, ...extras], byId);
+  const [reorder, setReorder] = useState<string | null>(null);
+  /** Sobe ou desce um produto na ordem: passa para a camada do vizinho e as posições da camada são renumeradas. Vale para as próximas rotinas. */
+  const move = async (list: string[], i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= list.length) return;
+    const next = [...list]; [next[i], next[j]] = [next[j], next[i]];
+    const layer = layerOf(byId.get(list[j])!);
+    await update<'product'>(list[i], { layer });
+    const same = next.filter((id) => id === list[i] || layerOf(byId.get(id)!) === layer);
+    for (let k = 0; k < same.length; k++) await update<'product'>(same[k], { layerPos: (k + 1) * 10 });
+  };
   const pick = (id: string, target: { step: Step; area: Area }) => {
     const p = byId.get(id);
     // Escolhido numa etapa diferente da que o app deduziu: passa a ficar nessa etapa daqui em diante.
@@ -193,8 +205,16 @@ export function SkinScreen() {
               const n = list.filter((id) => used.includes(id)).length;
               return (
                 <div key={a.id} className={`stage-area${list.length ? '' : ' empty'}`} data-testid={`skin-sec-${st.id}-${a.id}`}>
-                  <h4 className="sec-cap">{a.label} <span>{list.length ? `${n} de ${list.length}` : 'nada hoje'}</span></h4>
-                  {list.map((id) => <ProductPick key={id} p={byId.get(id)!} on={used.includes(id)} onClick={() => toggle(id)} tag={!planned.includes(id) ? 'fora do plano' : byDerm.has(id) ? 'da dermato, hoje' : undefined} />)}
+                  <h4 className="sec-cap">{a.label} <span>{list.length ? `${n} de ${list.length}` : 'nada hoje'}{list.length > 1 && <button className="link reorder-link" onClick={() => setReorder(reorder === `${st.id}-${a.id}` ? null : `${st.id}-${a.id}`)} data-testid={`reorder-${st.id}-${a.id}`}>{reorder === `${st.id}-${a.id}` ? 'Pronto' : 'Mudar ordem'}</button>}</span></h4>
+                  {list.map((id, k) => reorder === `${st.id}-${a.id}` ? (
+                    <div key={id} className="pick reorder" data-testid="reorder-row">
+                      <span className="step-num" aria-hidden>{k + 1}</span>
+                      <ProductThumb p={byId.get(id)!} />
+                      <span className="grow"><span className="brand">{byId.get(id)!.brand}</span><br /><span className="nm">{byId.get(id)!.name}</span></span>
+                      <button className="icon-btn" aria-label="Subir" disabled={k === 0} onClick={() => void move(list, k, -1)}><ArrowUp size={18} /></button>
+                      <button className="icon-btn" aria-label="Descer" disabled={k === list.length - 1} onClick={() => void move(list, k, 1)}><ArrowDown size={18} /></button>
+                    </div>
+                  ) : <ProductPick key={id} p={byId.get(id)!} num={k + 1} on={used.includes(id)} onClick={() => toggle(id)} tag={!planned.includes(id) ? 'fora do plano' : byDerm.has(id) ? 'da dermato, hoje' : undefined} />)}
                   <button className="add-in" onClick={() => setPicker({ step: st.id, area: a.id })} data-testid={`skin-add-${st.id}-${a.id}`}><Plus size={16} />{list.length ? `Outro produto de ${a.label.toLowerCase()}` : `Adicionar produto de ${a.label.toLowerCase()}`}</button>
                 </div>
               );
@@ -238,15 +258,16 @@ export function SkinScreen() {
   );
 }
 
-export function ProductPick({ p, on, onClick, tag }: { p: Product; on: boolean; onClick: () => void; tag?: string }) {
+export function ProductPick({ p, on, onClick, tag, num }: { p: Product; on: boolean; onClick: () => void; tag?: string; num?: number }) {
   if (!p) return null;
   return (
     <button className={`pick ${on ? 'on' : ''}`} onClick={onClick} aria-pressed={on} data-testid="product-pick">
       <span className={`check ${on ? 'on' : ''}`} aria-hidden>{on && '✓'}</span>
-      <ProductThumb p={p} />
+      <span className="thumb-wrap"><ProductThumb p={p} />{num != null && <i className="num-badge" aria-label={`Passo ${num}`}>{num}</i>}</span>
       <span className="grow">
         <span className="brand">{p.brand}</span><br />
         <span className="nm">{p.name}</span>
+        {num != null && shortUse(p) && <span className="use-line">{shortUse(p)}</span>}
         {tag && <><br /><span className="step-tag">{tag}</span></>}
       </span>
       {p.active && <span className="prio baixa">ativo</span>}

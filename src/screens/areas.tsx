@@ -1,7 +1,9 @@
 // Cada área reúne o dia, o plano e os cadastros dela: Treino, Cuidados e Alimentação. Sem pular entre pastas.
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { aiAvailable } from '../domain/ai';
+import { toast } from '../state/store';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ChevronRight, Moon, Sunrise } from 'lucide-react';
+import { ChevronRight, ListOrdered, Moon, Sunrise } from 'lucide-react';
 import { TopBar } from './common';
 import { useByDate } from '../db/hooks';
 import { useApp } from '../state/store';
@@ -89,7 +91,19 @@ export function CareTodayPage() {
     </AreaPage>
   );
 }
-export const CarePlanPage = () => <AreaPage area="cuidados" testId="area-cuidados-rotina"><SpecialistCard domain="skin" /><SkinPlan embedded /></AreaPage>;
+export const CarePlanPage = () => <AreaPage area="cuidados" testId="area-cuidados-rotina"><SpecialistCard domain="skin" /><OrganizeButton /><SkinPlan embedded /></AreaPage>;
+
+/** Pede à dermatologista a ordem de aplicação e o modo de uso de todos os produtos que ela tem. */
+function OrganizeButton() {
+  const [busy, setBusy] = useState(false);
+  if (!aiAvailable()) return null;
+  const run = async () => {
+    setBusy(true);
+    try { const { organizeProducts } = await import('../domain/skinLayers'); const n = await organizeProducts(); toast(n ? `Ordem e modo de uso de ${n} produtos atualizados` : 'Nada mudou'); }
+    catch (e: any) { toast(e.message, undefined, 'error'); } finally { setBusy(false); }
+  };
+  return <button className="btn btn-soft btn-block" style={{ margin: '0 0 10px' }} onClick={run} disabled={busy} data-testid="organize-layers"><ListOrdered size={18} />{busy ? 'Organizando… leva cerca de 1 minuto' : 'Reorganizar ordem de aplicação e modo de uso'}</button>;
+}
 export const CareProductsPage = () => <AreaPage area="cuidados" testId="area-cuidados-produtos"><Products /></AreaPage>;
 
 /* ---------- Hábitos e metas ---------- */
