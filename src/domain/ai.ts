@@ -378,6 +378,8 @@ export async function aiPlate(images: { mime: string; data: string }[], note: st
   const taco = await loadTaco();
   const r = await askAI<any>('plate_read', {
     refeicao: mealLabel, hora: new Date().toTimeString().slice(0, 5), o_que_ela_contou: note.trim() || undefined,
+    // Evita trocar leite, iogurte ou suco líquido pela versão em pó (centenas de kcal a mais).
+    forma_do_alimento: 'Respeite a forma: bebida líquida nunca corresponde a item "pó" ou "concentrado". Sem item na forma certa, use taco_id null e informe por_100g.',
     taco: taco.map((t) => `${t.id}|${t.name}`).join('\n')
   }, images);
   const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : Number(String(v ?? '').replace(',', '.')) || 0);
