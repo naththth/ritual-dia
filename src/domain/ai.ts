@@ -385,7 +385,7 @@ export async function aiPlate(images: { mime: string; data: string }[], note: st
     name: String(i.nome ?? '').trim(),
     grams: Math.max(0, Math.round(num(i.gramas))),
     household: i.medida_caseira ? String(i.medida_caseira) : undefined,
-    tacoId: taco.some((t) => t.id === Number(i.taco_id)) ? Number(i.taco_id) : undefined,
+    tacoId: taco.some((t) => t.id === Number(i.taco_id) && t.n) ? Number(i.taco_id) : undefined,
     est: i.por_100g && num(i.por_100g.kcal) > 0 ? { kcal: num(i.por_100g.kcal), p: num(i.por_100g.p), c: num(i.por_100g.c), f: num(i.por_100g.g) } : undefined,
     confidence: ['alta', 'media', 'baixa'].includes(i.confianca) ? i.confianca : undefined
   })).filter((i: PlateGuess) => i.name && i.grams > 0);

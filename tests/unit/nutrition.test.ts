@@ -31,3 +31,18 @@ describe('porções e calorias', () => {
     expect(searchList(list, 'feij', (x) => x)).toEqual(['Feijão, carioca, cozido']);
   });
 });
+
+describe('foto do prato', () => {
+  it('não oferece item da TACO sem energia (zerava o prato)', async () => {
+    const { loadTaco } = await import('../../src/domain/nutrition');
+    const fs = await import('node:fs');
+    const json = JSON.parse(fs.readFileSync('public/data/taco.json', 'utf8'));
+    const orig = globalThis.fetch;
+    globalThis.fetch = (async () => ({ json: async () => json })) as any;
+    try {
+      const taco = await loadTaco();
+      expect(taco.every((t) => t.n && t.n.kcal != null)).toBe(true);
+      expect(taco.some((t) => t.id === 457)).toBe(false); // leite desnatado UHT, sem energia na TACO
+    } finally { globalThis.fetch = orig; }
+  });
+});

@@ -7,7 +7,8 @@ let tacoCache: Promise<TacoFood[]> | null = null;
 export function loadTaco(): Promise<TacoFood[]> {
   if (!tacoCache) {
     const base = (import.meta as any).env?.BASE_URL ?? '/';
-    tacoCache = fetch(`${base}data/taco.json`).then((r) => r.json()).then((d) => d.foods.map((f: any[]) => ({
+    // Itens da TACO sem energia (ex.: leite desnatado UHT, leite integral) ficam de fora: escolhê-los zerava calorias e macros.
+    tacoCache = fetch(`${base}data/taco.json`).then((r) => r.json()).then((d) => d.foods.filter((f: any[]) => f[3] != null).map((f: any[]) => ({
       id: f[0], name: f[1], cat: d.cats[String(f[2])] ?? '',
       n: f[3] == null ? null : { kcal: f[3], p: f[4] ?? 0, c: f[5] ?? 0, f: f[6] ?? 0, fib: f[7] ?? undefined, na: f[8] ?? undefined }
     }))).catch((e) => { tacoCache = null; throw e; });

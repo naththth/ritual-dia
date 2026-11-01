@@ -44,7 +44,7 @@ export function PlateSheet({ file, mealLabel, onClose, onConfirm }: { file: File
     } catch (e: any) { toast(e.message, undefined, 'error'); } finally { setBusy(false); }
   };
   const setRow = (k: string, p: Partial<PlateRow>) => setRows((xs) => (xs ?? []).map((r) => (r.key === k ? { ...r, ...p } : r)));
-  const chosen = (rows ?? []).filter((r) => r.on && r.grams > 0);
+  const chosen = (rows ?? []).filter((r) => r.on && r.grams > 0 && rowNutr(r));
 
   return (
     <Sheet open onClose={onClose} title="Foto do prato" sub={mealLabel} testId="plate-sheet"
@@ -77,7 +77,7 @@ export function PlateSheet({ file, mealLabel, onClose, onConfirm }: { file: File
                 <div key={r.key} className={`plate-guess ${r.on ? '' : 'off'}`}>
                   <div className="grow" style={{ minWidth: 0 }}>
                     <div className="plate-name">{r.name}{r.confidence === 'baixa' ? <span className="muted small"> · confira</span> : null}</div>
-                    <div className="plate-sub">{r.taco ? `TACO: ${r.taco.name}` : 'Valores de referência (sem item na TACO)'}{r.household ? ` · ${r.household}` : ''}</div>
+                    <div className="plate-sub">{!n ? 'Sem valores nutricionais: refaça com outra explicação ou tire este item' : r.taco ? `TACO: ${r.taco.name}` : 'Valores de referência (sem item na TACO)'}{r.household ? ` · ${r.household}` : ''}</div>
                     {n && r.on && <MacroLine n={n} className="tiny" />}
                   </div>
                   <label className="pg-g">
