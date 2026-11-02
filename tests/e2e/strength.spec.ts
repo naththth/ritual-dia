@@ -68,9 +68,18 @@ test('musculação programada com carga, variações e lançamento do que foi fe
   await row1.getByTestId('ex-load-set').nth(0).fill('36');
   await row1.getByTestId('ex-load-set').nth(1).fill('40');
   await expect(row1).toContainText('Volume: 1.080 kg');
+  // séries regressivas: ela sobe a carga e baixa as repetições
+  await expect(row1.getByTestId('ex-reps-set')).toHaveCount(0);
+  await row1.getByTestId('ex-regressive').check();
+  await expect(row1.getByTestId('ex-reps')).toHaveCount(0);
+  await expect(row1.getByTestId('ex-reps-set')).toHaveCount(3);
+  await row1.getByTestId('ex-reps-set').nth(1).fill('8');
+  await expect(row1.getByTestId('ex-reps-set').nth(2)).toHaveValue('8');
+  await row1.getByTestId('ex-reps-set').nth(2).fill('6');
+  await expect(row1).toContainText(`Volume: ${(32 * 10 + 36 * 8 + 40 * 6).toLocaleString('pt-BR')} kg`);
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/strength-sets.png', fullPage: true });
   await card.getByTestId('exercise-log-save').click();
-  await expect(card.getByTestId('exercise-summary')).toContainText('32 → 36 → 40 kg');
+  await expect(card.getByTestId('exercise-summary')).toContainText('3×10/8/6, 32 → 36 → 40 kg');
   await expect(card.getByTestId('exercise-summary')).toContainText('programado');
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/strength-done.png', fullPage: true });
   const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);

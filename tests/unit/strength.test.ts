@@ -103,3 +103,33 @@ describe('carga por série', () => {
     expect(s?.setLoads).toEqual([63, 73.5, 84]);
   });
 });
+
+describe('séries regressivas', () => {
+  it('liga, propaga repetições, calcula volume e escreve a linha', async () => {
+    const { withRegressive, withSetReps, exerciseVolume, exerciseLine, resizeSets, repsPerSet } = await import('../../src/domain/strength');
+    let e = ex({ sets: 3, reps: 12, loadKg: undefined, setLoads: [20, 25, 30] });
+    e = { ...e, ...withRegressive(e, true) };
+    expect(e.setReps).toEqual([12, 12, 12]);
+    e = { ...e, ...withSetReps(e, 1, 10) };
+    expect(e.setReps).toEqual([12, 10, 10]);
+    e = { ...e, ...withSetReps(e, 2, 8) };
+    expect(exerciseVolume(e)).toBe(20 * 12 + 25 * 10 + 30 * 8);
+    expect(exerciseLine(e)).toBe('3×12/10/8, 20 → 25 → 30 kg');
+    expect(repsPerSet({ ...e, ...resizeSets(e, 4) })).toEqual([12, 10, 8, 8]);
+    e = { ...e, ...withRegressive(e, false) };
+    expect(e.setReps).toBeUndefined();
+    expect(e.reps).toBe(12);
+  });
+  it('lê e escreve "3x12/10/8" no roteiro', () => {
+    const [p] = exercisesFromNote('1. Agachamento livre 3x12/10/8');
+    expect(p.setReps).toEqual([12, 10, 8]);
+    expect(p.reps).toBe(12);
+    const note = noteWithExercises('1. Agachamento livre 3x12', [{ ...p, setReps: [12, 10, 8] }]);
+    expect(note).toBe('1. Agachamento livre 3x12/10/8');
+  });
+  it('não baixa a carga quando cumpriu a regressiva programada', () => {
+    const planned = { name: 'Agachamento livre', sets: 3, reps: 12, setReps: [12, 10, 8] };
+    const s = suggestLoad('Agachamento livre', [wo('2026-10-10', [ex({ reps: 12, setReps: [12, 10, 8], loadKg: 40, planned })])]);
+    expect(s?.why).toMatch(/subiu/);
+  });
+});

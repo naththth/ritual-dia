@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import type { StrengthExercise } from '../db/types';
 import { todayKey } from '../lib/dates';
-import { EXERCISE_CATALOG, OTHER_OPTION, exerciseLine, exerciseVolume, loadsPerSet, newExerciseId, resizeSets, variationOptions, withPlanned, withSetLoad } from '../domain/strength';
+import { EXERCISE_CATALOG, OTHER_OPTION, exerciseLine, exerciseVolume, loadsPerSet, newExerciseId, repsPerSet, resizeSets, variationOptions, withPlanned, withRegressive, withSetLoad, withSetReps } from '../domain/strength';
 
 function NumField({ label, value, onChange, step, testid, compact }: { label: string; value?: number; onChange: (n?: number) => void; step: string; testid: string; compact?: boolean }) {
   const [txt, setTxt] = useState(value == null ? '' : String(value).replace('.', ','));
@@ -40,20 +40,41 @@ export function ExerciseEditor({ value, onChange, why = {}, compare = false }: {
               {opts.map((n) => <option key={n} value={n}>{n}</option>)}
               <option value={OTHER_OPTION}>Trazer outras opções…</option>
             </select>
-            <div className="ex-nums ex-nums-2">
-              <NumField label="Séries" value={e.sets} onChange={(n) => patch(e.id, resizeSets(e, Math.min(10, Math.max(1, Math.round(n ?? 1)))))} step="1" testid="ex-sets" />
-              <NumField label="Repetições" value={e.reps} onChange={(n) => patch(e.id, { reps: Math.max(1, Math.round(n ?? 1)) })} step="1" testid="ex-reps" />
-            </div>
-            <div className="ex-loads">
-              <span className="tiny">Carga por série (kg)</span>
-              <div className="ex-load-row" style={{ gridTemplateColumns: `repeat(${Math.min(e.sets, 5)}, 1fr)` }}>
-                {loadsPerSet(e).map((kg, si) => (
-                  <NumField key={si} compact label={`${si + 1}ª`} value={e.setLoads?.length ? e.setLoads[si] ?? undefined : kg} step="0.5" testid={si === 0 ? 'ex-load' : 'ex-load-set'}
-                    onChange={(n) => { const l = withSetLoad(e, si, n); patch(e.id, { ...l, loadAt: l.loadKg == null ? undefined : todayKey() }); }} />
-                ))}
-              </div>
-              {(() => { const v = exerciseVolume(e); return v ? <span className="tiny muted">Volume: {Math.round(v).toLocaleString('pt-BR')} kg</span> : null; })()}
-            </div>
+            {(() => {
+              const regressive = !!e.setReps?.length;
+              const cols = { gridTemplateColumns: `repeat(${Math.min(e.sets, 5)}, 1fr)` };
+              return <>
+                <div className={regressive ? 'ex-nums ex-nums-1' : 'ex-nums ex-nums-2'}>
+                  <NumField label="Séries" value={e.sets} onChange={(n) => patch(e.id, resizeSets(e, Math.min(10, Math.max(1, Math.round(n ?? 1)))))} step="1" testid="ex-sets" />
+                  {!regressive && <NumField label="Repetições" value={e.reps} onChange={(n) => patch(e.id, { reps: Math.max(1, Math.round(n ?? 1)) })} step="1" testid="ex-reps" />}
+                </div>
+                <label className="ex-check">
+                  <input type="checkbox" checked={regressive} data-testid="ex-regressive" onChange={(ev) => patch(e.id, withRegressive(e, ev.target.checked))} />
+                  <span className="small">Séries regressivas <span className="muted">(repetições diferentes em cada série)</span></span>
+                </label>
+                {regressive && (
+                  <div className="ex-loads">
+                    <span className="tiny">Repetições por série</span>
+                    <div className="ex-load-row" style={cols}>
+                      {repsPerSet(e).map((r, si) => (
+                        <NumField key={`${si}-${e.sets}`} compact label={`${si + 1}ª`} value={r} step="1" testid="ex-reps-set"
+                          onChange={(n) => { if (n != null) patch(e.id, withSetReps(e, si, Math.max(1, Math.round(n)))); }} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="ex-loads">
+                  <span className="tiny">Carga por série (kg)</span>
+                  <div className="ex-load-row" style={cols}>
+                    {loadsPerSet(e).map((kg, si) => (
+                      <NumField key={si} compact label={`${si + 1}ª`} value={e.setLoads?.length ? e.setLoads[si] ?? undefined : kg} step="0.5" testid={si === 0 ? 'ex-load' : 'ex-load-set'}
+                        onChange={(n) => { const l = withSetLoad(e, si, n); patch(e.id, { ...l, loadAt: l.loadKg == null ? undefined : todayKey() }); }} />
+                    ))}
+                  </div>
+                  {(() => { const v = exerciseVolume(e); return v ? <span className="tiny muted">Volume: {Math.round(v).toLocaleString('pt-BR')} kg</span> : null; })()}
+                </div>
+              </>;
+            })()}
             {why[e.id] && <span className="tiny muted">Carga {why[e.id]}.</span>}
             {compare && e.planned && (e.planned.name !== e.name || exerciseLine(e.planned) !== exerciseLine(e)) && <span className="tiny muted">Programado: {e.planned.name !== e.name ? `${e.planned.name}, ` : ''}{exerciseLine(e.planned)}</span>}
           </div>

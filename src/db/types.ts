@@ -277,12 +277,15 @@ export interface StrengthExercise {
   loadKg?: number;
   /** Carga de cada série, na ordem (ela sobe de série para série). Sem isto, todas as séries usam loadKg. */
   setLoads?: number[];
+  /** Séries regressivas: repetições de cada série, na ordem (ex.: 12, 10, 8). Sem isto, todas as séries usam reps.
+   *  Com isto, reps é a da 1ª série. */
+  setReps?: number[];
   /** Quantas vezes ela pediu "trazer outras": gira as 3 variações da lista. */
   round?: number;
   /** Dia (YYYY-MM-DD) em que ela fixou a carga à mão; vale até o próximo treino feito com o exercício. */
   loadAt?: DateKey;
   /** No treino feito: o que estava programado, para comparar. */
-  planned?: { name: string; sets: number; reps: number; loadKg?: number; setLoads?: number[] };
+  planned?: { name: string; sets: number; reps: number; loadKg?: number; setLoads?: number[]; setReps?: number[] };
 }
 export interface WorkoutStep { label: string; minutes: number; pct: number }
 export interface WorkoutTemplate extends Base {

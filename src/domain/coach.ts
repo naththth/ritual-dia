@@ -5,7 +5,7 @@ import { planFor, plannedFood, plannedTraining } from './rules';
 import { portionText, totals } from './nutrition';
 import { wellnessForAI } from './wellness';
 import { askAI } from './ai';
-import { exerciseVolume, topLoad } from './strength';
+import { exerciseVolume, repsPerSet, topLoad } from './strength';
 import type { AnyRecord, Intensity, TrainingRule, Workout, WorkoutStep } from '../db/types';
 
 /** Treino que a treinadora montou para um dia e espera o aprovo dela antes de entrar no app e no MyWhoosh. */
@@ -117,8 +117,8 @@ async function context(text: string, history: CoachMsg[]) {
       minutos: w.duration, intensidade: w.intensity, esforco: w.rpe, como_foi: w.feeling, reclassificado_de: w.reclassifiedFrom,
       // Musculação: o que ela lançou no card do treino (carga da série mais pesada, carga de cada série e o programado).
       exercicios: w.exercises?.length ? w.exercises.map((e) => ({
-        nome: e.name, series: e.sets, reps: e.reps, carga_kg: topLoad(e), cargas_por_serie: e.setLoads?.length ? e.setLoads : undefined,
-        volume_kg: exerciseVolume(e), programado: e.planned ? { nome: e.planned.name, series: e.planned.sets, reps: e.planned.reps, carga_kg: topLoad(e.planned) } : undefined
+        nome: e.name, series: e.sets, reps: e.reps, reps_por_serie: e.setReps?.length ? repsPerSet(e) : undefined, carga_kg: topLoad(e), cargas_por_serie: e.setLoads?.length ? e.setLoads : undefined,
+        volume_kg: exerciseVolume(e), programado: e.planned ? { nome: e.planned.name, series: e.planned.sets, reps: e.planned.reps, reps_por_serie: e.planned.setReps, carga_kg: topLoad(e.planned) } : undefined
       })) : undefined,
       metricas: w.metrics ? { tss: w.metrics.tss, np: w.metrics.np, potencia_media: w.metrics.avgPower, fc_media: w.metrics.avgHr, kcal: w.metrics.kcal, km: w.metrics.distanceKm } : undefined
     })),

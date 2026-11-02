@@ -42,13 +42,17 @@ const GROUP_HINTS: [RegExp, string][] = [
 /** Lê o roteiro escrito no treino ("1. Agachamento goblet ou livre 3x6-10") e devolve os exercícios.
  *  Com "A ou B", fica o que casa com o catálogo (senão o primeiro); repetições = topo da faixa. */
 export function parseNoteLine(line: string): StrengthExercise | undefined {
-  const m = line.match(/^\s*\d+[.)]\s+(.+?)\s+(\d+)\s*[x×]\s*(\d+)(?:\s*-\s*(\d+))?/i);
+  const m = line.match(/^\s*\d+[.)]\s+(.+?)\s+(\d+)\s*[x×]\s*(\d+)(?:\s*-\s*(\d+)|((?:\s*\/\s*\d+)+))?/i);
   if (!m) return undefined;
   const alts = m[1].split(/\s+ou\s+/i).map((a) => a.trim()).filter(Boolean);
   const name = alts.find((a) => exerciseGroupOf(a)) ?? alts[0];
   const group = exerciseGroupOf(name) ?? GROUP_HINTS.find(([re]) => re.test(name))?.[1];
   if (!group) return undefined;
-  return { id: newExerciseId(), group, name: name.charAt(0).toUpperCase() + name.slice(1), sets: Number(m[2]), reps: Number(m[4] ?? m[3]) };
+  const sets = Number(m[2]);
+  // "3x12/10/8": séries regressivas, uma repetição por série.
+  const list = m[5] ? [Number(m[3]), ...m[5].split('/').map((x) => x.trim()).filter(Boolean).map(Number)] : undefined;
+  const setReps = list && list.length === sets && new Set(list).size > 1 ? list : undefined;
+  return { id: newExerciseId(), group, name: name.charAt(0).toUpperCase() + name.slice(1), sets, reps: Number(m[4] ?? m[3]), ...(setReps ? { setReps } : {}) };
 }
 
 export function exercisesFromNote(note?: string): StrengthExercise[] {
@@ -68,7 +72,8 @@ export function reconcileWithNote(note: string | undefined, exs: StrengthExercis
     const old = exs.find((e) => e.name === p.name && !used.has(e.id));
     if (!old) return p;
     used.add(old.id);
-    return { ...p, id: old.id, loadKg: old.loadKg, setLoads: old.setLoads && old.setLoads.length === p.sets ? old.setLoads : undefined, loadAt: old.loadAt, round: old.round };
+    const setReps = p.setReps ?? (old.setReps && old.setReps.length === p.sets && old.setReps[0] === p.reps ? old.setReps : undefined);
+    return { ...p, id: old.id, loadKg: old.loadKg, setLoads: old.setLoads && old.setLoads.length === p.sets ? old.setLoads : undefined, ...(setReps ? { setReps } : {}), loadAt: old.loadAt, round: old.round };
   });
 }
 
@@ -80,8 +85,9 @@ export function noteWithExercises(note: string | undefined, exs: StrengthExercis
   const taken = new Set<number>();
   const block = exs.map((e, i) => {
     const j = parsed.findIndex((p, k) => p && !taken.has(k) && sameEx(p, e));
-    if (j >= 0) { taken.add(j); return lines[j].replace(/^\s*\d+([.)])/, `${i + 1}$1`); }
-    return `${i + 1}. ${e.name} ${e.sets}x${e.reps}`;
+    if (j >= 0 && repsText(parsed[j]!) === repsText(e)) { taken.add(j); return lines[j].replace(/^\s*\d+([.)])/, `${i + 1}$1`); }
+    if (j >= 0) taken.add(j);
+    return `${i + 1}. ${e.name} ${e.sets}x${repsText(e)}`;
   });
   const first = parsed.findIndex((p) => !!p);
   if (first < 0) return [(note ?? '').trimEnd(), block.join('\n')].filter(Boolean).join('\n\n');
@@ -137,8 +143,9 @@ export function suggestLoad(name: string, done: Workout[], before?: DateKey): { 
   // A progressão anda pela série mais pesada; a rampa das outras séries acompanha na mesma proporção.
   const ramp = (top: number) => (ex.setLoads?.length && new Set(ex.setLoads).size > 1 ? ex.setLoads.map((l) => roundKg((l * top) / kg)) : undefined);
   const out = (top: number, why: string) => ({ loadKg: top, setLoads: ramp(top), why });
-  const target = ex.planned?.reps ?? ex.reps;
-  if (ex.reps <= target - 2) return out(roundKg(kg * 0.95), `ficou abaixo das repetições em ${w.date.slice(8)}/${w.date.slice(5, 7)}`);
+  // Com séries regressivas, compara o total de repetições (2 a menos em cada série conta como abaixo).
+  const target = ex.planned ? totalReps(ex.planned) : totalReps(ex);
+  if (totalReps(ex) <= target - 2 * (ex.setReps?.length ? ex.sets : 1)) return out(roundKg(kg * 0.95), `ficou abaixo das repetições em ${w.date.slice(8)}/${w.date.slice(5, 7)}`);
   const hrs = done.filter((x) => x.id !== w.id && x.exercises?.length && x.metrics?.avgHr).map((x) => x.metrics!.avgHr!);
   const hrAvg = hrs.length ? hrs.reduce((a, b) => a + b, 0) / hrs.length : undefined;
   const hot = hrAvg != null && w.metrics?.avgHr != null && w.metrics.avgHr > hrAvg * 1.1;
@@ -169,9 +176,31 @@ export function programFor(t: Pick<WorkoutTemplate, 'exercises' | 'muscles' | 'n
 
 /** Ao concluir: guarda o programado em cada exercício para comparar com o que ela lançar. */
 export const withPlanned = (exs: StrengthExercise[]): StrengthExercise[] =>
-  exs.map((e) => ({ ...e, planned: e.planned ?? { name: e.name, sets: e.sets, reps: e.reps, loadKg: e.loadKg, ...(e.setLoads ? { setLoads: e.setLoads } : {}) } }));
+  exs.map((e) => ({ ...e, planned: e.planned ?? { name: e.name, sets: e.sets, reps: e.reps, loadKg: e.loadKg, ...(e.setLoads ? { setLoads: e.setLoads } : {}), ...(e.setReps ? { setReps: e.setReps } : {}) } }));
 
-type LoadShape = Pick<StrengthExercise, 'sets' | 'reps' | 'loadKg' | 'setLoads'>;
+type LoadShape = Pick<StrengthExercise, 'sets' | 'reps' | 'loadKg' | 'setLoads' | 'setReps'>;
+type RepsShape = Pick<StrengthExercise, 'sets' | 'reps' | 'setReps'>;
+
+/** Repetições de cada série: as da série regressiva, ou as mesmas em todas. */
+export function repsPerSet(e: RepsShape): number[] {
+  if (!e.setReps?.length) return Array.from({ length: e.sets }, () => e.reps);
+  return Array.from({ length: e.sets }, (_, i) => e.setReps![i] ?? e.setReps![e.setReps!.length - 1] ?? e.reps);
+}
+export const totalReps = (e: RepsShape) => repsPerSet(e).reduce((a, n) => a + n, 0);
+/** "10" com séries iguais, "12/10/8" com séries regressivas. */
+export const repsText = (e: RepsShape) => (e.setReps?.length ? repsPerSet(e).join('/') : String(e.reps));
+/** Liga ou desliga as séries regressivas. Ao ligar, começa com as repetições atuais em todas as séries. */
+export function withRegressive(e: RepsShape, on: boolean): Pick<StrengthExercise, 'reps' | 'setReps'> {
+  if (on) return { reps: e.reps, setReps: Array.from({ length: e.sets }, () => e.reps) };
+  return { reps: repsPerSet(e)[0], setReps: undefined };
+}
+/** Grava as repetições de uma série. As séries seguintes que estavam iguais a ela acompanham (12 → 10 → 10 → 10). */
+export function withSetReps(e: RepsShape, i: number, n: number): Pick<StrengthExercise, 'reps' | 'setReps'> {
+  const raw = repsPerSet(e);
+  const was = raw[i];
+  const next = raw.map((r, j) => (j === i || (j > i && r === was) ? n : r));
+  return { reps: next[0], setReps: next };
+}
 const kgTxt = (n: number) => String(n).replace('.', ',');
 
 /** Carga de cada série (o que foi lançado por série, ou a mesma carga em todas). Série em branco repete a anterior. */
@@ -189,7 +218,8 @@ export function topLoad(e: LoadShape): number | undefined {
 /** Volume do exercício (tonelagem): soma de carga × repetições em cada série. */
 export function exerciseVolume(e: LoadShape): number | undefined {
   const ls = loadsPerSet(e);
-  return ls.every((n) => n == null) ? undefined : ls.reduce<number>((a, n) => a + (n ?? 0) * e.reps, 0);
+  const rs = repsPerSet(e);
+  return ls.every((n) => n == null) ? undefined : ls.reduce<number>((a, n, i) => a + (n ?? 0) * rs[i], 0);
 }
 /** Grava a carga de uma série. As séries seguintes que estavam iguais a ela (ou vazias) acompanham,
  *  então dá para lançar 60 → 70 → 80 digitando só nas séries que mudam. loadKg vira a série mais pesada. */
@@ -203,11 +233,13 @@ export function withSetLoad(e: LoadShape, i: number, kg?: number): Pick<Strength
   return { loadKg: Math.max(...defined), setLoads: same ? undefined : (next as number[]) };
 }
 /** Ajusta as cargas ao novo número de séries (repete a última ao acrescentar). */
-export function resizeSets(e: LoadShape, sets: number): Pick<StrengthExercise, 'sets' | 'setLoads' | 'loadKg'> {
-  if (!e.setLoads?.length) return { sets, setLoads: undefined, loadKg: e.loadKg };
+export function resizeSets(e: LoadShape, sets: number): Pick<StrengthExercise, 'sets' | 'setLoads' | 'loadKg' | 'setReps'> {
+  const rs = repsPerSet(e);
+  const setReps = e.setReps?.length ? Array.from({ length: sets }, (_, i) => rs[i] ?? rs[rs.length - 1]) : undefined;
+  if (!e.setLoads?.length) return { sets, setLoads: undefined, loadKg: e.loadKg, setReps };
   const cur = loadsPerSet(e);
   const ls = Array.from({ length: sets }, (_, i) => cur[i] ?? cur[cur.length - 1]) as number[];
-  return { sets, setLoads: new Set(ls).size > 1 ? ls : undefined, loadKg: Math.max(...ls) };
+  return { sets, setLoads: new Set(ls).size > 1 ? ls : undefined, loadKg: Math.max(...ls), setReps };
 }
 /** Texto da carga: "80 kg" quando é igual em todas, "60 → 70 → 80 kg" quando sobe de série para série. */
 export function loadText(e: LoadShape): string | undefined {
@@ -217,4 +249,4 @@ export function loadText(e: LoadShape): string | undefined {
   return `${ls.map((n) => (n == null ? '–' : kgTxt(n))).join(' → ')} kg`;
 }
 
-export const exerciseLine = (e: LoadShape) => { const l = loadText(e); return `${e.sets}×${e.reps}${l ? `, ${l}` : ''}`; };
+export const exerciseLine = (e: LoadShape) => { const l = loadText(e); return `${e.sets}×${repsText(e)}${l ? `, ${l}` : ''}`; };

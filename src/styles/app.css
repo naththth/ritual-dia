@@ -720,6 +720,9 @@ button.food-line { width: 100%; text-align: left; }
 .ex-num { display: flex; flex-direction: column; gap: 2px; }
 .ex-num input { min-height: 44px; text-align: center; font-weight: 700; }
 .ex-nums-2 { grid-template-columns: repeat(2, 1fr); }
+.ex-nums-1 { grid-template-columns: 1fr 1fr; }
+.ex-check { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+.ex-check input { width: 20px; height: 20px; min-height: 0; accent-color: var(--blue-ink, currentColor); flex: none; }
 .ex-loads { display: flex; flex-direction: column; gap: 4px; }
 .ex-load-row { display: grid; gap: 6px; }
 .ex-num-c .tiny { text-align: center; }
