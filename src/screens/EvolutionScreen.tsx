@@ -94,7 +94,7 @@ export function EvolutionScreen() {
   return (
     <div className="screen" data-testid="evolution-screen">
       <TopBar />
-      <h1 className="section-title" style={{ fontSize: 32, fontWeight: 500, margin: '8px 0 14px' }}>Evolução</h1>
+      <h1 className="page-title">Evolução</h1>
       <Seg value={mode} onChange={(m) => setMode(m)} options={[{ id: 'semana', label: 'Semana' }, { id: 'mes', label: 'Mês' }]} />
       <div className="row between" style={{ margin: '10px 0 6px' }}>
         <button className="icon-btn" aria-label="Período anterior" onClick={() => shift(-1)}><ChevronLeft size={22} /></button>

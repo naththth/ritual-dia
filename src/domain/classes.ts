@@ -1,6 +1,6 @@
 // Aulas com horário (LPO, por exemplo) que o relógio grava como "musculação": se a musculação começou
 // perto do horário da aula planejada, é a aula. Junta com o "Feito" manual da aula quando houver.
-import { all, byDateRange, get, remove, update } from '../db/db';
+import { all, byDateRange, db, get, remove, update } from '../db/db';
 import { addDays, isoWeekday, todayKey, type DateKey } from '../lib/dates';
 import { planFor, plannedTraining } from './rules';
 import type { TrainingRule, Workout } from '../db/types';
@@ -24,7 +24,16 @@ export function ruleMatches(r: TrainingRule, w: Pick<Workout, 'date' | 'startTim
   return true;
 }
 
-export async function reconcileClasses(days = 21, today: DateKey = todayKey()): Promise<number> {
+// A abertura do app, a sincronização e a importação de .FIT chamam a reconciliação quase juntas.
+// Em paralelo, uma passada lia o treino antes da outra terminar de juntar e a duplicata voltava; em fila, não.
+let queue: Promise<unknown> = Promise.resolve();
+export function reconcileClasses(days = 21, today: DateKey = todayKey()): Promise<number> {
+  const run = queue.catch(() => undefined).then(() => reconcileOnce(days, today));
+  queue = run;
+  return run;
+}
+
+async function reconcileOnce(days: number, today: DateKey): Promise<number> {
   const [plans, tmpls, workouts, settings, extras] = await Promise.all([all('plan'), all('wtemplate'), byDateRange('workout', addDays(today, -days), today), get<'settings'>('settings'), byDateRange('extra', addDays(today, -days), today)]);
   const rules = settings?.trainingRules ?? [];
   let changed = 0;
@@ -51,11 +60,14 @@ export async function reconcileClasses(days = 21, today: DateKey = todayKey()): 
     const manual = workouts.find((m) => m.id !== w.id && !m.deleted && m.date === w.date && m.modalityId === cls!.modalityId && !m.metrics);
     if (manual) {
       const feeling = [manual.feeling, w.feeling].filter(Boolean).join('\n') || undefined;
-      await update<'workout'>(manual.id, {
-        metrics: w.metrics, startTime: w.startTime, duration: w.duration ?? manual.duration, fileName: w.fileName,
-        rpe: manual.rpe ?? w.rpe, feeling, templateId: cls.id ?? manual.templateId, classChecked: true, reclassifiedFrom: from, reclassifiedBy: w.reclassifiedBy ?? by
-      } as Partial<Workout>);
-      await remove(w.id);
+      // Juntar e apagar a duplicata numa transação só: se o app fechar no meio, nada fica pela metade.
+      await db.transaction('rw', db.records, async () => {
+        await update<'workout'>(manual.id, {
+          metrics: w.metrics, startTime: w.startTime, duration: w.duration ?? manual.duration, fileName: w.fileName,
+          rpe: manual.rpe ?? w.rpe, feeling, templateId: cls.id ?? manual.templateId, classChecked: true, reclassifiedFrom: from, reclassifiedBy: w.reclassifiedBy ?? by
+        } as Partial<Workout>);
+        await remove(w.id);
+      });
       manual.metrics = w.metrics; // não junta duas vezes na mesma passada
       changed++;
     } else if (w.modalityId !== cls.modalityId) {

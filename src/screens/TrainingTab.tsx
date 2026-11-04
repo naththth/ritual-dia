@@ -112,7 +112,7 @@ export function TrainingTab() {
     <div className="screen" data-testid="training-tab">
       <TopBar />
       <div className="row between" style={{ alignItems: 'center' }}>
-        <h1 className="section-title" style={{ fontSize: 32, fontWeight: 500, margin: '8px 0 10px' }}>Treino</h1>
+        <h1 className="page-title">Treino</h1>
         <CoachButton />
       </div>
       <AreaNav area="treino" />
@@ -308,6 +308,9 @@ export function WorkoutCard({ w, name, ftp, strength }: { w: Workout; name: stri
 function WorkoutFeedback({ w }: { w: Workout }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState(w.feeling ?? '');
+  // Se o comentário salvo mudar por fora (treino do relógio fundido com o "Feito"), o campo acompanha, a menos que ela esteja editando.
+  const prevFeeling = useRef(w.feeling ?? '');
+  useEffect(() => { const f = w.feeling ?? ''; if (text.trim() === prevFeeling.current.trim()) setText(f); prevFeeling.current = f; }, [w.feeling]);
   const saved = (w.feeling ?? '') === text.trim();
   const saveText = async (t: string, announce = false) => { await update<'workout'>(w.id, { feeling: t.trim() || undefined }); if (announce) toast('Anotado no treino'); };
   if (!open && !w.rpe && !w.feeling) return <button className="link" style={{ marginTop: 8 }} onClick={() => setOpen(true)} data-testid="feedback-open">Como foi? Registrar esforço e sensação</button>;

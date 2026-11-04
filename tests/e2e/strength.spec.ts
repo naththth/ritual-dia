@@ -44,6 +44,22 @@ test('musculação programada com carga, variações e lançamento do que foi fe
   await expect(rows.first().getByTestId('ex-load')).toHaveValue('');
   await rows.first().getByTestId('ex-load').fill('30,5');
   await rows.nth(1).getByTestId('ex-sets').fill('4');
+  // apagar o número de séries não trava em 1: o campo fica vazio e aceita outro número
+  const sets0 = rows.first().getByTestId('ex-sets');
+  await sets0.click();
+  await page.keyboard.press('Backspace');
+  await expect(sets0).toHaveValue('');
+  await page.keyboard.type('5');
+  await expect(sets0).toHaveValue('5');
+  await sets0.blur();
+  await expect(rows.first().getByTestId('ex-load-set')).toHaveCount(4);
+  // apagar e sair do campo vazio volta ao último número, sem virar 1
+  await sets0.click();
+  await page.keyboard.press('Backspace');
+  await sets0.blur();
+  await expect(sets0).toHaveValue('5');
+  await sets0.fill('3');
+  await sets0.blur();
   // "trazer outras" troca as opções, mantendo o exercício
   const before = await sel.locator('option').allTextContents();
   await sel.selectOption('__outras');

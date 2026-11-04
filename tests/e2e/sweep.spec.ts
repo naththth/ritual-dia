@@ -63,6 +63,7 @@ test('varredura: nenhuma tela com texto saindo da borda', async ({ page }) => {
         const txt = (el as HTMLElement).innerText?.trim().slice(0, 50) ?? el.tagName;
         if (rc.right > W + 1 && !scrollers(el.parentElement)) out.push(`passa da borda (${Math.round(rc.right)}px): ${el.tagName}.${(el as HTMLElement).className} "${txt}"`);
         const h = el as HTMLElement;
+        if (h.closest('.sr-only')) continue; // texto só para leitor de tela
         if (h.children.length === 0 && h.scrollWidth > h.clientWidth + 2 && getComputedStyle(h).overflow !== 'visible' && getComputedStyle(h).textOverflow !== 'ellipsis' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(h.tagName)) out.push(`texto cortado: ${h.tagName}.${h.className} "${txt}"`);
       }
       return Array.from(new Set(out)).slice(0, 12);

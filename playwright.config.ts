@@ -13,7 +13,9 @@ export default defineConfig({
     hasTouch: true,
     isMobile: true,
     deviceScaleFactor: 2,
-    acceptDownloads: true
+    acceptDownloads: true,
+    // Sem acesso ao download do Playwright, dá para apontar para um Chrome já instalado.
+    launchOptions: process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}
   },
   webServer: { command: 'npx vite preview --port 4174 --strictPort', url: 'http://localhost:4174/ritual-dia/', reuseExistingServer: true }
 });

@@ -5,7 +5,7 @@ import { addDays, todayKey, weekStart } from '../lib/dates';
 import { useSettings } from '../db/hooks';
 import { update, uid } from '../db/db';
 import type { Reminders } from '../db/types';
-import { Chip, TimeInput } from '../ui/ui';
+import { Chip, TimeInput, Fold, Switch } from '../ui/ui';
 import { toast } from '../state/store';
 import { disablePush, enablePush, pushStatus, testPush, saveIntervalsKey, syncIntervalsNow, removeIntervalsKey, saveDevRoutine, removeDevRoutine, testDevRoutine } from '../sync/services';
 import { useSync } from '../sync/sync';
@@ -33,8 +33,8 @@ export function RemindersSection() {
   return (
     <>
     <SleepSection r={r} setR={setR} />
-    <section className="block b-paper" data-testid="reminders">
-      <h2 style={{ fontSize: 20 }}>Lembretes</h2>
+    <Fold title="Lembretes e horários" icon={<Bell size={19} />} testId="reminders"
+      summary={[status === 'on' ? 'Notificações ligadas' : 'Notificações desligadas', `café ${meals.cafe ?? '–'}`, `pele ${skin.am} e ${skin.pm}`, r.custom.length ? `${r.custom.length} lembretes seus` : ''].filter(Boolean).join(' · ')}>
       {!session ? <p className="small">Entre com Google para receber notificações no celular.</p> : (
         <div className="row wrap" style={{ gap: 8, margin: '8px 0' }}>
           {status === 'on' ? (
@@ -89,22 +89,23 @@ export function RemindersSection() {
         {[1, 2, 3, 4, 5, 6, 7].map((d) => <Chip key={d} on={days.includes(d)} onClick={() => setDays(days.includes(d) ? days.filter((x) => x !== d) : [...days, d])}>{WEEKDAY_SHORT[d]}</Chip>)}
         <button className="btn btn-soft btn-sm" onClick={() => { if (!label.trim()) return; setR({ custom: [...r.custom, { id: uid(), label: label.trim(), time, days: [...days].sort() }] }); setLabel(''); setDays([]); }}><Plus size={16} />Adicionar</button>
       </div>
-    </section>
+    </Fold>
     </>
   );
 }
 
-function SleepSection({ r, setR }: { r: Reminders; setR: (p: Partial<Reminders>) => Promise<unknown> }) {
+let openSleep = false;
+function SleepSection({ r, setR: setR0 }: { r: Reminders; setR: (p: Partial<Reminders>) => Promise<unknown> }) {
   const settings = useSettings();
+  const setR = (p: Partial<Reminders>) => { if (p.sleep && !r.sleep) openSleep = true; return setR0(p); };
   const sp = sleepPlan(r);
   if (!settings) return null;
   if (!sp) {
     return (
-      <section className="block b-paper" data-testid="sleep">
-        <h2 style={{ fontSize: 20 }}><Moon size={18} style={{ verticalAlign: '-3px', marginRight: 6 }} />Sono</h2>
-        <p className="small">Diga a que horas quer acordar e quantas horas quer dormir. O Ritual calcula a hora de deitar, avisa antes e organiza o resto do dia em volta.</p>
+      <Fold title="Sono" icon={<Moon size={19} />} testId="sleep" summary="Ainda sem horário de acordar">
+        <p className="small" style={{ marginTop: 0 }}>Diga a que horas quer acordar e quantas horas quer dormir. O Ritual calcula a hora de deitar, avisa antes e organiza o resto do dia em volta.</p>
         <button className="btn btn-ink btn-sm" onClick={() => setR({ sleep: DEFAULT_SLEEP })} data-testid="sleep-start">Definir meu horário de sono</button>
-      </section>
+      </Fold>
     );
   }
   const setS = (p: Partial<typeof sp>) => setR({ sleep: { ...sp, ...p } });
@@ -119,8 +120,7 @@ function SleepSection({ r, setR }: { r: Reminders; setR: (p: Partial<Reminders>)
     toast(`Pronto: pele ${t.skinAm}, café ${t.cafe}, fechar o dia ${t.evening}, pele da noite ${t.skinPm}, deitar ${bed}`);
   };
   return (
-    <section className="block b-paper" data-testid="sleep">
-      <h2 style={{ fontSize: 20 }}><Moon size={18} style={{ verticalAlign: '-3px', marginRight: 6 }} />Sono</h2>
+    <Fold title="Sono" icon={<Moon size={19} />} testId="sleep" defaultOpen={openSleep} summary={`Acordar ${sp.wake} · deitar ${bed} · ${hoursLabel(sp.hours)}`}>
       <div className="time-grid">
         <TimeField label="Acordar" value={sp.wake} onChange={(v) => setS({ wake: v })} />
         {sp.weekendWake ? <TimeField label="Acordar no fim de semana" value={sp.weekendWake} onChange={(v) => setS({ weekendWake: v })} /> : null}
@@ -143,7 +143,7 @@ function SleepSection({ r, setR }: { r: Reminders; setR: (p: Partial<Reminders>)
       <button className="btn btn-ink btn-block" style={{ marginTop: 12 }} onClick={organize} data-testid="sleep-organize">Organizar meus horários pelo sono</button>
       <p className="field-hint">Ajusta pele da manhã, café, abertura do dia, fechar o dia e pele da noite em volta desses horários. Almoço, lanche e jantar ficam como estão.</p>
       {sp.alarm && <p className="field-hint">O alarme do Ritual é uma notificação que toca e vibra até você tocar nela. O Android pode segurá-la no modo Não perturbe ou na economia de bateria, então deixe também o despertador do celular às {sp.wake} como garantia.</p>}
-    </section>
+    </Fold>
   );
 }
 
@@ -170,8 +170,7 @@ export function IntervalsSection() {
     } catch (e: any) { toast(e.message, undefined, 'error'); } finally { setBusy(false); }
   };
   return (
-    <section className="block b-paper" data-testid="intervals">
-      <h2 style={{ fontSize: 20 }}><Link2 size={18} style={{ verticalAlign: '-3px', marginRight: 6 }} />MyWhoosh e Garmin</h2>
+    <Fold title="MyWhoosh e Garmin" icon={<Link2 size={19} />} testId="intervals" summary={conn?.connected ? `Conectado pelo intervals.icu${conn.lastSync ? ` · ${new Date(conn.lastSync).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}` : ''}` : 'Não conectado'}>
       {!session ? <p className="small">Entre com Google para conectar.</p> : conn?.connected ? (
         <>
           <p className="small" style={{ marginTop: 4 }}>Conectado pelo intervals.icu. A cada hora o Ritual envia os pedais planejados dos próximos 7 dias (eles aparecem no calendário do MyWhoosh) e recebe os treinos feitos, sono, VFC, FC de repouso e passos.{conn.lastSync ? ` Última atualização: ${new Date(conn.lastSync).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}.` : ''}</p>
@@ -197,7 +196,7 @@ export function IntervalsSection() {
           }}>Conectar</button>
         </>
       )}
-    </section>
+    </Fold>
   );
 }
 
@@ -211,12 +210,8 @@ export function DevAssistSection() {
   if (!settings) return null;
   const da = settings.devAssist ?? {};
   return (
-    <section className="block b-paper" data-testid="dev-settings">
-      <h2 style={{ fontSize: 20 }}><Wrench size={18} style={{ verticalAlign: '-3px', marginRight: 6 }} />Ajustes do app com o Claude</h2>
-      <label className="row" style={{ gap: 8, margin: '6px 0' }}>
-        <input type="checkbox" checked={!da.hidden} onChange={(e) => update<'settings'>('settings', { devAssist: { ...da, hidden: !e.target.checked } })} />
-        <span className="small">Mostrar a aba de ajuste na lateral das telas</span>
-      </label>
+    <Fold title="Ajustes do app com o Claude" icon={<Wrench size={19} />} testId="dev-settings" summary={`${da.connected ? 'Conectado' : 'Não conectado'} · aba ${da.hidden ? 'escondida' : 'visível'}`}>
+      <Switch on={!da.hidden} onChange={(v) => update<'settings'>('settings', { devAssist: { ...da, hidden: !v } })} label="Mostrar a aba de ajuste nas telas" />
       {!session ? <p className="small">Entre com Google para conectar.</p> : da.connected ? (
         <>
           <p className="small" style={{ marginTop: 4 }}>Conectado. Cada "Finalizar ajuste" chama o Claude, que faz a mudança, testa, publica e responde na própria sessão.</p>
@@ -244,6 +239,6 @@ export function DevAssistSection() {
           }}>Conectar</button>
         </>
       )}
-    </section>
+    </Fold>
   );
 }

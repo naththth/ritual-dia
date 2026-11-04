@@ -8,7 +8,7 @@ import { aiAvailable, aiProductInfo } from '../../domain/ai';
 import { PageHead } from '../common';
 import { useAll } from '../../db/hooks';
 import { create, db, remove, update, uid } from '../../db/db';
-import { Chip, Seg, Sheet, Empty, useConfirm } from '../../ui/ui';
+import { Chip, Seg, Sheet, Empty, useConfirm, NumberInput } from '../../ui/ui';
 import { ProductForm, STATUS_LABEL } from './ProductForm';
 import { FoodForm } from './FoodForm';
 import { GROUPS } from '../../domain/defaults';
@@ -352,7 +352,6 @@ export function Goals() {
     toast('Meta salva'); setEdit(null);
   };
   const types: { id: GoalType; label: string }[] = [{ id: 'quantitativa', label: 'Número' }, { id: 'financeira', label: 'Dinheiro' }, { id: 'marcos', label: 'Marcos' }, { id: 'frequencia', label: 'Frequência' }];
-  const num = (v: string) => (v === '' ? undefined : Number(v.replace(',', '.')));
   return (
     <>
       <p className="small" style={{ margin: '0 0 12px' }}>Objetivo de peso fica em <a className="link" href="#/peso" style={{ minHeight: 0, display: 'inline' }}>Peso</a>, onde o app acompanha as pesagens e calcula ritmo e previsão.</p>
@@ -377,8 +376,8 @@ export function Goals() {
               <>
                 <div className="row" style={{ gap: 10 }}>
                   <div className="grow"><span className="label">Unidade</span><input value={edit.unit ?? (edit.type === 'financeira' ? 'R$' : '')} onChange={(e) => setEdit({ ...edit, unit: e.target.value })} aria-label="Unidade" /></div>
-                  <div className="grow"><span className="label">Início <span className="muted small">(opc.)</span></span><input inputMode="decimal" value={edit.startValue ?? ''} onChange={(e) => setEdit({ ...edit, startValue: num(e.target.value) })} aria-label="Valor inicial" /></div>
-                  <div className="grow"><span className="label">Alvo <span className="muted small">(opc.)</span></span><input inputMode="decimal" value={edit.targetValue ?? ''} onChange={(e) => setEdit({ ...edit, targetValue: num(e.target.value) })} aria-label="Valor alvo" /></div>
+                  <div className="grow"><span className="label">Início <span className="muted small">(opc.)</span></span><NumberInput value={edit.startValue} onChange={(n) => setEdit({ ...edit, startValue: n })} optional label="Valor inicial" /></div>
+                  <div className="grow"><span className="label">Alvo <span className="muted small">(opc.)</span></span><NumberInput value={edit.targetValue} onChange={(n) => setEdit({ ...edit, targetValue: n })} optional label="Valor alvo" /></div>
                 </div>
               </>
             )}

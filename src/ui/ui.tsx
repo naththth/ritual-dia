@@ -183,6 +183,88 @@ export function afterSheetClose(fn: () => void) {
   setTimeout(() => whenHistoryIdle(fn), 0);
 }
 
+/** Campo numérico que deixa apagar e digitar à vontade. Enquanto ela digita, o texto fica como está
+ *  (pode ficar vazio, pode ter vírgula no meio); só número válido e dentro dos limites é repassado.
+ *  Ao sair do campo: aplica mínimo e máximo, ou volta ao último valor se ficou vazio e o campo é obrigatório. */
+export function NumberInput({ value, onChange, min, max, int, optional, lazy, label, placeholder, className, style, testId, onCommit }: {
+  /** lazy: só confirma ao sair do campo (para valores que reorganizam a tela, como número de séries). */
+  lazy?: boolean; value?: number; onChange: (n?: number) => void; min?: number; max?: number; int?: boolean; optional?: boolean;
+  label: string; placeholder?: string; className?: string; style?: React.CSSProperties; testId?: string; onCommit?: (n?: number) => void;
+}) {
+  const fmt = (n?: number) => (n == null || Number.isNaN(n) ? '' : String(n).replace('.', ','));
+  const [txt, setTxt] = useState(fmt(value));
+  const focused = useRef(false);
+  useEffect(() => { if (!focused.current) setTxt(fmt(value)); }, [value]);
+  const parse = (s: string) => {
+    if (s.trim() === '') return undefined;
+    const n = Number(s.replace(',', '.'));
+    if (Number.isNaN(n)) return undefined;
+    return int ? Math.round(n) : n;
+  };
+  const inRange = (n: number) => (min == null || n >= min) && (max == null || n <= max);
+  return (
+    <input type="text" inputMode={int ? 'numeric' : 'decimal'} autoComplete="off" value={txt} placeholder={placeholder}
+      aria-label={label} className={className} style={style} data-testid={testId}
+      onFocus={(e) => { focused.current = true; e.target.select(); }}
+      onChange={(e) => {
+        const clean = int ? e.target.value.replace(/\D/g, '') : e.target.value.replace(/[^\d,.]/g, '').replace(/([,.].*)[,.]/, '$1');
+        setTxt(clean);
+        if (lazy) return;
+        const n = parse(clean);
+        if (n == null) { if (clean === '' && optional) onChange(undefined); return; }
+        if (inRange(n) && n !== value) onChange(n);
+      }}
+      onBlur={() => {
+        focused.current = false;
+        let n = parse(txt);
+        if (n == null) {
+          if (optional) { setTxt(''); if (value != null) onChange(undefined); onCommit?.(undefined); }
+          else setTxt(fmt(value));
+          return;
+        }
+        if (min != null) n = Math.max(min, n);
+        if (max != null) n = Math.min(max, n);
+        setTxt(fmt(n));
+        if (n !== value) onChange(n);
+        onCommit?.(n);
+      }}
+      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
+  );
+}
+
+/** Liga e desliga, com o texto do lado. Substitui a caixinha nativa, que no Android aparece azul e fora de escala. */
+export function Switch({ on, onChange, label, hint, testId }: { on: boolean; onChange: (v: boolean) => void; label: string; hint?: string; testId?: string }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} className={`switch-row ${on ? 'on' : ''}`} onClick={() => onChange(!on)} data-testid={testId}>
+      <span className="grow"><span className="sw-l">{label}</span>{hint && <span className="sw-h">{hint}</span>}</span>
+      <span className="switch" aria-hidden><i /></span>
+    </button>
+  );
+}
+
+/** Seção recolhível: título, resumo do que já está preenchido e o conteúdo só quando aberta.
+ *  Tira das telas longas (Ajustes, Perfil) a rolagem sem fim. */
+export function Fold({ title, summary, icon, tone = 'paper', defaultOpen, children, testId, id, bodyClass }: {
+  bodyClass?: string; title: ReactNode; summary?: ReactNode; icon?: ReactNode; tone?: 'paper' | 'rose' | 'honey' | 'blue' | 'olive' | 'wine' | 'ink';
+  defaultOpen?: boolean; children: ReactNode; testId?: string; id?: string;
+}) {
+  const [open, setOpen] = useState(!!defaultOpen);
+  useEffect(() => { if (defaultOpen) setOpen(true); }, [defaultOpen]);
+  return (
+    <section className={`fold f-${tone} ${open ? 'open' : ''}`} data-testid={testId} id={id}>
+      <button type="button" className="fold-head" aria-expanded={open} onClick={() => setOpen(!open)}>
+        {icon && <span className="fold-ic">{icon}</span>}
+        <span className="fold-t">
+          <b>{title}</b>
+          {summary && !open && <span className="fold-s">{summary}</span>}
+        </span>
+        <span className="fold-chev" aria-hidden />
+      </button>
+      {open && <div className={`fold-body ${bodyClass ?? ''}`}>{children}</div>}
+    </section>
+  );
+}
+
 /** Campo de horário com teclado numérico: digita "0640" e vira 06:40. Evita o relógio do sistema, que no Android
  *  não abre o teclado direto e às vezes estoura o texto. Confirma ao sair do campo. */
 export function TimeInput({ value, onChange, label, style }: { value: string; onChange: (v: string) => void; label: string; style?: React.CSSProperties }) {

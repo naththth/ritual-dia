@@ -44,7 +44,7 @@ function AreaPage({ area, children, testId }: { area: AreaId; children: ReactNod
     <div className="screen" data-testid={testId}>
       <TopBar />
       <div className="row between" style={{ alignItems: 'center' }}>
-        <h1 className="section-title" style={{ fontSize: 32, fontWeight: 500, margin: '8px 0 10px' }}>{AREAS[area].title}</h1>
+        <h1 className="page-title">{AREAS[area].title}</h1>
         {spec && <SpecialistButton domain={spec} />}
       </div>
       <AreaNav area={area} />
@@ -73,21 +73,28 @@ export function CareTodayPage() {
   const nav = useNavigate();
   const date = useApp((s) => s.date);
   const logs = useByDate('skin', date);
-  const row = (p: 'am' | 'pm') => {
+  const card = (p: 'am' | 'pm') => {
     const log = logs?.find((l) => l.period === p);
+    const n = log?.productIds.length ?? 0;
+    const status = log ? (log.skipped ? 'Pulada' : `Feita · ${n} ${n === 1 ? 'produto' : 'produtos'}`) : 'Ainda não registrada';
     return (
-      <button key={p} className="lib-item" onClick={() => nav(`/pele?p=${p}`)} data-testid={`care-${p}`}>
-        <span className="lib-icon" style={{ background: 'var(--rose)' }}>{p === 'am' ? <Sunrise size={20} /> : <Moon size={20} />}</span>
-        <span className="grow"><span style={{ fontWeight: 700 }}>{p === 'am' ? 'Rotina da manhã' : 'Rotina da noite'}</span><br />
-          <span className="small muted">{log ? (log.skipped ? 'Pulada' : `Feita · ${log.productIds.length} ${log.productIds.length === 1 ? 'produto' : 'produtos'}`) : 'Ainda não registrada'}</span></span>
-        <ChevronRight size={18} />
+      <button key={p} className={`care-card ${p === 'am' ? 'cc-am' : 'cc-pm'} ${log && !log.skipped ? 'done' : ''}`} onClick={() => nav(`/pele?p=${p}`)} data-testid={`care-${p}`}>
+        <span className="cc-ic">{p === 'am' ? <Sunrise size={22} /> : <Moon size={22} />}</span>
+        <span className="cc-t">{p === 'am' ? 'Rotina da manhã' : 'Rotina da noite'}</span>
+        <span className="cc-s">{status}</span>
+        <span className="cc-go">{log ? 'Ver ou corrigir' : 'Começar'}<ChevronRight size={16} /></span>
       </button>
     );
   };
   return (
     <AreaPage area="cuidados" testId="area-cuidados">
-      <p className="small" style={{ margin: '0 0 8px' }}>{date === todayKey() ? `Hoje, ${shortLabel(date)}` : shortLabel(date)}</p>
-      {row('am')}{row('pm')}
+      <p className="small muted" style={{ margin: '0 0 10px' }}>{date === todayKey() ? `Hoje, ${shortLabel(date)}` : shortLabel(date)}</p>
+      <div className="care-cards">{card('am')}{card('pm')}</div>
+      <button className="lib-item" onClick={() => nav('/cuidados/rotina')}>
+        <span className="lib-icon" style={{ background: 'var(--rose)' }}><ListOrdered size={20} /></span>
+        <span className="grow"><b>Rotina da semana</b><br /><span className="small muted">O que entra em cada dia, na ordem de aplicação</span></span>
+        <ChevronRight size={18} />
+      </button>
     </AreaPage>
   );
 }
@@ -111,7 +118,7 @@ export function HabitsGoalsPage() {
   return (
     <div className="screen" data-testid="habits-goals">
       <TopBar />
-      <h1 className="section-title" style={{ fontSize: 32, fontWeight: 500, margin: '8px 0 10px' }}>Hábitos e metas</h1>
+      <h1 className="page-title">Hábitos e metas</h1>
       <h2 className="section-title" style={{ marginTop: 18 }}>Hábitos</h2>
       <Habits />
       <h2 className="section-title" style={{ marginTop: 24 }}>Metas</h2>

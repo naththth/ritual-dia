@@ -2,18 +2,33 @@ import { useNavigate } from 'react-router-dom';
 import { CalendarDays, ChartNoAxesColumn, ListChecks, Settings, ChevronRight, NotebookPen, StickyNote, BookOpen, UserRound, Droplet, Scale, Target } from 'lucide-react';
 import { TopBar } from './common';
 
-const ITEMS = [
-  { to: '/perfil', label: 'Perfil e objetivos', sub: 'Corpo, objetivo, alimentação, treino e pele: a base das especialistas', icon: <UserRound size={20} />, c: 'var(--olive)' },
-  { to: '/peso', label: 'Peso', sub: 'Objetivo, ritmo, previsão e pesagens', icon: <Scale size={20} />, c: 'var(--olive)' },
-  { to: '/ciclo', label: 'Ciclo', sub: 'Menstruação, sintomas, fase e previsão', icon: <Droplet size={20} />, c: 'var(--rose)' },
-  { to: '/listas', label: 'Tarefas', sub: 'Pendências por categoria e prioridade', icon: <ListChecks size={20} />, c: 'var(--wine-ink)' },
-  { to: '/habitos', label: 'Hábitos e metas', sub: 'O que você quer repetir e onde quer chegar', icon: <Target size={20} />, c: 'var(--olive)' },
-  { to: '/diario', label: 'Diário', sub: 'Energia, humor, sono e o dia em poucas linhas', icon: <NotebookPen size={20} />, c: 'var(--wine-ink)' },
-  { to: '/notas', label: 'Notas', sub: 'Ideias e anotações com etiquetas', icon: <StickyNote size={20} />, c: 'var(--honey)' },
-  { to: '/leitura', label: 'Leitura', sub: 'Estante, páginas lidas e meta do ano', icon: <BookOpen size={20} />, c: 'var(--rose)' },
-  { to: '/calendario', label: 'Calendário', sub: 'O mês inteiro e qualquer dia passado', icon: <CalendarDays size={20} />, c: 'var(--paper-2)' },
-  { to: '/evolucao', label: 'Evolução', sub: 'Semana e mês: hábitos, treino, pele, alimentação', icon: <ChartNoAxesColumn size={20} />, c: 'var(--olive)' },
-  { to: '/ajustes', label: 'Ajustes', sub: 'Conta, IA, metas, backup', icon: <Settings size={20} />, c: 'var(--card)' }
+/* Agrupado pelo uso: o que ela consulta sobre si, o que organiza o dia a dia e o que é registro. Cada bloco tem a cor da paleta. */
+const GROUPS = [
+  {
+    title: 'Você',
+    items: [
+      { to: '/perfil', label: 'Perfil e objetivos', sub: 'A base das especialistas', icon: <UserRound size={20} />, tone: 't-olive' },
+      { to: '/peso', label: 'Peso', sub: 'Ritmo e previsão', icon: <Scale size={20} />, tone: 't-honey' },
+      { to: '/ciclo', label: 'Ciclo', sub: 'Fase e previsão', icon: <Droplet size={20} />, tone: 't-rose' },
+      { to: '/evolucao', label: 'Evolução', sub: 'Semana e mês', icon: <ChartNoAxesColumn size={20} />, tone: 't-teal' }
+    ]
+  },
+  {
+    title: 'Organizar',
+    items: [
+      { to: '/listas', label: 'Tarefas', sub: 'Por categoria e prioridade', icon: <ListChecks size={20} />, tone: 't-terra' },
+      { to: '/habitos', label: 'Hábitos e metas', sub: 'O que repetir, onde chegar', icon: <Target size={20} />, tone: 't-ink' },
+      { to: '/calendario', label: 'Calendário', sub: 'O mês inteiro', icon: <CalendarDays size={20} />, tone: 't-lilac' }
+    ]
+  },
+  {
+    title: 'Registros',
+    items: [
+      { to: '/diario', label: 'Diário', sub: 'O dia em poucas linhas', icon: <NotebookPen size={20} />, tone: 't-plum' },
+      { to: '/notas', label: 'Notas', sub: 'Ideias com etiquetas', icon: <StickyNote size={20} />, tone: 't-honey' },
+      { to: '/leitura', label: 'Leitura', sub: 'Estante e meta do ano', icon: <BookOpen size={20} />, tone: 't-rose' }
+    ]
+  }
 ];
 
 export function MoreScreen() {
@@ -21,14 +36,26 @@ export function MoreScreen() {
   return (
     <div className="screen" data-testid="more-screen">
       <TopBar />
-      <h1 className="section-title" style={{ fontSize: 32, fontWeight: 500, margin: '8px 0 10px' }}>Mais</h1>
-      {ITEMS.map((i) => (
-        <button key={i.to} className="lib-item" onClick={() => nav(i.to)}>
-          <span className="lib-icon" style={{ background: i.c }}>{i.icon}</span>
-          <span className="grow"><span style={{ fontWeight: 700 }}>{i.label}</span><br /><span className="small muted">{i.sub}</span></span>
-          <ChevronRight size={18} />
-        </button>
+      <h1 className="page-title">Mais</h1>
+      {GROUPS.map((g) => (
+        <section key={g.title} className="more-group">
+          <h2 className="set-group">{g.title}</h2>
+          <div className="tile-grid">
+            {g.items.map((i) => (
+              <button key={i.to} className={`tile ${i.tone}`} onClick={() => nav(i.to)}>
+                <span className="tile-ic">{i.icon}</span>
+                <span className="tile-l">{i.label}</span>
+                <span className="tile-s">{i.sub}</span>
+              </button>
+            ))}
+          </div>
+        </section>
       ))}
+      <button className="lib-item more-settings" onClick={() => nav('/ajustes')}>
+        <span className="lib-icon"><Settings size={20} /></span>
+        <span className="grow"><b>Ajustes</b><br /><span className="small muted">Conta, horários, metas, conexões e backup</span></span>
+        <ChevronRight size={18} />
+      </button>
     </div>
   );
 }

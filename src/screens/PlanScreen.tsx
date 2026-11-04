@@ -230,8 +230,8 @@ export function TrainingPlan({ embedded = false }: { embedded?: boolean } = {}) 
       {resumo && <div className="notice calm" style={{ margin: '10px 0' }}>{resumo}</div>}
       {DAYS.map((wd) => (
         <div key={wd} className="plan-day" data-testid={`tplan-${wd}`}>
-          <div className="dn">{WEEKDAY_LONG[wd]}</div>
-          <div className="chips" style={{ marginTop: 8 }}>
+          <div className="row between"><span className="dn">{WEEKDAY_LONG[wd]}</span><span className={`plan-tag ${d[wd]?.length ? 'on' : ''}`}>{d[wd]?.length ? `${d[wd].length} ${d[wd].length === 1 ? 'treino' : 'treinos'}` : 'Descanso'}</span></div>
+          <div className="chips plan-opts" style={{ marginTop: 8 }}>
             {active.map((t) => {
               const on = d[wd]?.includes(t.id);
               return <Chip key={t.id} color="blue" on={on} onClick={() => { setDirty(true); setD({ ...d, [wd]: on ? d[wd].filter((x) => x !== t.id) : [...(d[wd] ?? []), t.id] }); }}>{t.name}</Chip>;
@@ -240,7 +240,6 @@ export function TrainingPlan({ embedded = false }: { embedded?: boolean } = {}) 
           {d[wd]?.map((id) => active.find((t) => t.id === id)).filter((t) => t?.steps?.length).map((t) => (
             <div key={t!.id} className="tiny muted" style={{ marginTop: 6 }}>{t!.steps!.map((s) => `${s.minutes}' ${watts(s.pct, settings?.ftp) ?? s.pct + '%'}${settings?.ftp ? 'W' : ''}`).join(', ')}</div>
           ))}
-          {!d[wd]?.length && <div className="tiny muted" style={{ marginTop: 6 }}>Sem treino planejado</div>}
         </div>
       ))}
       <button className="btn btn-ink btn-block" style={{ marginTop: 20 }} data-testid="plan-save" onClick={async () => { await savePlan('training', current, { training: d }); if (embedded) { setDirty(false); toast('Plano salvo'); } else back(); }}>Salvar plano</button>

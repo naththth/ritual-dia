@@ -43,10 +43,11 @@ export function DateHeader() {
     <div className="dayhead">
       <div className="row">
         <h1 data-testid="day-title">
-          {WEEKDAY_LONG[isoWeekday(date)]},
-          <b>{longDate(date)}</b>
+          <span className="dh-num num" aria-hidden>{dayNum(date)}</span>
+          <span className="dh-txt" aria-hidden><span className="dh-wd">{WEEKDAY_LONG[isoWeekday(date)]},</span>{' '}<span className="dh-mo">{longDate(date).replace(/^\d+ /, '')}</span></span>
+          <span className="sr-only">{WEEKDAY_LONG[isoWeekday(date)]}, {longDate(date)}</span>
         </h1>
-        {date !== today && <button className="today-pill" onClick={() => setDate(today)}>Hoje</button>}
+        {date !== today ? <button className="today-pill" onClick={() => setDate(today)}>Voltar para hoje</button> : <span className="today-tag">Hoje</span>}
       </div>
       <div className="weekstrip" role="group" aria-label="Semana">
         <button className="nav" aria-label="Semana anterior" onClick={() => setDate(addDays(date, -7))}><ChevronLeft size={20} /></button>

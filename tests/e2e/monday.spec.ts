@@ -196,6 +196,7 @@ test('backup e restauração', async ({ page }) => {
   await onboard(page);
   await page.getByTestId('habit-Meditação').click();
   await page.goto('./#/ajustes');
+  await page.getByRole('button', { name: /^Backup e restauração/ }).click();
   const dl = page.waitForEvent('download');
   await page.getByTestId('backup-export').click();
   const file = await (await dl).path();
@@ -245,6 +246,7 @@ test('buscar alimento na tabela TACO e ver calorias da refeição', async ({ pag
 test('importar treino .FIT e ver potência, FC e zonas', async ({ page }) => {
   await onboard(page);
   await page.goto('./#/ajustes');
+  await page.getByRole('button', { name: /^Metas do dia/ }).click();
   await page.getByLabel('FTP').fill('190');
   await page.getByLabel('FTP').blur();
   await page.goto('./#/treino');
@@ -295,12 +297,14 @@ test('subir .FIT pelo botão + e ver a carga de treino', async ({ page }) => {
 test('sono: acordar 6h calcula deitar e organiza o dia', async ({ page }) => {
   await onboard(page);
   await page.goto('./#/ajustes');
+  await page.getByRole('button', { name: /^Sono/ }).click();
   await page.getByTestId('sleep-start').click();
   await expect(page.getByTestId('sleep-bed')).toContainText('21:45');
   await page.getByRole('button', { name: '8 h 30' }).click();
   await expect(page.getByTestId('sleep-bed')).toContainText('21:15');
   await page.getByRole('button', { name: '8 h', exact: true }).click();
   await page.getByTestId('sleep-organize').click();
+  await page.getByRole('button', { name: /^Lembretes e horários/ }).click();
   await expect(page.getByLabel('Horário: Rotina da manhã')).toHaveValue('06:20');
   await expect(page.getByLabel('Horário: Rotina da noite')).toHaveValue('21:15');
   await page.screenshot({ path: 'test-results/shots/sono.png', fullPage: true });
@@ -440,6 +444,7 @@ test('perfil alinhado: campos, opções e texto longo', async ({ page }) => {
   await page.getByLabel('Ano de nascimento').fill('1992');
   await page.getByLabel('Gordura, se souber').fill('35');
   await page.getByRole('radio', { name: 'Feminino' }).click();
+  await page.getByRole('button', { name: /^Objetivo/ }).click();
   await page.getByRole('radio', { name: /Perder gordura/ }).click();
   await page.getByLabel('Prova ou marco').fill('Tomo mounjaro e preciso chegar na meta de peso até março, com a prova de triathlon sprint no meio do caminho');
   await noHorizontalScroll(page);

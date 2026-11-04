@@ -1,24 +1,17 @@
 // Editor de exercícios da musculação: lista suspensa com 3 variações, séries, repetições e carga.
 import { useState } from 'react';
+import { NumberInput } from '../ui/ui';
 import { Plus, Trash2 } from 'lucide-react';
 import type { StrengthExercise } from '../db/types';
 import { todayKey } from '../lib/dates';
 import { DEFAULT_SETS, defaultReps, EXERCISE_CATALOG, OTHER_OPTION, exerciseLine, exerciseVolume, loadsPerSet, newExerciseId, repsPerSet, resizeSets, variationOptions, withPlanned, withRegressive, withSetLoad, withSetReps } from '../domain/strength';
 
-function NumField({ label, value, onChange, step, testid, compact }: { label: string; value?: number; onChange: (n?: number) => void; step: string; testid: string; compact?: boolean }) {
-  const [txt, setTxt] = useState(value == null ? '' : String(value).replace('.', ','));
-  const typed = txt.trim() === '' || Number.isNaN(Number(txt.replace(',', '.'))) ? undefined : Number(txt.replace(',', '.'));
-  const shown = typed === value ? txt : value == null ? '' : String(value).replace('.', ',');
+/** Número da musculação. Usa o campo comum do app: dá para apagar e digitar outro número sem ficar preso no 1. */
+function NumField({ label, value, onChange, testid, compact, min, max, int, optional, lazy }: { label: string; value?: number; onChange: (n?: number) => void; testid: string; compact?: boolean; min?: number; max?: number; int?: boolean; optional?: boolean; lazy?: boolean }) {
   return (
     <label className={compact ? 'ex-num ex-num-c' : 'ex-num'}>
       <span className="tiny">{label}</span>
-      <input type="text" inputMode="decimal" data-step={step} value={shown} data-testid={testid} aria-label={label}
-        onChange={(e) => {
-          const v = e.target.value.replace(/[^\d,.]/g, '');
-          setTxt(v);
-          const n = Number(v.replace(',', '.'));
-          onChange(v === '' || Number.isNaN(n) ? undefined : n);
-        }} />
+      <NumberInput value={value} onChange={onChange} label={label} testId={testid} min={min} max={max} int={int} optional={optional} lazy={lazy} />
     </label>
   );
 }
@@ -46,8 +39,8 @@ export function ExerciseEditor({ value, onChange, why = {}, compare = false, fir
               const cols = { gridTemplateColumns: `repeat(${Math.min(e.sets, 5)}, 1fr)` };
               return <>
                 <div className={regressive ? 'ex-nums ex-nums-1' : 'ex-nums ex-nums-2'}>
-                  <NumField label="Séries" value={e.sets} onChange={(n) => patch(e.id, resizeSets(e, Math.min(10, Math.max(1, Math.round(n ?? 1)))))} step="1" testid="ex-sets" />
-                  {!regressive && <NumField label="Repetições" value={e.reps} onChange={(n) => patch(e.id, { reps: Math.max(1, Math.round(n ?? 1)) })} step="1" testid="ex-reps" />}
+                  <NumField label="Séries" value={e.sets} min={1} max={10} int lazy onChange={(n) => { if (n != null) patch(e.id, resizeSets(e, n)); }} testid="ex-sets" />
+                  {!regressive && <NumField label="Repetições" value={e.reps} min={1} max={100} int onChange={(n) => { if (n != null) patch(e.id, { reps: n }); }} testid="ex-reps" />}
                 </div>
                 <label className="ex-check">
                   <input type="checkbox" checked={regressive} data-testid="ex-regressive" onChange={(ev) => patch(e.id, withRegressive(e, ev.target.checked))} />
@@ -58,8 +51,8 @@ export function ExerciseEditor({ value, onChange, why = {}, compare = false, fir
                     <span className="tiny">Repetições por série</span>
                     <div className="ex-load-row" style={cols}>
                       {repsPerSet(e).map((r, si) => (
-                        <NumField key={`${si}-${e.sets}`} compact label={`${si + 1}ª`} value={r} step="1" testid="ex-reps-set"
-                          onChange={(n) => { if (n != null) patch(e.id, withSetReps(e, si, Math.max(1, Math.round(n)))); }} />
+                        <NumField key={`${si}-${e.sets}`} compact label={`${si + 1}ª`} value={r} min={1} max={100} int testid="ex-reps-set"
+                          onChange={(n) => { if (n != null) patch(e.id, withSetReps(e, si, n)); }} />
                       ))}
                     </div>
                   </div>
@@ -68,7 +61,7 @@ export function ExerciseEditor({ value, onChange, why = {}, compare = false, fir
                   <span className="tiny">Carga por série (kg)</span>
                   <div className="ex-load-row" style={cols}>
                     {loadsPerSet(e).map((kg, si) => (
-                      <NumField key={si} compact label={`${si + 1}ª`} value={e.setLoads?.length ? e.setLoads[si] ?? undefined : kg} step="0.5" testid={si === 0 ? 'ex-load' : 'ex-load-set'}
+                      <NumField key={si} compact label={`${si + 1}ª`} value={e.setLoads?.length ? e.setLoads[si] ?? undefined : kg} min={0} max={500} optional testid={si === 0 ? 'ex-load' : 'ex-load-set'}
                         onChange={(n) => { const l = withSetLoad(e, si, n); patch(e.id, { ...l, loadAt: l.loadKg == null ? undefined : todayKey() }); }} />
                     ))}
                   </div>

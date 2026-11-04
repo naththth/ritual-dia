@@ -4,7 +4,7 @@ import { useAll, useSettings } from '../db/hooks';
 import { create, update, uid } from '../db/db';
 import type { Category, ExecMode, Priority, Task, TaskStatus } from '../db/types';
 import { PRIORITIES } from '../db/types';
-import { Check, Chip, Empty, Seg, Sheet, useConfirm, ArtLeaf } from '../ui/ui';
+import { Check, Chip, Empty, Seg, Sheet, useConfirm, ArtLeaf, NumberInput } from '../ui/ui';
 import { matchesSearch } from '../domain/rules';
 import { planTask, toggleTaskDone, deleteRecord, withUndo } from '../domain/actions';
 import { shortLabel, todayKey, type DateKey } from '../lib/dates';
@@ -179,8 +179,8 @@ export function TaskSheet({ open, onClose, task, defaults }: { open: boolean; on
           <span className="label">Responsável</span>
           <div className="chips">{(settings?.owners ?? ['Eu']).map((o) => <Chip key={o} on={d.owner === o} onClick={() => set({ owner: d.owner === o ? undefined : o })}>{o}</Chip>)}</div>
           <div className="row" style={{ gap: 10 }}>
-            <div className="grow"><span className="label">Custo estimado (R$)</span><input inputMode="decimal" value={d.costEst ?? ''} onChange={(e) => set({ costEst: e.target.value ? Number(e.target.value.replace(',', '.')) : undefined })} aria-label="Custo estimado" /></div>
-            <div className="grow"><span className="label">Custo real (R$)</span><input inputMode="decimal" value={d.costReal ?? ''} onChange={(e) => set({ costReal: e.target.value ? Number(e.target.value.replace(',', '.')) : undefined })} aria-label="Custo real" /></div>
+            <div className="grow"><span className="label">Custo estimado (R$)</span><NumberInput value={d.costEst} onChange={(n) => set({ costEst: n })} optional min={0} label="Custo estimado" /></div>
+            <div className="grow"><span className="label">Custo real (R$)</span><NumberInput value={d.costReal} onChange={(n) => set({ costReal: n })} optional min={0} label="Custo real" /></div>
           </div>
           {d.categoryId === 'cat:compromissos' && (
             <>

@@ -44,7 +44,7 @@ export function FoodTab() {
     <div className="screen" data-testid="food-tab">
       <TopBar />
       <div className="row between" style={{ margin: '8px 0 10px' }}>
-        <h1 className="section-title" style={{ fontSize: 32, fontWeight: 500, margin: 0 }}>Alimentação</h1>
+        <h1 className="page-title" style={{ margin: 0 }}>Alimentação</h1>
         <SpecialistButton domain="food" />
       </div>
       <AreaNav area="alimentacao" />

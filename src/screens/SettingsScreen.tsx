@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Download, Upload, RefreshCw, LogOut, Smartphone, FileUp, Plus } from 'lucide-react';
+import { Download, Upload, RefreshCw, LogOut, Smartphone, FileUp, Plus, Target, Utensils, Sparkles } from 'lucide-react';
 import { PageHead, SyncDot } from './common';
 import { useSettings, useDirtyCount } from '../db/hooks';
 import { signInWithGoogle, signOut, supabase, syncNow, useSync } from '../sync/sync';
@@ -8,7 +8,7 @@ import { buildBackup, backupFileName, restoreBackup, validateBackup } from '../d
 import { applyImport, parseImport } from '../domain/import';
 import { db, setMeta, getMeta, update } from '../db/db';
 import { toast } from '../state/store';
-import { Chip, useConfirm } from '../ui/ui';
+import { Chip, useConfirm, NumberInput, Fold } from '../ui/ui';
 import { RemindersSection, IntervalsSection, DevAssistSection } from './settings-extra';
 
 let deferredPrompt: any = null;
@@ -74,12 +74,15 @@ export function SettingsScreen() {
     <div className="screen no-nav" data-testid="settings-screen">
       <PageHead title="Ajustes" withDate={false} />
 
-      <section className="block b-paper">
-        <h2 style={{ fontSize: 20 }}>Conta e sincronização</h2>
-        <p className="small row" style={{ gap: 8 }}><SyncDot /> {session ? syncLabel[state] : 'Só neste aparelho'}</p>
+      <section className="set-account">
+        <div className="row" style={{ gap: 10, alignItems: 'flex-start' }}>
+          <span className="set-avatar">{session?.user.email?.[0]?.toUpperCase() ?? 'R'}</span>
+          <div className="grow">
+            <b>{session ? session.user.email : 'Conta e sincronização'}</b>
+        <p className="small row" style={{ gap: 8, margin: '2px 0 6px' }}><SyncDot /> {session ? syncLabel[state] : 'Só neste aparelho'}</p>
         {session ? (
           <>
-            <p className="small muted" style={{ marginTop: 0 }}>Conectada como {session.user.email}{lastSync ? `. Última sincronização: ${new Date(lastSync).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''}</p>
+            {lastSync ? <p className="small muted" style={{ marginTop: 0 }}>Última sincronização às {new Date(lastSync).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p> : null}
             <div className="row wrap">
               <button className="btn btn-ink btn-sm" onClick={() => syncNow()}><RefreshCw size={16} />Sincronizar agora</button>
               <button className="btn btn-soft btn-sm" onClick={async () => { if (await ask({ title: 'Sair da conta?', text: 'Os dados continuam neste aparelho. A sincronização para até você entrar de novo.', ok: 'Sair' })) await signOut(); }}><LogOut size={16} />Sair</button>
@@ -91,40 +94,19 @@ export function SettingsScreen() {
             <button className="btn btn-ink btn-sm" onClick={() => signInWithGoogle().catch((e) => toast(e.message, undefined, 'error'))}>Entrar com Google</button>
           </>
         ) : null}
+          </div>
+        </div>
       </section>
 
+      <h2 className="set-group">Sua rotina</h2>
       <RemindersSection />
-      <IntervalsSection />
-      <DevAssistSection />
 
-      <section className="block b-paper">
-        <h2 style={{ fontSize: 20 }}>Backup</h2>
-        <p className="small" style={{ marginTop: 4 }}>{lastBackup ? `Último backup: ${new Date(lastBackup).toLocaleDateString('pt-BR')}.` : 'Nenhum backup feito neste aparelho.'} No Android, o backup abre o compartilhamento para você salvar no Drive.</p>
-        <div className="row wrap">
-          <button className="btn btn-ink btn-sm" onClick={() => exportBackup(false)} data-testid="backup-export"><Download size={16} />Fazer backup</button>
-          <button className="btn btn-soft btn-sm" onClick={() => exportBackup(true)}><Download size={16} />Com fotos</button>
-          <button className="btn btn-soft btn-sm" onClick={() => restoreInput.current?.click()}><Upload size={16} />Restaurar</button>
-        </div>
-        <input ref={restoreInput} type="file" accept="application/json,.json" hidden onChange={(e) => doRestore(e.target.files?.[0])} data-testid="restore-input" />
-      </section>
-
-      <section className="block b-paper">
-        <h2 style={{ fontSize: 20 }}>Dados iniciais</h2>
-        <div className="row wrap" style={{ marginTop: 8 }}>
-          <button className="btn btn-soft btn-sm" onClick={() => importInput.current?.click()}><FileUp size={16} />Importar arquivo de novo</button>
-          <button className="btn btn-soft btn-sm" onClick={() => nav('/revisao')}>Revisar produtos</button>
-        </div>
-        <p className="tiny muted">Importar de novo não duplica nada: só entra o que ainda não existe.</p>
-        <input ref={importInput} type="file" accept="application/json,.json" hidden onChange={(e) => doImport(e.target.files?.[0])} />
-      </section>
-
+      <h2 className="set-group">Metas e alimentação</h2>
       {settings && (
-        <section className="block b-paper">
-          <h2 style={{ fontSize: 20 }}>Preferências</h2>
-          <span className="label">FTP no pedal (watts)</span>
-          <input inputMode="numeric" defaultValue={settings.ftp ?? ''} onBlur={(e) => update<'settings'>('settings', { ftp: e.target.value ? Number(e.target.value) : undefined })} aria-label="FTP" />
-          <p className="field-hint">Os treinos de pedal mostram cada bloco em watts a partir deste valor.</p>
-          <span className="label">Calorias e macros</span>
+        <>
+          <Fold title="Metas do dia" icon={<Target size={19} />} testId="set-targets"
+            summary={[settings.targets?.kcal ? `${settings.targets.kcal} kcal` : 'Pelo plano alimentar', settings.targets?.p ? `${settings.targets.p} g de proteína` : '', settings.waterGoalMl ? `${(settings.waterGoalMl / 1000).toLocaleString('pt-BR')} L de água` : '', settings.ftp ? `FTP ${settings.ftp} W` : ''].filter(Boolean).join(' · ')}>
+          <span className="label" style={{ marginTop: 0 }}>Calorias e macros</span>
           <div className="chips">
             <Chip on={settings.showNutrition !== false} onClick={() => update<'settings'>('settings', { showNutrition: true })}>Mostrar</Chip>
             <Chip on={settings.showNutrition === false} onClick={() => update<'settings'>('settings', { showNutrition: false })}>Ocultar</Chip>
@@ -134,19 +116,24 @@ export function SettingsScreen() {
           <div className="nutr-grid" style={{ marginTop: 8 }}>
             {([['kcal', 'Meta kcal'], ['p', 'Proteína (g)'], ['c', 'Carbo (g)'], ['f', 'Gordura (g)']] as const).map(([k, l]) => (
               <label key={k} className="nutr-cell"><span>{l}</span>
-                <input inputMode="numeric" defaultValue={settings.targets?.[k] ?? ''} onBlur={(e) => update<'settings'>('settings', { targets: { ...(settings.targets ?? {}), [k]: e.target.value ? Number(e.target.value) : undefined } })} aria-label={l} />
+                <NumberInput value={settings.targets?.[k]} int optional min={0} onChange={(n) => update<'settings'>('settings', { targets: { ...(settings.targets ?? {}), [k]: n } })} label={l} />
               </label>
             ))}
           </div>
           <span className="label">Meta de água por dia (mL)</span>
-          <input inputMode="numeric" defaultValue={settings.waterGoalMl ?? ''} onBlur={(e) => update<'settings'>('settings', { waterGoalMl: e.target.value ? Number(e.target.value) : undefined })} aria-label="Meta de água" />
-          <span className="label">O que a IA deve saber sobre você</span>
-          <textarea defaultValue={settings.aiContext ?? ''} onBlur={(e) => update<'settings'>('settings', { aiContext: e.target.value })} placeholder="Ex.: treino às 6h nos dias de semana; pele piora perto da menstruação; prefiro rotinas curtas de manhã." aria-label="Contexto para a IA" />
-          <span className="label">Preparar o dia sozinho ao abrir o app</span>
-          <div className="chips">
-            <Chip on={settings.autoBrief !== false} onClick={() => update<'settings'>('settings', { autoBrief: true })}>Sim</Chip>
-            <Chip on={settings.autoBrief === false} onClick={() => update<'settings'>('settings', { autoBrief: false })}>Só quando eu pedir</Chip>
+          <NumberInput value={settings.waterGoalMl} int optional min={0} max={8000} onChange={(n) => update<'settings'>('settings', { waterGoalMl: n })} label="Meta de água" />
+          <span className="label">FTP no pedal (watts)</span>
+          <NumberInput value={settings.ftp} int optional min={0} max={600} onChange={(n) => update<'settings'>('settings', { ftp: n })} label="FTP" />
+          <p className="field-hint">Os treinos de pedal mostram cada bloco em watts a partir deste valor.</p>
+          </Fold>
+          <Fold title="Refeições e água" icon={<Utensils size={19} />} testId="set-meals"
+            summary={`${settings.mealTypes.length} refeições · botões de ${settings.waterPresets.join(', ')} mL`}>
+          <span className="label" style={{ marginTop: 0 }}>Refeições do dia</span>
+          <div className="chips" style={{ marginBottom: 8 }}>
+            {settings.mealTypes.map((m) => <Chip key={m.id} on onClick={async () => { if (settings.mealTypes.length > 1 && await ask({ title: `Remover "${m.label}"?`, text: 'Registros antigos continuam guardados.', ok: 'Remover' })) update<'settings'>('settings', { mealTypes: settings.mealTypes.filter((x) => x.id !== m.id) }); }}>{m.label} <span className="x">✕</span></Chip>)}
           </div>
+          <div className="row"><input value={newMeal} onChange={(e) => setNewMeal(e.target.value)} placeholder="Nova refeição, ex.: Pré-treino" aria-label="Nova refeição" />
+            <button className="btn btn-soft" aria-label="Adicionar refeição" onClick={() => { const l = newMeal.trim(); if (l) { update<'settings'>('settings', { mealTypes: [...settings.mealTypes, { id: l.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-'), label: l }] }); setNewMeal(''); } }}><Plus size={18} /></button></div>
           <span className="label">Botões de água (mL)</span>
           <div className="chips">
             {[150, 200, 250, 300, 400, 500, 750].map((ml) => {
@@ -154,12 +141,16 @@ export function SettingsScreen() {
               return <Chip key={ml} color="honey" on={on} onClick={() => update<'settings'>('settings', { waterPresets: (on ? settings.waterPresets.filter((x) => x !== ml) : [...settings.waterPresets, ml]).sort((a, b) => a - b) })}>{ml}</Chip>;
             })}
           </div>
-          <span className="label">Refeições do dia</span>
-          <div className="chips" style={{ marginBottom: 8 }}>
-            {settings.mealTypes.map((m) => <Chip key={m.id} on onClick={async () => { if (settings.mealTypes.length > 1 && await ask({ title: `Remover "${m.label}"?`, text: 'Registros antigos continuam guardados.', ok: 'Remover' })) update<'settings'>('settings', { mealTypes: settings.mealTypes.filter((x) => x.id !== m.id) }); }}>{m.label} <span className="x">✕</span></Chip>)}
+          </Fold>
+          <Fold title="IA e tarefas" icon={<Sparkles size={19} />} testId="set-ai"
+            summary={[settings.autoBrief === false ? 'Prepara o dia quando você pede' : 'Prepara o dia ao abrir', settings.aiContext ? 'com contexto seu' : ''].filter(Boolean).join(' · ')}>
+          <span className="label" style={{ marginTop: 0 }}>O que a IA deve saber sobre você</span>
+          <textarea defaultValue={settings.aiContext ?? ''} onBlur={(e) => update<'settings'>('settings', { aiContext: e.target.value })} placeholder="Ex.: treino às 6h nos dias de semana; pele piora perto da menstruação; prefiro rotinas curtas de manhã." aria-label="Contexto para a IA" />
+          <span className="label">Preparar o dia sozinho ao abrir o app</span>
+          <div className="chips">
+            <Chip on={settings.autoBrief !== false} onClick={() => update<'settings'>('settings', { autoBrief: true })}>Sim</Chip>
+            <Chip on={settings.autoBrief === false} onClick={() => update<'settings'>('settings', { autoBrief: false })}>Só quando eu pedir</Chip>
           </div>
-          <div className="row"><input value={newMeal} onChange={(e) => setNewMeal(e.target.value)} placeholder="Nova refeição, ex.: Pré-treino" aria-label="Nova refeição" />
-            <button className="btn btn-soft" aria-label="Adicionar refeição" onClick={() => { const l = newMeal.trim(); if (l) { update<'settings'>('settings', { mealTypes: [...settings.mealTypes, { id: l.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-'), label: l }] }); setNewMeal(''); } }}><Plus size={18} /></button></div>
           <span className="label">Responsáveis possíveis em tarefas</span>
           <div className="chips" style={{ marginBottom: 8 }}>{settings.owners.map((o) => <Chip key={o} on onClick={() => update<'settings'>('settings', { owners: settings.owners.filter((x) => x !== o) })}>{o} <span className="x">✕</span></Chip>)}</div>
           <div className="row"><input value={newOwner} onChange={(e) => setNewOwner(e.target.value)} placeholder="Outro nome" aria-label="Novo responsável" />
@@ -170,11 +161,31 @@ export function SettingsScreen() {
               <p className="small muted" style={{ margin: 0 }}>{[...settings.skinProfile, ...settings.foodPrefs].join(', ')}</p>
             </>
           )}
-        </section>
+          </Fold>
+        </>
       )}
 
-      <section className="block b-paper">
-        <h2 style={{ fontSize: 20 }}>Aparelho</h2>
+      <h2 className="set-group">Conexões</h2>
+      <IntervalsSection />
+      <DevAssistSection />
+
+      <h2 className="set-group">Dados e aparelho</h2>
+      <Fold title="Backup e restauração" icon={<Download size={19} />} testId="set-backup" summary={lastBackup ? `Último backup em ${new Date(lastBackup).toLocaleDateString('pt-BR')}` : 'Nenhum backup neste aparelho'}>
+        <p className="small" style={{ marginTop: 4 }}>{lastBackup ? `Último backup: ${new Date(lastBackup).toLocaleDateString('pt-BR')}.` : 'Nenhum backup feito neste aparelho.'} No Android, o backup abre o compartilhamento para você salvar no Drive.</p>
+        <div className="row wrap">
+          <button className="btn btn-ink btn-sm" onClick={() => exportBackup(false)} data-testid="backup-export"><Download size={16} />Fazer backup</button>
+          <button className="btn btn-soft btn-sm" onClick={() => exportBackup(true)}><Download size={16} />Com fotos</button>
+          <button className="btn btn-soft btn-sm" onClick={() => restoreInput.current?.click()}><Upload size={16} />Restaurar</button>
+        </div>
+        <input ref={restoreInput} type="file" accept="application/json,.json" hidden onChange={(e) => doRestore(e.target.files?.[0])} data-testid="restore-input" />
+        <div className="row wrap" style={{ marginTop: 8 }}>
+          <button className="btn btn-soft btn-sm" onClick={() => importInput.current?.click()}><FileUp size={16} />Importar arquivo de novo</button>
+          <button className="btn btn-soft btn-sm" onClick={() => nav('/revisao')}>Revisar produtos</button>
+        </div>
+        <p className="tiny muted">Importar de novo não duplica nada: só entra o que ainda não existe.</p>
+        <input ref={importInput} type="file" accept="application/json,.json" hidden onChange={(e) => doImport(e.target.files?.[0])} />
+      </Fold>
+      <Fold title="Aparelho" icon={<Smartphone size={19} />} summary={installed ? 'Instalado como app' : 'Ainda não instalado'}>
         {!installed && (
           <div className="install-banner" style={{ marginTop: 8 }}>
             <Smartphone size={22} />
@@ -200,7 +211,7 @@ export function SettingsScreen() {
           await db.delete();
           location.reload();
         }}>Apagar dados deste aparelho</button>
-      </section>
+      </Fold>
       <p className="tiny muted" style={{ textAlign: 'center' }}>Ritual 1.0</p>
       {confirmEl}
     </div>

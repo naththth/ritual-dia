@@ -1,46 +1,54 @@
-@import '@fontsource-variable/fraunces/full.css';
-@import '@fontsource-variable/fraunces/full-italic.css';
+@import '@fontsource-variable/bricolage-grotesque/opsz.css';
 @import '@fontsource-variable/figtree';
 
+/* Paleta: creme de papel, espresso para o texto e cores de terra (terracota, mostarda, oliva, petróleo, rosa, ameixa, lilás).
+   Os nomes antigos continuam (wine, honey, blue…) para não mexer em cada tela: o papel de cada um é o mesmo. */
 :root {
-  --paper: #F1E8D8;
-  --paper-2: #E7DAC2;
-  --card: #FBF6EC;
-  --ink: #321912;
-  --ink-2: #6E5248;
-  --ink-3: #9A8072;
-  --line: #D8C7AA;
-  --line-2: #C8B391;
+  --paper: #EFE6D3;
+  --paper-2: #E4D8BD;
+  --card: #FAF6EC;
+  --ink: #2A1A10;
+  --ink-2: #6A5444;
+  --ink-3: #9C8673;
+  --line: #DDCFB2;
+  --line-2: #C9B691;
 
-  --wine: #6E1F2E;
-  --wine-2: #8E3446;
-  --wine-ink: #F7E9DA;
+  /* destaque principal: terracota */
+  --wine: #C0582C;
+  --wine-2: #D9764A;
+  --wine-ink: #FFF2E4;
 
-  --rose: #EDC3C9;
-  --rose-2: #DFA2AE;
-  --rose-ink: #6F2638;
+  --rose: #EBBFC2;
+  --rose-2: #D18E97;
+  --rose-ink: #5A1E37;
 
-  --honey: #F3CB72;
-  --honey-2: #E7B24A;
-  --honey-ink: #5B3A08;
+  --honey: #EDC15A;
+  --honey-2: #D2A432;
+  --honey-ink: #4A2E06;
 
-  --blue: #A9BEE0;
-  --blue-2: #87A2D2;
-  --blue-ink: #1F3561;
+  /* treino: petróleo */
+  --blue: #B3CEC6;
+  --blue-2: #6FA39A;
+  --blue-ink: #0D4D4F;
 
-  --olive: #C9CF8C;
-  --olive-2: #A9B25C;
-  --olive-ink: #36400D;
+  --olive: #CACC92;
+  --olive-2: #979E6C;
+  --olive-ink: #33360F;
 
-  --alert: #B9471B;
+  --plum: #5A1E37;
+  --plum-ink: #F6DDE3;
+  --lilac: #CFC1DF;
+  --lilac-ink: #2B2456;
+
+  --alert: #B23A1A;
   --ok: #4F6B1E;
 
-  --r-s: 10px;
-  --r-m: 16px;
-  --r-l: 24px;
+  --r-s: 12px;
+  --r-m: 18px;
+  --r-l: 26px;
   --r-xl: 32px;
 
-  --f-display: 'Fraunces Variable', 'Fraunces', Georgia, serif;
+  --f-display: 'Bricolage Grotesque Variable', 'Bricolage Grotesque', 'Figtree Variable', system-ui, sans-serif;
   --f-ui: 'Figtree Variable', 'Figtree', system-ui, sans-serif;
 
   --nav-h: 76px;
@@ -812,3 +820,179 @@ button.food-line { width: 100%; text-align: left; }
 .step-num { flex: 0 0 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--paper-2); font-weight: 800; font-size: 13px; }
 
 .step-line { display: block; font-size: 11.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--wine-2); margin-bottom: 2px; }
+
+
+/* =====================================================================
+   Camada visual 2 (novembro/2026): títulos em grotesca, cabeçalho do dia
+   com o número grande, navegação em pílula, seções recolhíveis, blocos
+   coloridos no Mais e cartões de rotina em Cuidados.
+   ===================================================================== */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Títulos: grotesca pesada, compacta, sem itálico */
+.wordmark { font-family: var(--f-display); font-weight: 800; font-size: 21px; letter-spacing: -0.03em; font-variation-settings: 'opsz' 48; }
+.block h2, .section-title, .sheet .sh-head h3, .page-head h1, .stage-head h3, .meal-head h2, .plan-day .dn, .cal-head h1 {
+  font-family: var(--f-display); font-variation-settings: 'opsz' 40; letter-spacing: -0.025em; font-weight: 700;
+}
+.page-head h1 { font-size: 22px; font-weight: 750; }
+.page-title { font-family: var(--f-display); font-weight: 800; font-size: 38px; line-height: 1; letter-spacing: -0.04em; margin: 10px 0 14px; font-variation-settings: 'opsz' 96; }
+.big-num, .stat-tile .v, .now-title, .kcal-eq .kv, .metric-grid .mv, .water .amount, .macro-row b, .qty-big input, .fs-qty input {
+  font-family: var(--f-display); font-variation-settings: 'opsz' 48; letter-spacing: -0.03em; font-weight: 750;
+}
+.now-title { font-weight: 800; font-size: 30px; }
+
+/* Cabeçalho do dia: número grande à esquerda, dia da semana e mês empilhados */
+.dayhead { margin: 6px 0 12px; }
+.dayhead .row { align-items: center; }
+.dayhead h1 { display: flex; align-items: center; gap: 12px; font-family: var(--f-display); font-weight: 800; letter-spacing: -0.04em; font-size: inherit; line-height: 1; }
+.dh-num { font-size: 76px; line-height: .85; font-variation-settings: 'opsz' 96; }
+.dh-txt { display: flex; flex-direction: column; gap: 2px; padding-top: 4px; }
+.dh-wd { font-family: var(--f-ui); font-size: 16px; font-weight: 650; letter-spacing: 0; color: var(--ink-2); }
+.dh-mo { font-size: 26px; font-weight: 750; letter-spacing: -0.03em; text-transform: lowercase; }
+.today-pill { border: 0; background: var(--wine); color: var(--wine-ink); font-size: 13.5px; min-height: 34px; }
+.today-tag { align-self: flex-start; margin-top: 6px; padding: 5px 12px; border-radius: 999px; background: var(--ink); color: var(--paper); font-weight: 700; font-size: 13px; }
+
+.weekstrip { margin: 16px -6px 0; }
+.wd { border-radius: 999px; height: 68px; }
+.wd.sel { background: var(--wine); color: var(--wine-ink); box-shadow: 0 6px 14px rgba(192, 88, 44, .32); }
+.wd.sel .n { color: var(--wine-ink); }
+.wd.today:not(.sel) { box-shadow: inset 0 0 0 1.5px var(--ink); }
+.wd.today .n { text-decoration: none; }
+
+/* Blocos mais arredondados e com respiro */
+.block { border-radius: var(--r-l); padding: 18px 18px 16px; }
+.b-paper { border: 0; box-shadow: 0 1px 0 rgba(42, 26, 16, .06); }
+.b-wine .meta { color: var(--wine-ink); }
+.stat-tile { border-radius: 22px; }
+.now-card { border-radius: 30px; }
+
+/* Botões */
+.btn { font-weight: 700; }
+.btn-soft { background: rgba(42, 26, 16, 0.07); }
+.chip.on { background: var(--ink); }
+
+/* Navegação inferior: pílula espresso, item ativo em terracota */
+.bottomnav { grid-template-columns: repeat(5, 1fr); height: 66px; padding: 0 7px; background: var(--ink); box-shadow: 0 10px 28px rgba(42, 26, 16, .28); }
+.bottomnav a { height: 52px; color: #BCA593; font-size: 11px; transition: background .15s ease, color .15s ease; margin: 0 1px; }
+.bottomnav a.active { background: var(--wine); color: var(--wine-ink); }
+.fab { background: var(--ink); color: var(--paper); border-color: var(--paper); box-shadow: 0 8px 18px rgba(42, 26, 16, .35); }
+.fab-float { background: var(--wine); color: var(--wine-ink); }
+
+/* Abas das áreas (Semana, Plano, Sessões…): pílulas, como seletor de visão */
+.seg-tabs.area-nav { border-bottom: 0; margin: 0 -16px; padding: 4px 16px 2px; gap: 6px; }
+.seg-tabs.area-nav button { border: 0; margin: 0; padding: 0 16px; min-height: 40px; border-radius: 999px; background: var(--paper-2); color: var(--ink-2); font-size: 14.5px; }
+.seg-tabs.area-nav button.on { background: var(--ink); color: var(--paper); }
+.seg { background: var(--paper-2); }
+.seg button.on { background: var(--ink); color: var(--paper); box-shadow: none; }
+.coach-btn { background: var(--wine); color: var(--wine-ink); }
+
+/* Seções recolhíveis */
+.fold { border-radius: var(--r-l); background: var(--card); margin-bottom: 10px; box-shadow: 0 1px 0 rgba(42, 26, 16, .06); overflow: hidden; }
+.fold-head { width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px 16px; min-height: 64px; text-align: left; }
+.fold-ic { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: var(--paper-2); flex: 0 0 auto; }
+.fold-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.fold-t b { font-family: var(--f-display); font-weight: 700; font-size: 18.5px; letter-spacing: -0.02em; line-height: 1.2; font-variation-settings: 'opsz' 32; }
+.fold-s { font-size: 13.5px; color: var(--ink-2); line-height: 1.35; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.fold-chev { flex: 0 0 28px; height: 28px; border-radius: 50%; background: rgba(42, 26, 16, .07); position: relative; }
+.fold-chev::after { content: ''; position: absolute; left: 10px; top: 8px; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); transition: transform .18s ease, top .18s ease; }
+.fold.open .fold-chev::after { transform: rotate(-135deg); top: 11px; }
+.fold-body { padding: 0 16px 18px; }
+.fold-body > .label:first-child, .fold-body > p:first-child { margin-top: 2px; }
+.fold.f-honey { background: var(--honey); color: var(--honey-ink); }
+.fold.f-blue { background: var(--blue); color: var(--blue-ink); }
+.fold.f-rose { background: var(--rose); color: var(--rose-ink); }
+.fold.f-olive { background: var(--olive); color: var(--olive-ink); }
+.fold.f-wine { background: var(--wine); color: var(--wine-ink); }
+.fold.f-ink { background: var(--ink); color: var(--paper); }
+.fold:not(.f-paper) .fold-ic, .fold:not(.f-paper) .fold-chev { background: rgba(255, 255, 255, .4); }
+.fold:not(.f-paper) .fold-s { color: inherit; opacity: .78; }
+.fold.pf .label, .fold-body.pf .label { margin: 18px 0 8px; }
+.set-group { font-family: var(--f-ui); font-size: 12.5px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; color: var(--ink-2); margin: 24px 4px 10px; }
+.set-account { background: var(--ink); color: var(--paper); border-radius: var(--r-l); padding: 16px; margin: 4px 0 6px; }
+.set-account .muted, .set-account .small { color: #D9C9B7; }
+.set-account .btn-ink { background: var(--wine); color: var(--wine-ink); }
+.set-account .btn-soft { background: rgba(255, 255, 255, .12); color: var(--paper); }
+.set-account b { font-size: 16px; overflow-wrap: anywhere; }
+.set-avatar { flex: 0 0 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--wine); color: var(--wine-ink); font-family: var(--f-display); font-weight: 800; font-size: 20px; }
+
+/* Liga e desliga */
+.switch-row { width: 100%; display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 6px 0; text-align: left; }
+.sw-l { display: block; font-weight: 650; font-size: 15px; }
+.sw-h { display: block; font-size: 13px; color: var(--ink-2); }
+.switch { flex: 0 0 48px; height: 28px; border-radius: 999px; background: var(--line-2); position: relative; transition: background .15s ease; }
+.switch i { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: transform .18s ease; }
+.switch-row.on .switch { background: var(--ink); }
+.switch-row.on .switch i { transform: translateX(20px); }
+
+/* Caixas de seleção nativas no mesmo desenho do app */
+input[type=checkbox] {
+  appearance: none; -webkit-appearance: none; width: 22px; height: 22px; min-height: 0; padding: 0; margin: 0; flex: 0 0 22px;
+  border: 2px solid var(--ink); border-radius: 7px; background: var(--card); display: inline-grid; place-items: center; cursor: pointer;
+}
+input[type=checkbox]:checked { background: var(--ink); }
+input[type=checkbox]:checked::after { content: ''; width: 6px; height: 11px; border: solid var(--paper); border-width: 0 2.5px 2.5px 0; transform: translate(0, -1px) rotate(45deg); }
+
+/* Mais: blocos coloridos em grade */
+.more-group .set-group { margin-top: 18px; }
+.tile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tile { min-height: 124px; border-radius: 24px; padding: 14px; display: flex; flex-direction: column; align-items: flex-start; text-align: left; gap: 2px; transition: transform .08s ease; }
+.tile:active { transform: scale(.98); }
+.tile-ic { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: rgba(255, 255, 255, .35); margin-bottom: auto; }
+.tile-l { font-family: var(--f-display); font-weight: 750; font-size: 18px; letter-spacing: -0.02em; line-height: 1.15; margin-top: 14px; }
+.tile-s { font-size: 12.5px; font-weight: 600; opacity: .8; line-height: 1.3; }
+.t-olive { background: var(--olive); color: var(--olive-ink); }
+.t-honey { background: var(--honey); color: var(--honey-ink); }
+.t-rose { background: var(--rose); color: var(--rose-ink); }
+.t-teal { background: var(--blue-ink); color: #E4F0EC; }
+.t-terra { background: var(--wine); color: var(--wine-ink); }
+.t-ink { background: var(--ink); color: var(--paper); }
+.t-lilac { background: var(--lilac); color: var(--lilac-ink); }
+.t-plum { background: var(--plum); color: var(--plum-ink); }
+.t-teal .tile-ic, .t-terra .tile-ic, .t-ink .tile-ic, .t-plum .tile-ic { background: rgba(255, 255, 255, .14); }
+.more-settings { margin-top: 18px; border-bottom: 0; background: var(--card); border-radius: 20px; padding: 10px 14px; }
+.more-settings .lib-icon { background: var(--paper-2); }
+
+/* Cuidados: manhã e noite como cartões */
+.care-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.care-card { min-height: 168px; border-radius: 26px; padding: 14px; display: flex; flex-direction: column; align-items: flex-start; text-align: left; gap: 4px; position: relative; }
+.cc-am { background: var(--honey); color: var(--honey-ink); }
+.cc-pm { background: var(--plum); color: var(--plum-ink); }
+.cc-ic { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .3); margin-bottom: auto; }
+.cc-pm .cc-ic { background: rgba(255, 255, 255, .12); }
+.cc-t { font-family: var(--f-display); font-weight: 750; font-size: 19px; letter-spacing: -0.02em; line-height: 1.1; margin-top: 12px; }
+.cc-s { font-size: 13px; font-weight: 600; opacity: .85; }
+.cc-go { display: inline-flex; align-items: center; gap: 2px; margin-top: 8px; font-size: 13px; font-weight: 750; padding: 6px 8px 6px 12px; border-radius: 999px; background: rgba(255, 255, 255, .4); }
+.cc-pm .cc-go { background: rgba(255, 255, 255, .14); }
+.care-card.done::after { content: '✓'; position: absolute; top: 14px; right: 14px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 14px; background: currentColor; }
+.care-card.done.cc-am::after { color: var(--honey); background: var(--honey-ink); }
+.care-card.done.cc-pm::after { color: var(--plum); background: var(--plum-ink); }
+
+/* Plano de treino: o que está no dia vem cheio; o que dá para pôr fica tracejado com "+" */
+.plan-day .dn { font-size: 19px; }
+.plan-tag { font-size: 12.5px; font-weight: 750; padding: 3px 10px; border-radius: 999px; background: var(--paper-2); color: var(--ink-2); }
+.plan-tag.on { background: var(--blue-ink); color: #E4F0EC; }
+.plan-opts .chip:not(.on) { border-style: dashed; background: transparent; color: var(--ink-2); font-weight: 600; }
+.plan-opts .chip:not(.on)::before { content: '+'; font-weight: 800; margin-right: 2px; }
+.plan-opts .chip.on::before { content: '✓'; font-weight: 800; margin-right: 2px; }
+
+/* Aba de ajuste com o Claude: fina, na borda, para não cobrir o conteúdo */
+.dev-tab { width: 18px; height: 52px; top: 58%; border-radius: 10px 0 0 10px; opacity: .55; }
+.dev-tab svg { width: 12px; height: 12px; }
+
+/* Listas de menu */
+.lib-icon { border-radius: 14px; }
+.lib-item { border-bottom-style: solid; border-bottom-width: 1px; border-bottom-color: var(--line); }
+
+@media (max-width: 370px) {
+  .dh-num { font-size: 64px; }
+  .dh-mo { font-size: 22px; }
+  .page-title { font-size: 33px; }
+  .care-card { min-height: 156px; }
+}
+.hero h1 { font-weight: 800; letter-spacing: -0.045em; font-variation-settings: 'opsz' 96; }
+.hero h1 b { font-style: normal; font-weight: 800; color: var(--wine); font-variation-settings: 'opsz' 96; }
+/* Semana do Treino no mesmo desenho da faixa do Hoje */
+.wt-day { border-radius: 999px; border: 0; background: var(--card); min-height: 70px; }
+.wt-day.done { background: var(--blue); }
+.wt-day.sel { outline: 0; background: var(--wine); color: var(--wine-ink); box-shadow: 0 6px 14px rgba(192, 88, 44, .3); }
+.wt-day.sel .wt-mark { color: var(--wine-ink); }

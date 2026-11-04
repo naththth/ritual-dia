@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
 import { PageHead, useBack } from './common';
+import { Fold, NumberInput } from '../ui/ui';
 import { useSettings } from '../db/hooks';
 import { update } from '../db/db';
 import { toast } from '../state/store';
@@ -61,7 +62,7 @@ function NumField({ label, unit, value, onChange, decimal }: { label: string; un
     <label className="pf-num">
       <span>{label}</span>
       <span className="pf-num-box">
-        <input inputMode={decimal ? 'decimal' : 'numeric'} value={value ?? ''} onChange={(e) => onChange(e.target.value.trim() ? Number(e.target.value.replace(',', '.')) : undefined)} aria-label={label} />
+        <NumberInput value={value} onChange={onChange} label={label} int={!decimal} optional min={0} />
         <i>{unit}</i>
       </span>
     </label>
@@ -108,6 +109,16 @@ export function ProfileScreen() {
   const health = p.health ?? { professionals: [], meds: [] };
   const hair = p.hair ?? {};
   const body = p.body ?? {};
+  const sec = params.get('s');
+  const line = (...xs: (string | number | false | undefined | null)[]) => xs.filter((x) => x !== undefined && x !== null && x !== false && x !== '').join(' · ') || 'Ainda sem respostas';
+  const ACT: Record<string, string> = { sedentario: 'sentada a maior parte', leve: 'atividade leve', moderado: 'atividade moderada', alto: 'atividade alta', muito_alto: 'atividade muito alta' };
+  const sumBody = line(p.heightCm && `${p.heightCm} cm`, p.weightKg && `${String(p.weightKg).replace('.', ',')} kg`, p.birthYear && `${new Date().getFullYear() - p.birthYear} anos`, p.activity && ACT[p.activity]);
+  const sumGoal = line(GOALS.find((g) => g[0] === p.goal)?.[1], p.event);
+  const sumDiet = line(diet.restrictions.length ? diet.restrictions.join(', ') : undefined, diet.mealsPerDay && `${diet.mealsPerDay} refeições`, diet.followsNutritionist && 'com nutricionista');
+  const sumTrain = line(tr.daysAvailable?.length ? tr.daysAvailable.map((d) => DAYS[d]).join(', ') : undefined, tr.minutesPerSession && `${tr.minutesPerSession} min`);
+  const sumSkin = line(skin.type && `pele ${skin.type.toLowerCase()}`, skin.concerns.length ? skin.concerns.slice(0, 3).join(', ').toLowerCase() : undefined);
+  const sumHair = line(hair.type, hair.scalp && `couro ${hair.scalp.toLowerCase()}`, hair.concerns?.length ? `${hair.concerns.length} queixas` : undefined);
+  const sumBodySkin = line(body.skinType && `pele ${body.skinType}`, body.concerns?.length ? body.concerns.slice(0, 3).join(', ').toLowerCase() : undefined);
   const toggleIn = (arr: string[] = [], v: string) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
 
   const calc = async () => {
@@ -123,10 +134,9 @@ export function ProfileScreen() {
   return (
     <div className="screen no-nav" data-testid="profile-screen">
       <PageHead title="Perfil e objetivos" withDate={false} />
-      <p className="small pf-lead">É a base que a IA usa para montar alimentação, treino e pele. Responda o que quiser; o que faltar ela avisa. O que suas profissionais (nutricionista, treinador, dermatologista) definirem sempre prevalece.</p>
+      <p className="small pf-lead">A base que as especialistas usam. Abra só o que quiser responder; o que faltar, elas avisam. O que suas profissionais definirem sempre prevalece.</p>
 
-      <section className="block b-paper pf">
-        <h2>Corpo</h2>
+      <Fold id="corpo-base" title="Corpo" tone="paper" bodyClass="pf" summary={sumBody} defaultOpen={(loaded && !p.heightCm) || sec === 'corpo-base'}>
         <div className="pf-grid">
           <NumField label="Altura" unit="cm" value={p.heightCm} onChange={(v) => set({ heightCm: v })} />
           <NumField label="Peso" unit="kg" value={p.weightKg} onChange={(v) => set({ weightKg: v })} decimal />
@@ -139,10 +149,9 @@ export function ProfileScreen() {
         <span className="label">Atividade fora dos treinos</span>
         <Opts label="Atividade fora dos treinos" value={p.activity} onChange={(v) => set({ activity: v })} cols={1}
           options={[['sedentario', 'Sentada a maior parte', 'escritório, home office'], ['leve', 'Leve', 'algumas caminhadas no dia'], ['moderado', 'Moderada', 'muito em pé ou andando'], ['alto', 'Alta', 'trabalho físico'], ['muito_alto', 'Muito alta', 'trabalho físico pesado']]} />
-      </section>
+      </Fold>
 
-      <section className="block b-paper pf">
-        <h2>Objetivo</h2>
+      <Fold id="objetivo" title="Objetivo" tone="paper" bodyClass="pf" summary={sumGoal} defaultOpen={sec === 'objetivo'}>
         <Opts label="Objetivo" value={p.goal} onChange={(v) => set({ goal: v })} cols={1} options={GOALS.map(([k, l, d]) => [k, l, d])} />
         {(p.goal === 'perder_gordura' || p.goal === 'recomposicao' || p.goal === 'ganhar_massa') && (
           <>
@@ -153,10 +162,9 @@ export function ProfileScreen() {
         )}
         <span className="label">Prova ou marco <span className="muted small">(opcional)</span></span>
         <AutoText label="Prova ou marco" value={p.event} onChange={(v) => set({ event: v })} placeholder="Ex.: triathlon sprint em março" />
-      </section>
+      </Fold>
 
-      <section className="block b-honey pf">
-        <h2>Alimentação</h2>
+      <Fold id="alimentacao" title="Alimentação" tone="honey" bodyClass="pf" summary={sumDiet} defaultOpen={sec === 'alimentacao'}>
         <span className="label">Restrições</span>
         <MultiOpts label="Restrições" values={diet.restrictions} onToggle={(r) => set({ diet: { ...diet, restrictions: toggleIn(diet.restrictions, r) } })} cols={2} options={RESTR.map((r) => [r, r])} />
         <span className="label">Gosta</span>
@@ -167,10 +175,9 @@ export function ProfileScreen() {
         <Opts label="Refeições por dia" value={diet.mealsPerDay} onChange={(n) => set({ diet: { ...diet, mealsPerDay: n } })} cols={4} options={[3, 4, 5, 6].map((n) => [n, String(n)] as [number, string])} />
         <span className="label">Acompanhamento</span>
         <MultiOpts label="Acompanhamento na alimentação" values={diet.followsNutritionist ? ['n'] : []} onToggle={() => set({ diet: { ...diet, followsNutritionist: !diet.followsNutritionist } })} cols={1} options={[['n', 'Tenho nutricionista']]} />
-      </section>
+      </Fold>
 
-      <section className="block b-blue pf">
-        <h2>Treino</h2>
+      <Fold id="treino" title="Treino" tone="blue" bodyClass="pf" summary={sumTrain} defaultOpen={sec === 'treino'}>
         <span className="label">Dias disponíveis</span>
         <MultiOpts label="Dias disponíveis" values={(tr.daysAvailable ?? []).map(String)} onToggle={(d) => set({ training: { ...tr, daysAvailable: toggleIn((tr.daysAvailable ?? []).map(String), d).map(Number).sort() } })} cols={7} options={[1, 2, 3, 4, 5, 6, 7].map((d) => [String(d), DAYS[d]])} />
         <span className="label">Tempo por sessão</span>
@@ -183,10 +190,9 @@ export function ProfileScreen() {
         <AutoText label="Equipamento" value={tr.equipment} onChange={(v) => set({ training: { ...tr, equipment: v } })} placeholder="Academia completa, rolo com potência…" />
         <span className="label">Dores ou limitações</span>
         <AutoText label="Limitações" value={tr.limitations} onChange={(v) => set({ training: { ...tr, limitations: v } })} placeholder="O que a IA deve respeitar" />
-      </section>
+      </Fold>
 
-      <section className="block b-rose pf" id="pele">
-        <h2>Pele</h2>
+      <Fold id="pele" title="Pele do rosto" tone="rose" bodyClass="pf" summary={sumSkin} defaultOpen={sec === 'pele'}>
         <span className="label">Tipo</span>
         <Opts label="Tipo de pele" value={skin.type} onChange={(t) => set({ skin: { ...skin, type: t } })} cols={4} options={SKIN.map((t) => [t, t] as [string, string])} />
         <span className="label">Queixas</span>
@@ -196,10 +202,9 @@ export function ProfileScreen() {
           onToggle={(k) => set({ skin: k === 'd' ? { ...skin, followsDerm: !skin.followsDerm } : { ...skin, sensitive: !skin.sensitive } })} options={[['d', 'Tenho dermatologista'], ['s', 'Pele sensível']]} />
         <span className="label">Prescrição da dermatologista <span className="muted small">(opcional)</span></span>
         <AutoText label="Prescrições da dermatologista" value={skin.prescriptions} onChange={(v) => set({ skin: { ...skin, prescriptions: v } })} placeholder="O que ela prescreveu e como usar" />
-      </section>
+      </Fold>
 
-      <section className="block b-rose pf" data-testid="profile-hair" id="cabelo">
-        <h2>Cabelo</h2>
+      <Fold id="cabelo" title="Cabelo" tone="rose" bodyClass="pf" summary={sumHair} testId="profile-hair" defaultOpen={sec === 'cabelo'}>
         <p className="small pf-intro">As particularidades do seu cabelo. A IA usa as respostas para diagnosticar e indicar como e quando usar cada produto.</p>
         <span className="label">Tipo de fio</span>
         <Opts label="Tipo de fio" value={hair.type} onChange={(t) => set({ hair: { ...hair, type: t } })} cols={4} options={HAIR_TYPE.map((t) => [t, t] as [string, string])} />
@@ -244,10 +249,9 @@ export function ProfileScreen() {
         <AutoText label="Tratamentos para o cabelo" value={hair.treatments} onChange={(v) => set({ hair: { ...hair, treatments: v } })} placeholder="Tratamento indicado por profissional, se houver (ex.: tônico, suplemento)" />
         <span className="label">Observações <span className="muted small">(opcional)</span></span>
         <AutoText label="Observações sobre o cabelo" value={hair.notes} onChange={(v) => set({ hair: { ...hair, notes: v } })} placeholder="Ex.: lavo depois do treino; uso touca na natação" />
-      </section>
+      </Fold>
 
-      <section className="block b-paper pf" data-testid="profile-body" id="corpo">
-        <h2>Corpo</h2>
+      <Fold id="corpo" title="Pele do corpo" tone="olive" bodyClass="pf" summary={sumBodySkin} testId="profile-body" defaultOpen={sec === 'corpo'}>
         <p className="small pf-intro">Como é a pele do seu corpo e seus hábitos de banho. A IA usa para diagnosticar e montar o uso dos produtos.</p>
         <span className="label">Pele do corpo</span>
         <Opts label="Pele do corpo" value={body.skinType} onChange={(t) => set({ body: { ...body, skinType: t } })} cols={4} options={[['seca', 'Seca'], ['normal', 'Normal'], ['oleosa', 'Oleosa'], ['mista', 'Mista']]} />
@@ -267,9 +271,9 @@ export function ProfileScreen() {
         <MultiOpts label="Sensibilidade a perfume" values={body.fragranceSensitive ? ['f'] : []} onToggle={() => set({ body: { ...body, fragranceSensitive: !body.fragranceSensitive } })} cols={1} options={[['f', 'Minha pele reage a perfume ou fragrância']]} />
         <span className="label">Observações <span className="muted small">(opcional)</span></span>
         <AutoText label="Observações sobre o corpo" value={body.notes} onChange={(v) => set({ body: { ...body, notes: v } })} placeholder="Ex.: natação deixa a pele ressecada" />
-      </section>
+      </Fold>
 
-      <HealthSection health={health} onChange={(h) => set({ health: h })} />
+      <HealthSection health={health} onChange={(h) => set({ health: h })} open0={sec === 'saude'} />
 
       <button className="btn btn-ink btn-block" onClick={() => save()} data-testid="profile-save">Salvar perfil</button>
 
@@ -299,7 +303,7 @@ const PROS = ['Endocrinologista', 'Nutricionista', 'Dermatologista', 'Treinador 
 const DOC_LABEL: Record<HealthDoc['docType'], string> = { bioimpedancia: 'Bioimpedância', exame_sangue: 'Exame de sangue', laudo: 'Laudo', prescricao: 'Prescrição', outro: 'Documento' };
 
 /** Saúde e acompanhamento: profissionais, medicamentos em uso e documentos (exames, bioimpedância, prescrições). */
-function HealthSection({ health, onChange }: { health: NonNullable<Profile['health']>; onChange: (h: NonNullable<Profile['health']>) => void }) {
+function HealthSection({ health, onChange, open0 }: { health: NonNullable<Profile['health']>; onChange: (h: NonNullable<Profile['health']>) => void; open0?: boolean }) {
   const docs = useAll('healthdoc');
   const [med, setMed] = useState({ name: '', dose: '', schedule: '' });
   const [busy, setBusy] = useState(false);
@@ -317,8 +321,8 @@ function HealthSection({ health, onChange }: { health: NonNullable<Profile['heal
   const failed = (d: HealthDoc) => !!d.readError || !!d.summary?.startsWith('Arquivo guardado. A leitura automática falhou');
   const list = [...(docs ?? [])].sort((a, b) => (a.date < b.date ? 1 : -1));
   return (
-    <section className="block b-paper pf" data-testid="health">
-      <h2>Saúde e acompanhamento</h2>
+    <Fold id="saude" title="Saúde e acompanhamento" tone="paper" bodyClass="pf" testId="health" defaultOpen={open0}
+      summary={[health.professionals.length ? `${health.professionals.length} ${health.professionals.length === 1 ? 'profissional' : 'profissionais'}` : '', health.meds.length ? `${health.meds.length} ${health.meds.length === 1 ? 'medicamento' : 'medicamentos'}` : '', list.length ? `${list.length} ${list.length === 1 ? 'documento' : 'documentos'}` : ''].filter(Boolean).join(' · ') || 'Profissionais, medicamentos e exames'}>
       <p className="small pf-intro">Fica só na sua conta. A IA usa para ajustar calorias, macros, treino e pele ao seu momento, sem mexer no que seus médicos definiram.</p>
       <span className="label">Quem te acompanha</span>
       <MultiOpts label="Quem te acompanha" values={health.professionals} onToggle={toggle} cols={2} options={PROS.map((x) => [x, x])} />
@@ -367,6 +371,6 @@ function HealthSection({ health, onChange }: { health: NonNullable<Profile['heal
           )}
         </div>
       ))}
-    </section>
+    </Fold>
   );
 }

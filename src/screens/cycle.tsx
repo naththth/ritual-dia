@@ -4,7 +4,7 @@ import { ChevronRight, Droplet, Pencil, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAll, useSettings } from '../db/hooks';
 import { get, remove, update, upsert } from '../db/db';
-import { Chip, Sheet } from '../ui/ui';
+import { Chip, Sheet, NumberInput } from '../ui/ui';
 import { toast } from '../state/store';
 import { addDays, shortLabel, todayKey, type DateKey } from '../lib/dates';
 import type { CycleDay, Flow, Profile } from '../db/types';
@@ -312,9 +312,9 @@ export function CycleScreen() {
         <span className="label">Duração típica</span>
         <div className="pf-grid">
           <label className="pf-num"><span>Ciclo</span><span className="pf-num-box">
-            <input inputMode="numeric" defaultValue={cyc.typicalLength ?? ''} placeholder="28" onBlur={(e) => setCyc({ typicalLength: Number(e.target.value) || undefined })} aria-label="Ciclo típico em dias" /><i>dias</i></span></label>
+            <NumberInput value={cyc.typicalLength} int optional min={15} max={60} placeholder="28" onChange={() => undefined} onCommit={(n) => setCyc({ typicalLength: n })} label="Ciclo típico em dias" /><i>dias</i></span></label>
           <label className="pf-num"><span>Menstruação</span><span className="pf-num-box">
-            <input inputMode="numeric" defaultValue={cyc.typicalPeriod ?? ''} placeholder="5" onBlur={(e) => setCyc({ typicalPeriod: Number(e.target.value) || undefined })} aria-label="Menstruação típica em dias" /><i>dias</i></span></label>
+            <NumberInput value={cyc.typicalPeriod} int optional min={1} max={15} placeholder="5" onChange={() => undefined} onCommit={(n) => setCyc({ typicalPeriod: n })} label="Menstruação típica em dias" /><i>dias</i></span></label>
         </div>
         <p className="field-hint">Valem até haver ciclos suficientes registrados. Se o Garmin registra a menstruação, ela chega pela sincronização com o intervals.icu. As fases são estimativas pelo calendário, não confirmam ovulação.</p>
       </section>
