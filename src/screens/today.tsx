@@ -144,7 +144,7 @@ export function useTimeline(date: DateKey): TLItem[] | undefined {
   const evening = (settings.reminders?.evening ?? '21:45') || '21:45';
   const pm = moods.find((m) => m.period === 'pm');
   const sgn = (n?: number) => (n == null ? '' : n > 0 ? `+${n}` : String(n));
-  items.push({ key: 'journal', time: evening, mod: 'journal', icon: <NotebookPen size={18} />, title: 'Fechar o dia', detail: pm ? [pm.mood != null && `humor ${sgn(pm.mood)}`, pm.energy != null && `energia ${pm.energy}`, pm.tags.join(', ')].filter(Boolean).join(', ') || 'Registrado' : 'Humor, energia e o que marcou o dia', done: !!pm, open: `/mente/checkin?p=pm&d=${date}` });
+  items.push({ key: 'journal', time: evening, mod: 'journal', icon: <NotebookPen size={18} />, title: 'Fechar o dia', detail: pm ? [pm.mood != null && `humor ${sgn(pm.mood)}`, pm.energy != null && `energia ${pm.energy}`, pm.tags.join(', ')].filter(Boolean).join(', ') || 'Registrado' : 'Humor, energia e o que marcou o dia', done: !!pm, open: date === todayKey() ? '/ritual/pm' : `/mente/checkin?p=pm&d=${date}` });
 
   // Remédios e vitaminas, agrupados por horário.
   for (const s of slotsFor(dosesFor(intakes, intakeLogs, date))) {
@@ -166,7 +166,7 @@ export function useTimeline(date: DateKey): TLItem[] | undefined {
     const bed = bedFor(sp, date);
     items.push({ key: 'wake', time: wake, mod: 'sleep', icon: <Sunrise size={18} />, title: 'Acordar', detail: `Meta de ${hoursLabel(sp.hours)} de sono`, done: false, marker: true, open: '/ajustes' });
     const am = moods.find((m) => m.period === 'am');
-    items.push({ key: 'checkin-am', time: fromMin((tmin(wake) ?? 360) + 10), mod: 'mind', icon: <Sun size={18} />, title: 'Como acordou', detail: am ? [am.wake, am.mood != null && `humor ${sgn(am.mood)}`].filter(Boolean).join(', ') || 'Registrado' : 'Sono e humor em 20 segundos', done: !!am, open: `/mente/checkin?p=am&d=${date}` });
+    items.push({ key: 'checkin-am', time: fromMin((tmin(wake) ?? 360) + 10), mod: 'mind', icon: <Sun size={18} />, title: 'Como acordou', detail: am ? [am.wake, am.mood != null && `humor ${sgn(am.mood)}`].filter(Boolean).join(', ') || 'Registrado' : 'Sono e humor em 20 segundos', done: !!am, open: date === todayKey() ? '/ritual/am' : `/mente/checkin?p=am&d=${date}` });
     items.push({ key: 'bed', time: bed, mod: 'sleep', icon: <Moon size={18} />, title: 'Deitar', detail: sp.bedGoal ? `Meta em etapas${sp.bedFinal && sp.bedFinal !== sp.bedGoal ? `, até chegar às ${sp.bedFinal}` : ''}. Acordar às ${wakeFor(sp, addDays(date, 1))}` : `Luz apagada para dormir ${hoursLabel(sp.hours)} e acordar às ${wakeFor(sp, addDays(date, 1))}`, done: false, open: '/ajustes' });
   }
 

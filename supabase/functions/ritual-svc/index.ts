@@ -72,12 +72,12 @@ async function dueReminders(userId: string, now: ReturnType<typeof nowParts>): P
     if (sp.alarm) {
       const ids: string[] = planFor(plans, 'training', now.date)?.training?.[String(now.weekday)] ?? [];
       const tr = ids.map((id) => recs.find((x) => x.kind === 'wtemplate' && x.id === id)).filter(Boolean).map((t: any) => t.time ? `${t.name} às ${t.time}` : t.name);
-      out.push({ key: 'wake', at: toMin(wake)!, alarm: true, title: `Bom dia. São ${wake}.`, body: tr.length ? `Hoje: ${tr.join(', ')}. Café às ${mealTimes.cafe}.` : `Café às ${mealTimes.cafe}.`, url: '#/' });
+      out.push({ key: 'wake', at: toMin(wake)!, alarm: true, title: `Bom dia. São ${wake}.`, body: tr.length ? `Hoje: ${tr.join(', ')}. O ritual da manhã está pronto.` : 'O ritual da manhã está pronto.', url: '#/ritual/am' });
     }
     if (sp.bed) out.push({ key: 'bed', at: bedMin - 15, title: `Deitar às ${bed}`, body: sp.bedGoal ? `Faltam 15 min. Tela longe e luz baixa: deitar no horário é o que mais protege o humor e o sono.` : `Faltam 15 min. Tela longe e luz baixa para dormir ${hrs} e acordar às ${wakeFor(addDays(now.date, 1))}.`, url: '#/' });
   }
-  if (r.morning) out.push({ key: 'morning', at: toMin(r.morning)!, title: 'Seu dia', body: 'Toque para ver o que vem pela frente.', url: '#/' });
-  if (r.evening && !today.some((x) => x.kind === 'mood' && x.period === 'pm')) out.push({ key: 'evening', at: toMin(r.evening)!, title: 'Fechar o dia', body: 'Humor, energia e o que marcou o dia. Leva 30 segundos.', url: `#/mente/checkin?p=pm&d=${now.date}` });
+  if (r.morning) out.push({ key: 'morning', at: toMin(r.morning)!, title: 'Ritual da manhã', body: 'Como acordou, remédios, pele e o dia. Uns 2 minutos.', url: '#/ritual/am' });
+  if (r.evening && !today.some((x) => x.kind === 'mood' && x.period === 'pm')) out.push({ key: 'evening', at: toMin(r.evening)!, title: 'Ritual da noite', body: 'Fechar o dia, remédios, pele e o amanhã. Uns 2 minutos.', url: '#/ritual/pm' });
   // Remédios e vitaminas: no horário e, se ainda não marcou, de novo 1 h depois.
   if (r.meds !== false) {
     const slots = new Map<string, string[]>();

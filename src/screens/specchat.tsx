@@ -5,7 +5,7 @@ import { ArrowLeft, Camera, Check, History, Plus, Send, Sparkles, Undo2, X } fro
 import { Sheet } from '../ui/ui';
 import { useAll, useSettings } from '../db/hooks';
 import { update } from '../db/db';
-import { toast } from '../state/store';
+import { toast, useApp } from '../state/store';
 import { MicButton, appendText } from '../ui/Dictation';
 import { usePhotoPicker } from '../ui/PhotoPicker';
 import { shrinkImage } from '../lib/image';
@@ -63,6 +63,8 @@ const CONF: Record<ChatDomain, { title: string; sub: string; aria: string; place
 /** Botão redondo com o símbolo da IA, ao lado do título da área. */
 export function SpecialistButton({ domain }: { domain: ChatDomain }) {
   const [open, setOpen] = useState(false);
+  const ask = useApp((s) => s.ask);
+  useEffect(() => { if (ask?.domain === domain && aiAvailable()) setOpen(true); }, [ask]);
   const c = CONF[domain];
   return (
     <>
@@ -123,6 +125,8 @@ function SpecSheet({ domain, open, onClose }: { domain: ChatDomain; open: boolea
   };
   useEffect(() => {
     if (!open) { opened.current = false; setViewing(null); setShowPast(false); return; }
+    const ask = useApp.getState().ask;
+    if (ask?.domain === domain) { setInput(ask.text); useApp.getState().setAsk(undefined); }
     void (async () => { const m = await openSpecChat(domain); setPast(await loadSpecSessions(domain)); setMsgs(m); })();
   }, [open]);
   useEffect(() => {

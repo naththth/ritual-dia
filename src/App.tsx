@@ -29,6 +29,8 @@ import { Onboarding } from './screens/Onboarding';
 import { ProductReview } from './screens/ProductReview';
 import { RegisterSheet } from './screens/RegisterSheet';
 import { DevAssist } from './screens/devassist';
+import { RitualScreen } from './screens/ritual';
+import { WeekScreen } from './screens/week';
 import { CheckinScreen, IntakeScreen, MindPanelPage, MindScreen, MindSettingsPage, ReportScreen } from './screens/mind';
 import { registerSW } from 'virtual:pwa-register';
 import { toast } from './state/store';
@@ -91,6 +93,8 @@ function Shell() {
         <Route path="/cuidados/rotina" element={<CarePlanPage />} />
         <Route path="/cuidados/produtos" element={<CareProductsPage />} />
         <Route path="/habitos" element={<HabitsGoalsPage />} />
+        <Route path="/ritual/:p" element={<RitualScreen />} />
+        <Route path="/semana" element={<WeekScreen />} />
         <Route path="/mente" element={<MindScreen />} />
         <Route path="/mente/checkin" element={<CheckinScreen />} />
         <Route path="/mente/tomo" element={<IntakeScreen />} />

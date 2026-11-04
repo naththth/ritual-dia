@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { AlertTriangle, Brain, Coffee, FileText, Lock, Moon, Pill, Plus, Trash2, X, ChevronRight, Eye, Wind, Music, Play, Square, ThumbsUp, ThumbsDown, RefreshCw, HeartHandshake } from 'lucide-react';
+import { AlertTriangle, Brain, Coffee, FileText, Lock, Moon, Pill, Plus, Trash2, X, ChevronRight, Eye, Wind, Music, Sparkles, Play, Square, ThumbsUp, ThumbsDown, RefreshCw, HeartHandshake } from 'lucide-react';
 import { useAll, useByDate, useByRange, useSettings } from '../db/hooks';
 import { create, get, remove, update } from '../db/db';
 import { toast } from '../state/store';
@@ -528,6 +528,7 @@ export function MindPanelPage() {
     <AreaPage area="mente" testId="mind-panel-page">
       <PinGate>
         {data && <Panel days={data.days} />}
+        <button className="lib-item" style={{ marginBottom: 10 }} onClick={() => nav('/semana')}><span className="lib-icon"><Sparkles size={20} /></span><span className="grow"><b>Sua semana</b><br /><span className="small muted">Leitura da equipe, padrões e ajustes da próxima</span></span><ChevronRight size={18} /></button>
         <button className="lib-item" onClick={() => nav('/mente/relatorio')} data-testid="open-report"><span className="lib-icon"><FileText size={20} /></span><span className="grow"><b>Relatório para a consulta</b><br /><span className="small muted">30, 60 ou 90 dias, para imprimir ou salvar em PDF</span></span><ChevronRight size={18} /></button>
       </PinGate>
     </AreaPage>

@@ -19,6 +19,9 @@ interface AppState {
   toasts: Toast[];
   toast: (text: string, undo?: Toast['undo'], tone?: Toast['tone'], opts?: ToastOpts) => void;
   dismiss: (id: number) => void;
+  /** Pedido para abrir uma especialista com o texto já escrito (vindo da leitura da semana ou do conselho). */
+  ask?: { domain: 'training' | 'skin' | 'food' | 'mind'; text: string };
+  setAsk: (a?: { domain: 'training' | 'skin' | 'food' | 'mind'; text: string }) => void;
 }
 
 let seq = 1;
@@ -32,7 +35,9 @@ export const useApp = create<AppState>((set, get) => ({
     set({ toasts: [...get().toasts.slice(-1), { id, text, undo, tone, ...opts }] });
     if (!opts.sticky) setTimeout(() => get().dismiss(id), undo ? 6000 : 3200);
   },
-  dismiss: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) })
+  dismiss: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) }),
+  ask: undefined,
+  setAsk: (ask) => set({ ask })
 }));
 
 export const toast = (text: string, undo?: Toast['undo'], tone?: Toast['tone'], opts?: ToastOpts) => useApp.getState().toast(text, undo, tone, opts);

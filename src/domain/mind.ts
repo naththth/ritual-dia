@@ -136,6 +136,8 @@ export interface MindDay {
   breakfast: boolean;
   kcal?: number; protein?: number; mealsLogged: boolean;
   trainMin: number;
+  /** Início do primeiro treino do dia (HH:MM). */
+  trainStart?: string;
   plannedMin: number;
   hardWorkoutEnd?: string; // fim do treino forte do dia (HH:MM)
   proteinAfterTraining?: boolean;
@@ -183,6 +185,7 @@ export function buildDays(input: MindInput, from: DateKey, to: DateKey, nowMin =
       protein: meals.length ? meals.reduce((a, m) => a + (m.protein ?? 0), 0) : undefined,
       mealsLogged: meals.length >= 2,
       trainMin: wos.reduce((a, x) => a + (x.duration ?? 0), 0),
+      trainStart: wos.map((x) => (x.startTime ? new Date(x.startTime).toTimeString().slice(0, 5) : undefined)).filter((x): x is string => !!x).sort()[0],
       plannedMin: input.plannedMin[d] ?? 0,
       hardWorkoutEnd: hard,
       proteinAfterTraining: hard ? meals.some((m) => (m.protein ?? 0) >= 20 && hm(new Date(m.createdAt)) >= hard && (toMin(hm(new Date(m.createdAt)))! - toMin(hard)!) <= 120) : undefined,

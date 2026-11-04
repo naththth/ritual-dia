@@ -8,7 +8,7 @@ import type { Plan, Product, WorkoutStep } from '../db/types';
 import { addDays, isoWeekday, todayKey, type DateKey } from '../lib/dates';
 import { planFor, plannedSkin, plannedTraining } from './rules';
 
-export type AITask = 'workout_feedback' | 'meal_advice' | 'skin_plan' | 'training_plan' | 'food_plan' | 'day_brief' | 'training_review' | 'week_review' | 'wellness_read' | 'label_read' | 'targets' | 'doc_read' | 'product_read' | 'plate_read' | 'plan_chat' | 'training_coach' | 'skin_coach' | 'food_coach' | 'skin_layers' | 'mind_coach' | 'mind_care';
+export type AITask = 'workout_feedback' | 'meal_advice' | 'skin_plan' | 'training_plan' | 'food_plan' | 'day_brief' | 'training_review' | 'week_review' | 'wellness_read' | 'label_read' | 'targets' | 'doc_read' | 'product_read' | 'plate_read' | 'plan_chat' | 'training_coach' | 'skin_coach' | 'food_coach' | 'skin_layers' | 'mind_coach' | 'mind_care' | 'week_cross';
 
 /** Só nos testes automáticos: uma IA simulada injetada pela página de teste. */
 const testAI = () => (typeof window !== 'undefined' ? (window as any).__RITUAL_TEST_AI as ((task: string, ctx: any) => any) | undefined : undefined);
@@ -73,7 +73,7 @@ export async function askAI<T = any>(task: AITask, context: unknown, images?: { 
     ctx = { ...extra, ...(ctx as object) };
   }
   const { data, error } = await Promise.race([
-    supabase.functions.invoke(task === 'mind_coach' || task === 'mind_care' ? 'ritual-mind' : 'ritual-ai', { body: { task, context: ctx, images, files } }),
+    supabase.functions.invoke(task === 'mind_coach' || task === 'mind_care' || task === 'week_cross' ? 'ritual-mind' : 'ritual-ai', { body: { task, context: ctx, images, files } }),
     new Promise<never>((_, rej) => setTimeout(() => rej(new Error('A IA demorou demais para responder. Tente de novo.')), files?.length || images?.length || task === 'skin_plan' || task === 'plan_chat' ? 150000 : 90000))
   ]);
   if (error) {

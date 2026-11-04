@@ -4,7 +4,7 @@ import { ArrowLeft, Check, History, Plus, Send, Sparkles, Undo2, X } from 'lucid
 import { Sheet } from '../ui/ui';
 import { useSettings } from '../db/hooks';
 import { update } from '../db/db';
-import { toast } from '../state/store';
+import { toast, useApp } from '../state/store';
 import { MicButton, appendText } from '../ui/Dictation';
 import { aiAvailable } from '../domain/ai';
 import { approveProposal, archiveCoachChat, askCoach, loadCoachSessions, openCoachChat, saveCoachChat, undoCoach, type CoachMsg, type CoachProposal, type CoachSession } from '../domain/coach';
@@ -23,6 +23,8 @@ const EXAMPLES = [
 /** Botão com o símbolo da IA, ao lado do título da aba. */
 export function CoachButton() {
   const [open, setOpen] = useState(false);
+  const ask = useApp((s) => s.ask);
+  useEffect(() => { if (ask?.domain === 'training' && aiAvailable()) setOpen(true); }, [ask]);
   return (
     <>
       <button className="coach-btn" aria-label="Falar com a treinadora" onClick={() => (aiAvailable() ? setOpen(true) : toast('Entre com Google e conecte-se para falar com a treinadora.', undefined, 'error'))} data-testid="coach-open">
@@ -58,6 +60,8 @@ function CoachSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
 
   useEffect(() => {
     if (!open) { opened.current = false; setViewing(null); setShowPast(false); return; }
+    const ask = useApp.getState().ask;
+    if (ask?.domain === 'training') { setInput(ask.text); useApp.getState().setAsk(undefined); }
     void (async () => { const m = await openCoachChat(); setPast(await loadCoachSessions()); setMsgs(m); })(); // nessa ordem: abrir pode encerrar a conversa parada
   }, [open]);
   useEffect(() => {

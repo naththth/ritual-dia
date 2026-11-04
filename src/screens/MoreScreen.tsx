@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Activity, CalendarDays, ChartNoAxesColumn, ListChecks, Settings, ChevronRight, NotebookPen, StickyNote, BookOpen, UserRound, Droplet, Scale, Target } from 'lucide-react';
+import { Sparkles, Activity, CalendarDays, ChartNoAxesColumn, ListChecks, Settings, ChevronRight, NotebookPen, StickyNote, BookOpen, UserRound, Droplet, Scale, Target } from 'lucide-react';
 import { TopBar } from './common';
 
 /* Agrupado pelo uso: o que ela consulta sobre si, o que organiza o dia a dia e o que é registro. Cada bloco tem a cor da paleta. */
@@ -11,6 +11,7 @@ const GROUPS = [
       { to: '/peso', label: 'Peso', sub: 'Ritmo e previsão', icon: <Scale size={20} />, tone: 't-honey' },
       { to: '/ciclo', label: 'Ciclo', sub: 'Fase e previsão', icon: <Droplet size={20} />, tone: 't-rose' },
       { to: '/indicadores', label: 'Indicadores', sub: 'Você contra as referências', icon: <Activity size={20} />, tone: 't-teal' },
+      { to: '/semana', label: 'Sua semana', sub: 'Leitura da equipe e padrões', icon: <Sparkles size={20} />, tone: 't-plum' },
       { to: '/evolucao', label: 'Evolução', sub: 'Semana, mês e revisão', icon: <ChartNoAxesColumn size={20} />, tone: 't-lilac' }
     ]
   },

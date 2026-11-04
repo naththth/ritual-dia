@@ -18,6 +18,9 @@ import { WellnessCard } from './wellness';
 import { CycleCard } from './cycle';
 import { RadarCard } from './radar-ui';
 import { MindTodayCard } from './mind';
+import { RitualHero } from './ritual';
+import { CouncilCard } from './council';
+import { WeekTeaser } from './week';
 
 export function DayScreen() {
   const date = useApp((s) => s.date);
@@ -28,7 +31,10 @@ export function DayScreen() {
       <DateHeader />
       {/* Ordem pelo uso: números do dia, o que fazer agora e a linha do tempo (pele, comida, treino) primeiro;
           leitura da IA, corpo e ciclo depois; tarefas e hábitos no fim. */}
+      <RitualHero date={date} />
       <TodayStats date={date} />
+      <WeekTeaser date={date} />
+      <CouncilCard date={date} />
       <RadarCard date={date} />
       <MindTodayCard date={date} />
       <NowAndTimeline date={date} />

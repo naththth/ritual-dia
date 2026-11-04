@@ -4,7 +4,7 @@ import path from 'node:path';
 // Varredura visual: todas as telas em 360 px com textos longos. Procura texto saindo da borda e rolagem lateral.
 const ROUTES = ['#/', '#/treino', '#/treino/plano', '#/treino/sessoes', '#/cuidados', '#/cuidados/rotina', '#/cuidados/produtos', '#/pele?p=am', '#/pele?p=pm',
   '#/alimentacao', '#/alimentacao/plano', '#/alimentacao/alimentos', '#/alimentacao/refeicoes', '#/alimentacao/refeicao?m=almoco', '#/mais', '#/perfil', '#/peso', '#/ciclo',
-  '#/listas', '#/habitos', '#/diario', '#/notas', '#/leitura', '#/calendario', '#/evolucao', '#/ajustes', '#/treino/registrar', '#/biblioteca/categorias'];
+  '#/listas', '#/habitos', '#/diario', '#/notas', '#/leitura', '#/calendario', '#/evolucao', '#/ajustes', '#/treino/registrar', '#/biblioteca/categorias', '#/ritual/pm', '#/semana', '#/mente/tomo', '#/mente/ajustes'];
 
 const LONG = 'Hyalu-Cica Water-Fit Sun Serum SPF50+ PA++++ com Centella Asiática e Ácido Hialurônico';
 

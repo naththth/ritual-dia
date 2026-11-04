@@ -463,7 +463,11 @@ export interface Book extends Base {
   quotes: { id: string; text: string; page?: number }[]; review?: string;
 }
 export interface ReadLog extends Base { kind: 'readlog'; date: DateKey; bookId: string; pages: number; toPage?: number }
-export interface Review extends Base { kind: 'review'; date: DateKey; scope: 'semana'; text: string; highlights: string[]; focus: string[] }
+export interface Review extends Base {
+  kind: 'review'; date: DateKey; scope: 'semana' | 'cruzada'; text: string; highlights: string[]; focus: string[];
+  /** Leitura cruzada: título, o que pesou e os ajustes da próxima semana, cada um com a área que cuida dele. */
+  title?: string; weighed?: string[]; next?: { area: 'treino' | 'alimentacao' | 'mente' | 'cuidados' | 'sono'; acao: string; por_que?: string }[];
+}
 
 /* ---------- Mente: o que ela toma, check-ins de humor, café e mudanças feitas pelo médico ---------- */
 export type IntakeType = 'medicamento' | 'vitamina' | 'suplemento';

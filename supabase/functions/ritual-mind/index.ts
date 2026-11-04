@@ -38,7 +38,14 @@ pequeno_passo: uma ação concreta de 2 a 10 minutos (beber água, olhar longe p
 leitura: 1 frase do que você percebeu, sem diagnóstico, usando o que ela escreveu quando houver.
 Se o que ela escreveu indicar ideia de se machucar ou de morrer, 'leitura' diz com acolhimento que isso pede ajuda agora: CVV 188 (24 h), pronto-socorro ou o psiquiatra dela; e 'pequeno_passo' é ligar para alguém agora.
 Formato: {"leitura":"","respiracao":{"nome":"","porque":"","fases":[{"acao":"","segundos":4}],"ciclos":6},"frase":"","musicas":[{"titulo":"","artista":"","porque":""}],"pequeno_passo":""}.`;
-const TASKS: Record<string, string> = { mind_coach: TASK, mind_care: CARE };
+const TEAM = `Você fala pela equipe dela no Ritual: treinadora de força e endurance (ela faz triathlon), nutricionista esportiva (ela está emagrecendo, usa Mounjaro e prioriza proteína), dermatologista e a especialista de acompanhamento da Mente (ela tem transtorno bipolar e faz acompanhamento psiquiátrico). As quatro olham a semana juntas.
+O jeito dela: altamente analítica, quer números, relações reais entre as áreas e direção prática, sem tom de autoajuda e sem moralismo.
+Limites: nunca sugira mudar remédio ou dose; padrão preocupante de humor ou sono = falar com o psiquiatra. Não diagnostique. Com humor instável ou sono curto, a prioridade é estabilidade, não déficit maior nem treino mais pesado.`;
+const WEEK = `Faça a leitura cruzada da semana (contexto.semana). O contexto traz cada dia (humor de -3 a +3, energia, ansiedade e irritabilidade de 0 a 4, eventos, o que ela escreveu, sono e horário, VFC, café, treino feito e planejado, kcal e proteína quando registrou, peso, doses), o resumo com a semana anterior para comparar, os treinos, a pele, padroes_dela (já calculados nos registros dela: use, cite e não invente outros), avisos ativos, mudanças do médico e o objetivo.
+'titulo': uma frase curta que resume a semana, sem clichê. 'leitura': 3 a 5 frases que liguem as áreas com números e datas (ex.: o que o sono fez com o humor e o treino; como a alimentação acompanhou a carga). Diferencie "não registrado" de "não feito". 'funcionou': 2 a 3 itens concretos. 'pesou': 1 a 3 itens concretos, sem culpa. 'proxima_semana': 2 a 4 ajustes pequenos e específicos, cada um com 'area' (treino | alimentacao | mente | cuidados | sono), 'acao' (o que fazer, em uma frase, escrita como pedido que ela levaria à especialista) e 'por_que' (os números que sustentam). Se faltarem dados para uma leitura confiável, diga em 'leitura' o que faltou.
+Formato: {"titulo":"","leitura":"","funcionou":[],"pesou":[],"proxima_semana":[{"area":"treino","acao":"","por_que":""}]}.`;
+const TASKS: Record<string, string> = { mind_coach: TASK, mind_care: CARE, week_cross: WEEK };
+const PERSONA: Record<string, string> = { week_cross: TEAM };
 
 type Img = { mime: string; data: string };
 
@@ -140,7 +147,7 @@ Deno.serve(async (req: Request) => {
     if (!TASKS[task]) return new Response(JSON.stringify({ error: 'Tarefa desconhecida' }), { status: 400, headers: J });
     const ctx = JSON.stringify(context ?? {});
     if (ctx.length > 150000) return new Response(JSON.stringify({ error: 'Contexto grande demais' }), { status: 413, headers: J });
-    const system = [BASE, SPECIALIST, TASKS[task]].join('\n\n');
+    const system = [BASE, PERSONA[task] ?? SPECIALIST, TASKS[task]].join('\n\n');
     const text = await provider.call(system, `Contexto (JSON):\n${ctx}`, [], { level: 'low' });
     return new Response(JSON.stringify({ result: extractJson(text), provider: provider.name }), { headers: J });
   } catch (e) {
