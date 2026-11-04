@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Droplets, Dumbbell, Moon, Ruler, SquareCheck, Sunrise, Utensils, ListPlus, Upload } from 'lucide-react';
+import { Droplets, Dumbbell, Moon, Ruler, SquareCheck, Sunrise, Utensils, ListPlus, Upload, Coffee, Pill, Smile } from 'lucide-react';
+import { CoffeeSheet } from './mind';
 import { importFitFiles } from '../domain/fitImport';
 import { useApp, toast } from '../state/store';
 import { useAll, useByRange, useSettings } from '../db/hooks';
@@ -16,6 +17,7 @@ export function RegisterSheet({ open, onClose }: { open: boolean; onClose: () =>
   const date = useApp((s) => s.date);
   const settings = useSettings();
   const [sub, setSub] = useState<null | 'habit' | 'task' | 'measure'>(null);
+  const [coffee, setCoffee] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const go = (path: string) => { onClose(); afterSheetClose(() => nav(path)); };
   const items = [
@@ -25,6 +27,9 @@ export function RegisterSheet({ open, onClose }: { open: boolean; onClose: () =>
     { icon: <Droplets size={22} />, label: `Água +${settings?.waterPresets?.[1] ?? 300} mL`, color: 'var(--honey)', on: () => { addWater(date, settings?.waterPresets?.[1] ?? 300); } },
     { icon: <Upload size={22} />, label: 'Treino do arquivo .FIT', color: 'var(--blue)', on: () => fileRef.current?.click() },
     { icon: <Dumbbell size={22} />, label: 'Treino sem arquivo', color: 'var(--blue)', on: () => go('/treino/registrar?novo=1') },
+    { icon: <Coffee size={22} />, label: 'Café', color: 'var(--lilac)', on: () => { onClose(); afterSheetClose(() => setCoffee(true)); }, testId: 'reg-coffee' },
+    { icon: <Pill size={22} />, label: 'Remédios e vitaminas', color: 'var(--lilac)', on: () => go('/mente') },
+    { icon: <Smile size={22} />, label: 'Como estou', color: 'var(--lilac)', on: () => go(`/mente/checkin?p=${new Date().getHours() < 12 ? 'am' : 'pm'}&d=${date}`) },
     { icon: <SquareCheck size={22} />, label: 'Hábito', color: 'var(--olive)', on: () => setSub('habit') },
     { icon: <ListPlus size={22} />, label: 'Nova tarefa', color: 'var(--wine-ink)', on: () => setSub('task') },
     { icon: <Ruler size={22} />, label: 'Medida de meta', color: 'var(--paper-2)', on: () => setSub('measure') }
@@ -34,7 +39,7 @@ export function RegisterSheet({ open, onClose }: { open: boolean; onClose: () =>
       <Sheet open={open && !sub} onClose={onClose} title="Registrar" sub={`Em ${shortLabel(date)}`} testId="register-sheet">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           {items.map((it) => (
-            <button key={it.label} onClick={it.on} className="tap" style={{ background: it.color, borderRadius: 18, padding: 14, minHeight: 84, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', fontWeight: 700 }}>
+            <button key={it.label} onClick={it.on} data-testid={(it as any).testId} className="tap" style={{ background: it.color, borderRadius: 18, padding: 14, minHeight: 84, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', fontWeight: 700 }}>
               {it.icon}<span>{it.label}</span>
             </button>
           ))}
@@ -51,6 +56,7 @@ export function RegisterSheet({ open, onClose }: { open: boolean; onClose: () =>
       <HabitQuick open={open && sub === 'habit'} onClose={() => { setSub(null); onClose(); }} />
       <TaskSheet open={open && sub === 'task'} onClose={() => { setSub(null); onClose(); }} defaults={{ plannedDate: date }} />
       <MeasureSheet open={open && sub === 'measure'} onClose={() => { setSub(null); onClose(); }} />
+      <CoffeeSheet open={coffee} date={date} onClose={() => setCoffee(false)} />
     </>
   );
 }

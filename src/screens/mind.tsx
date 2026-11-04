@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { AlertTriangle, Brain, Coffee, FileText, Lock, Moon, Pill, Plus, Trash2, X, ChevronRight, Eye } from 'lucide-react';
+import { AlertTriangle, Brain, Coffee, FileText, Lock, Moon, Pill, Plus, Trash2, X, ChevronRight, Eye, Wind, Music, Play, Square, ThumbsUp, ThumbsDown, RefreshCw, HeartHandshake } from 'lucide-react';
 import { useAll, useByDate, useByRange, useSettings } from '../db/hooks';
 import { create, get, remove, update } from '../db/db';
 import { toast } from '../state/store';
@@ -11,14 +11,16 @@ import { useSync, signInWithGoogle } from '../sync/sync';
 import { addDays, shortLabel, todayKey, type DateKey } from '../lib/dates';
 import { Chip, Sheet, Switch, TimeInput, NumberInput, useConfirm } from '../ui/ui';
 import { PageHead } from './common';
+import { AreaPage } from './areas';
 import type { Intake, IntakeType, MoodCheckin, SleepPlan } from '../db/types';
 import {
-  CONTEXT_TAGS, DEFAULT_DRINKS, MOOD_LABEL, SLIDERS, WAKE_OPTIONS, bedStageProgress, daysLeft, dosesFor, observing, slotsFor, toMin, typeLabel,
+  CONTEXT_TAGS, DEFAULT_DRINKS, MOOD_LABEL, SLIDERS, WAKE_OPTIONS, bedStageProgress, daysLeft, dosesFor, observing, scheduleLabel, slotsFor, toMin, typeLabel,
   moodBaseline, type MindAlert, type MindDay
 } from '../domain/mind';
 import { addCaffeine, dismissAlert, loadMind, markDose, saveCheckin, unmarkDose } from '../domain/mindload';
 import { sleepPlan } from '../domain/sleep';
-import { SpecialistButton } from './specchat';
+import { askCare, cachedCare, careFeedback, careSignal, FALLBACK, songLink, type Care } from '../domain/mindcare';
+import { aiAvailable } from '../domain/ai';
 
 /* ---------------- PIN ---------------- */
 let unlockedAt = 0;
@@ -127,49 +129,150 @@ function AlertCard({ a, compact }: { a: MindAlert; compact?: boolean }) {
 }
 
 /* ---------------- Café ---------------- */
-function CoffeeBlock({ date, compact }: { date: DateKey; compact?: boolean }) {
+/** Folha para anotar café: abre pelo + do Hoje, pela linha de café e pela aba Mente. */
+export function CoffeeSheet({ open, onClose, date }: { open: boolean; onClose: () => void; date: DateKey }) {
   const settings = useSettings();
   const list = useByDate('caffeine', date);
-  const [open, setOpen] = useState(false);
   const drinks = settings?.mind?.drinks ?? DEFAULT_DRINKS;
+  const sorted = [...(list ?? [])].sort((a, b) => a.time.localeCompare(b.time));
+  const add = async (label: string, n: number) => { await addCaffeine(date, label, n); toast(`${label} anotado`); onClose(); };
+  return (
+    <Sheet open={open} onClose={onClose} title="Café" sub={date === todayKey() ? 'Anota com o horário de agora' : shortLabel(date)} testId="coffee-sheet">
+      <div className="stack">
+        {drinks.map((d) => (
+          <button key={d.id} className="row-item tap" style={{ width: '100%', textAlign: 'left' }} onClick={() => void add(d.label, d.mg)} data-testid={`drink-${d.id}`}>
+            <Coffee size={18} />
+            <span className="grow"><span className="t">{d.label}</span><span className="s"> · cerca de {d.mg} mg</span></span>
+            <Plus size={18} />
+          </button>
+        ))}
+      </div>
+      {sorted.length > 0 && <>
+        <span className="label">Hoje</span>
+        {sorted.map((c) => (
+          <div key={c.id} className="row-item">
+            <span className="num" style={{ width: 48 }}>{c.time}</span>
+            <span className="grow">{c.label} <span className="muted">· {c.mg} mg</span></span>
+            <button className="icon-btn" aria-label="Apagar" onClick={() => void remove(c.id)}><Trash2 size={16} /></button>
+          </div>
+        ))}
+      </>}
+      <p className="tiny muted" style={{ marginTop: 12 }}>Os mg são estimativas. Você ajusta em Mente › Ajustes.</p>
+    </Sheet>
+  );
+}
+
+function CoffeeLine({ date }: { date: DateKey }) {
+  const list = useByDate('caffeine', date);
+  const [open, setOpen] = useState(false);
   if (!list) return null;
   const sorted = [...list].sort((a, b) => a.time.localeCompare(b.time));
   const mg = sorted.reduce((a, c) => a + c.mg, 0);
   const last = sorted[sorted.length - 1];
-  const add = async (label: string, n: number) => { await addCaffeine(date, label, n); toast(`${label} anotado`); setOpen(false); };
   return (
     <>
-      <div className="mind-coffee" data-testid="coffee">
+      <button className="mind-coffee tap" style={{ width: '100%', textAlign: 'left' }} onClick={() => setOpen(true)} data-testid="coffee">
         <Coffee size={18} />
-        <button className="grow tap" style={{ textAlign: 'left' }} onClick={() => setOpen(true)}>
-          <b>{sorted.length ? `${sorted.length} ${sorted.length === 1 ? 'café' : 'cafés'} · ${mg} mg` : 'Café'}</b><br />
-          <span className="small">{last ? `Último às ${last.time}` : compact ? 'Toque no + para anotar' : 'Nenhum hoje'}</span>
-        </button>
-        <button className="water-plus" aria-label="Anotar café" onClick={() => setOpen(true)} data-testid="coffee-add"><Plus size={18} /></button>
+        <span className="grow"><b>{sorted.length ? `${sorted.length} ${sorted.length === 1 ? 'café' : 'cafés'} · ${mg} mg` : 'Nenhum café hoje'}</b><br />
+          <span className="small">{last ? `Último às ${last.time}` : 'Toque para anotar'}</span></span>
+        <ChevronRight size={18} />
+      </button>
+      <CoffeeSheet open={open} onClose={() => setOpen(false)} date={date} />
+    </>
+  );
+}
+
+/* ---------------- Cuidado na hora ---------------- */
+/** Respiração guiada: o círculo cresce ao inspirar, para ao segurar e encolhe ao soltar. */
+function BreathPlayer({ b }: { b: Care['respiracao'] }) {
+  const [run, setRun] = useState(false);
+  const [i, setI] = useState(0); // fase atual, contando todos os ciclos
+  const [left, setLeft] = useState(0);
+  const total = b.fases.length * b.ciclos;
+  useEffect(() => { if (!run) return; setLeft(b.fases[i % b.fases.length].segundos); try { navigator.vibrate?.(30); } catch { /* */ } }, [run, i]);
+  useEffect(() => {
+    if (!run) return;
+    if (left <= 0) { if (i + 1 >= total) { setRun(false); setI(0); toast('Respiração concluída'); } else setI(i + 1); return; }
+    const t = setTimeout(() => setLeft(left - 1), 1000);
+    return () => clearTimeout(t);
+  }, [run, left]);
+  const ph = b.fases[i % b.fases.length];
+  const kindOf = (a: string) => (/inspir|puxe/i.test(a) ? 'in' : /solt|expir/i.test(a) ? 'out' : 'hold');
+  // Segurar depois de inspirar fica cheio; depois de soltar, vazio.
+  let kind = kindOf(ph.acao);
+  for (let k = 1; kind === 'hold' && k <= b.fases.length; k++) { const prev = kindOf(b.fases[(i - k + b.fases.length * 10) % b.fases.length].acao); if (prev !== 'hold') kind = prev; }
+  return (
+    <div className="breath" data-testid="breath">
+      <div className={`breath-circle ${run ? kind : ''}`} style={{ transitionDuration: `${ph.segundos}s` }}>
+        <span>{run ? <><b>{ph.acao}</b><br /><span className="num">{left}</span></> : <b>{b.nome}</b>}</span>
       </div>
-      <Sheet open={open} onClose={() => setOpen(false)} title="Café" sub={date === todayKey() ? 'Anota com o horário de agora' : shortLabel(date)} testId="coffee-sheet">
-        <div className="stack">
-          {drinks.map((d) => (
-            <button key={d.id} className="row-item tap" style={{ width: '100%', textAlign: 'left' }} onClick={() => void add(d.label, d.mg)} data-testid={`drink-${d.id}`}>
-              <Coffee size={18} />
-              <span className="grow"><span className="t">{d.label}</span><span className="s"> · cerca de {d.mg} mg</span></span>
-              <Plus size={18} />
-            </button>
-          ))}
-        </div>
-        {sorted.length > 0 && <>
-          <span className="label">Hoje</span>
-          {sorted.map((c) => (
-            <div key={c.id} className="row-item">
-              <span className="num" style={{ width: 48 }}>{c.time}</span>
-              <span className="grow">{c.label} <span className="muted">· {c.mg} mg</span></span>
-              <button className="icon-btn" aria-label="Apagar" onClick={() => void remove(c.id)}><Trash2 size={16} /></button>
+      <p className="small" style={{ margin: '10px 0 6px' }}>{b.fases.map((f) => `${f.acao.toLowerCase()} ${f.segundos} s`).join(' · ')} · {b.ciclos} vezes{run ? ` · ${Math.floor(i / b.fases.length) + 1} de ${b.ciclos}` : ''}</p>
+      {b.porque && !run && <p className="tiny muted" style={{ margin: '0 0 8px' }}>{b.porque}</p>}
+      <button className="pill-act pa-lilac" onClick={() => { setI(0); setRun(!run); }} data-testid="breath-run">{run ? <><Square size={14} /> Parar</> : <><Play size={14} /> Começar</>}</button>
+    </div>
+  );
+}
+
+function Thumbs({ item }: { item: string }) {
+  const settings = useSettings();
+  const f = settings?.mind?.careFeedback?.find((x) => x.item === item);
+  return (
+    <span className="row" style={{ gap: 2 }}>
+      <button className={`icon-btn thumb ${f?.liked === true ? 'on' : ''}`} aria-label="Ajudou" onClick={() => void careFeedback(item, true)}><ThumbsUp size={15} /></button>
+      <button className={`icon-btn thumb ${f?.liked === false ? 'on' : ''}`} aria-label="Não ajudou" onClick={() => void careFeedback(item, false)}><ThumbsDown size={15} /></button>
+    </span>
+  );
+}
+
+/** Aparece quando os check-ins ou os avisos mostram que ela não está bem; também dá para pedir a qualquer hora. */
+export function CareCard({ data, force, onClose }: { data?: { days: MindDay[]; alerts: MindAlert[] }; force?: boolean; onClose?: () => void }) {
+  const today = todayKey();
+  const day = data?.days.find((d) => d.date === today);
+  const reason = data ? careSignal(day, data.alerts) : undefined;
+  const cached = useLiveQuery(async () => (await cachedCare(today)) ?? null, []);
+  const [busy, setBusy] = useState(false);
+  const [care, setCare] = useState<Care | undefined>();
+  const want = force || !!reason;
+  const why = reason ?? 'você pediu um respiro';
+  const load = async (previous?: Care) => {
+    if (!aiAvailable()) { setCare(FALLBACK); return; }
+    setBusy(true);
+    try { setCare(await askCare(why, day, day?.notes ?? [], previous)); }
+    catch { setCare(FALLBACK); }
+    finally { setBusy(false); }
+  };
+  useEffect(() => {
+    if (!want || cached === undefined || care || busy) return;
+    if (cached && (cached.reason === why || force)) setCare(cached.care);
+    else void load();
+  }, [want, cached]);
+  if (!want) return null;
+  return (
+    <section className="block care-card-m" data-testid="care-card">
+      <div className="bh"><h2><Wind size={20} style={{ verticalAlign: '-3px' }} /> Um respiro agora</h2>{onClose && <button className="icon-btn" aria-label="Fechar" onClick={onClose}><X size={18} /></button>}</div>
+      {busy && !care && <p className="small">Escolhendo o que pode ajudar agora…</p>}
+      {care && <>
+        {care.leitura && <p className="small" style={{ marginTop: 0 }}>{care.leitura}</p>}
+        <BreathPlayer b={care.respiracao} />
+        {!care.offline && <div className="row" style={{ justifyContent: 'center', marginTop: 4 }}><span className="tiny muted">Ajudou?</span><Thumbs item={`respiração: ${care.respiracao.nome}`} /></div>}
+        {care.frase && <blockquote className="care-quote" data-testid="care-quote">{care.frase}</blockquote>}
+        {care.musicas.length > 0 && <>
+          <span className="label" style={{ marginTop: 12 }}><Music size={15} style={{ verticalAlign: '-2px' }} /> Para ouvir</span>
+          {care.musicas.map((m) => (
+            <div key={m.titulo} className="row-item" style={{ minHeight: 48 }}>
+              <a className="grow tap" href={songLink(m)} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none' }}>
+                <span className="t">{m.titulo}</span>{m.artista && <span className="s"> · {m.artista}</span>}
+                {m.porque && <span className="s" style={{ display: 'block' }}>{m.porque}</span>}
+              </a>
+              <Thumbs item={`música: ${m.titulo}${m.artista ? ` (${m.artista})` : ''}`} />
             </div>
           ))}
         </>}
-        <p className="tiny muted" style={{ marginTop: 12 }}>Os mg são estimativas. Você ajusta em Mente, no fim da página.</p>
-      </Sheet>
-    </>
+        {care.pequeno_passo && <p className="notice calm" style={{ marginTop: 12 }}><b>Um passo pequeno:</b> {care.pequeno_passo}</p>}
+        {!care.offline && <button className="link small" style={{ marginTop: 10 }} disabled={busy} onClick={() => void load(care)} data-testid="care-again"><RefreshCw size={13} style={{ verticalAlign: '-2px' }} /> {busy ? 'Buscando…' : 'Outra sugestão'}</button>}
+        {care.offline && <p className="tiny muted" style={{ marginTop: 8 }}>Sem conexão com a IA agora: esta é uma respiração pronta.</p>}
+      </>}
+    </section>
   );
 }
 
@@ -177,17 +280,22 @@ function CoffeeBlock({ date, compact }: { date: DateKey; compact?: boolean }) {
 export function MindTodayCard({ date }: { date: DateKey }) {
   const data = useMind();
   const nav = useNavigate();
-  const isToday = date === todayKey();
-  if (!isToday) return null;
+  if (date !== todayKey()) return null;
   const alerts = data?.alerts ?? [];
+  const reason = data ? careSignal(data.days.find((d) => d.date === date), alerts) : undefined;
   return (
     <section className="mind-today" data-testid="mind-today" aria-label="Mente">
       <div className="row between" style={{ marginBottom: 8 }}>
         <button className="row tap" style={{ gap: 8 }} onClick={() => nav('/mente')}><Brain size={18} /><b>Mente</b></button>
         <button className="link small" onClick={() => nav('/mente')}>Abrir <ChevronRight size={14} style={{ verticalAlign: '-2px' }} /></button>
       </div>
+      {reason && (
+        <button className="mind-care-teaser tap" onClick={() => nav('/mente')} data-testid="care-teaser">
+          <Wind size={18} /><span className="grow"><b>Separei um respiro para agora</b><br /><span className="small">Respiração guiada, uma frase e músicas.</span></span><ChevronRight size={18} />
+        </button>
+      )}
       {alerts.map((a) => <AlertCard key={a.id} a={a} compact />)}
-      <CoffeeBlock date={date} compact />
+      <CoffeeLine date={date} />
     </section>
   );
 }
@@ -201,7 +309,7 @@ function DosesBlock({ date }: { date: DateKey }) {
   const slots = slotsFor(dosesFor(items, logs, date));
   return (
     <section className="block b-paper" data-testid="doses">
-      <div className="bh"><h2>Hoje você toma</h2><button className="link" onClick={() => nav('/mente/tomo')}>Gerenciar</button></div>
+      <div className="bh"><h2>Hoje você toma</h2><button className="link" onClick={() => nav('/mente/tomo', { replace: true })}>Gerenciar</button></div>
       {!slots.length && <p className="small">Nada cadastrado ainda. <button className="link" onClick={() => nav('/mente/tomo')}>Cadastrar</button></p>}
       {slots.map((s) => (
         <div key={s.slot} className="dose-slot">
@@ -304,7 +412,7 @@ export function CheckinScreen() {
         <span className="label">O que marcou {period === 'am' ? 'a noite' : 'o dia'}</span>
         <div className="chips">{CONTEXT_TAGS.map((t) => <Chip key={t} on={st.tags?.includes(t)} onClick={() => set({ tags: st.tags?.includes(t) ? st.tags.filter((x) => x !== t) : [...(st.tags ?? []), t] })}>{t}</Chip>)}</div>
         <span className="label">Uma linha, se quiser</span>
-        <textarea rows={2} value={st.note ?? ''} onChange={(e) => set({ note: e.target.value })} placeholder="Fica só no app, não vai para a IA" data-testid="checkin-note" />
+        <textarea rows={2} value={st.note ?? ''} onChange={(e) => set({ note: e.target.value })} placeholder="A especialista da Mente lê; as outras, não" data-testid="checkin-note" />
         <button className="btn btn-ink btn-block" style={{ marginTop: 18 }} onClick={save} data-testid="checkin-save">Salvar</button>
       </PinGate>
     </div>
@@ -385,65 +493,114 @@ function Panel({ days }: { days: MindDay[] }) {
   );
 }
 
-/* ---------------- Tela principal ---------------- */
+/* ---------------- Abas da Mente ---------------- */
 export function MindScreen() {
   const data = useMind();
-  const nav = useNavigate();
   const changes = useAll('medchange');
+  const [care, setCare] = useState(false);
   const today = todayKey();
   const obs = changes ? observing(changes, today) : undefined;
+  const signal = data ? careSignal(data.days.find((d) => d.date === today), data.alerts) : undefined;
   return (
-    <div className="screen" data-testid="mind-screen">
-      <PageHead title="Mente" withDate={false} right={<SpecialistButton domain="mind" />} />
+    <AreaPage area="mente" testId="mind-screen">
       <PinGate>
         {obs && <p className="notice calm" style={{ marginBottom: 14 }} data-testid="observing"><b>Modo observação até {shortLabel(addDays(obs.date, 14))}.</b> Houve ajuste do médico em {shortLabel(obs.date)}: capriche nos check-ins e anote efeitos colaterais. Tudo entra no relatório.</p>}
+        {data && <CareCard data={data} force={care} onClose={!signal && care ? () => setCare(false) : undefined} />}
         {data?.alerts.map((a) => <AlertCard key={a.id} a={a} />)}
         <CheckinTiles date={today} />
+        {!signal && !care && <button className="lib-item" style={{ marginBottom: 14 }} onClick={() => setCare(true)} data-testid="care-open"><span className="lib-icon"><HeartHandshake size={20} /></span><span className="grow"><b>Preciso de um respiro</b><br /><span className="small muted">Respiração guiada, uma frase e músicas para agora</span></span><ChevronRight size={18} /></button>}
         <DosesBlock date={today} />
-        <section className="block b-paper"><CoffeeBlock date={today} /></section>
+        <section className="block b-paper"><div className="bh"><h2>Café</h2></div><CoffeeLine date={today} /></section>
         <SleepStage />
-        {data && <Panel days={data.days} />}
-        <div className="stack" style={{ marginTop: 6 }}>
-          <button className="lib-item" onClick={() => nav('/mente/tomo')}><span className="lib-icon"><Pill size={20} /></span><span className="grow"><b>O que eu tomo</b><br /><span className="small muted">Horários, estoque e mudanças do médico</span></span><ChevronRight size={18} /></button>
-          <button className="lib-item" onClick={() => nav('/mente/relatorio')} data-testid="open-report"><span className="lib-icon"><FileText size={20} /></span><span className="grow"><b>Relatório para a consulta</b><br /><span className="small muted">30, 60 ou 90 dias, para imprimir ou salvar em PDF</span></span><ChevronRight size={18} /></button>
-        </div>
-        <MindSettings />
       </PinGate>
-    </div>
+    </AreaPage>
   );
 }
 
-function MindSettings() {
+export function MindPanelPage() {
+  const data = useMind();
+  const nav = useNavigate();
+  return (
+    <AreaPage area="mente" testId="mind-panel-page">
+      <PinGate>
+        {data && <Panel days={data.days} />}
+        <button className="lib-item" onClick={() => nav('/mente/relatorio')} data-testid="open-report"><span className="lib-icon"><FileText size={20} /></span><span className="grow"><b>Relatório para a consulta</b><br /><span className="small muted">30, 60 ou 90 dias, para imprimir ou salvar em PDF</span></span><ChevronRight size={18} /></button>
+      </PinGate>
+    </AreaPage>
+  );
+}
+
+export function MindSettingsPage() {
   const settings = useSettings();
   const [ask, confirm] = useConfirm();
   if (!settings) return null;
   const drinks = settings.mind?.drinks ?? DEFAULT_DRINKS;
   const setDrinks = (d: typeof drinks) => update<'settings'>('settings', { mind: { ...(settings.mind ?? {}), drinks: d } });
+  const r = settings.reminders;
+  const sp = r?.sleep;
+  const setSleep = (p: Partial<SleepPlan>) => r && sp && update<'settings'>('settings', { reminders: { ...r, sleep: { ...sp, ...p } } });
+  const fb = settings.mind?.careFeedback ?? [];
   return (
-    <section className="block b-paper" style={{ marginTop: 14 }}>
-      <div className="bh"><h2>Ajustes da Mente</h2></div>
-      <span className="label" style={{ marginTop: 0 }}>Cafés e cafeína estimada</span>
-      {drinks.map((d, i) => (
-        <div key={d.id} style={{ marginBottom: 12 }}>
-          <input value={d.label} onChange={(e) => setDrinks(drinks.map((x, k) => (k === i ? { ...x, label: e.target.value } : x)))} aria-label="Nome do café" style={{ marginBottom: 6 }} />
-          <div className="row">
-          <NumberInput value={d.mg} int min={0} max={600} onChange={(v) => setDrinks(drinks.map((x, k) => (k === i ? { ...x, mg: v ?? 0 } : x)))} label="mg" style={{ width: 84 }} />
-          <span className="small">mg</span>
-          <span className="grow" />
-          <button className="link small" onClick={() => setDrinks(drinks.filter((_, k) => k !== i))}>Tirar</button>
-          </div>
-        </div>
-      ))}
-      <button className="link" onClick={() => setDrinks([...drinks, { id: `d${Date.now().toString(36)}`, label: 'Novo café', mg: 80 }])}>Acrescentar café</button>
-      <span className="label">Privacidade</span>
-      <p className="small" style={{ marginTop: 0 }}>Para a IA vão números e avisos. O que você escreve nos check-ins fica só no app. Itens com apelido vão para a IA com o apelido.</p>
-      <button className="link" onClick={async () => {
-        if (await confirm({ title: 'Trocar o PIN?', text: 'Você cria um novo no próximo acesso.', ok: 'Trocar' })) {
-          await update<'settings'>('settings', { mind: { ...(settings.mind ?? {}), pinHash: undefined } }); unlockedAt = 0; toast('Crie o novo PIN ao abrir a Mente.');
-        }
-      }}>Trocar o PIN</button>
-      {ask}
-    </section>
+    <AreaPage area="mente" testId="mind-settings">
+      <PinGate>
+        <section className="block b-paper">
+          <div className="bh"><h2>Cafés</h2><Coffee size={20} /></div>
+          <p className="small" style={{ marginTop: 0 }}>Os que aparecem para anotar, com a cafeína estimada de cada um.</p>
+          {drinks.map((d, i) => (
+            <div key={d.id} style={{ marginBottom: 12 }}>
+              <input value={d.label} onChange={(e) => setDrinks(drinks.map((x, k) => (k === i ? { ...x, label: e.target.value } : x)))} aria-label="Nome do café" style={{ marginBottom: 6 }} />
+              <div className="row">
+                <NumberInput value={d.mg} int min={0} max={600} onChange={(v) => setDrinks(drinks.map((x, k) => (k === i ? { ...x, mg: v ?? 0 } : x)))} label="mg" style={{ width: 84 }} />
+                <span className="small">mg</span>
+                <span className="grow" />
+                <button className="link small" onClick={() => setDrinks(drinks.filter((_, k) => k !== i))}>Tirar</button>
+              </div>
+            </div>
+          ))}
+          <button className="link" onClick={() => setDrinks([...drinks, { id: `d${Date.now().toString(36)}`, label: 'Novo café', mg: 80 }])}>Acrescentar café</button>
+        </section>
+
+        {sp && (
+          <section className="block b-paper">
+            <div className="bh"><h2>Meta de deitar</h2><Moon size={20} /></div>
+            <div className="row" style={{ gap: 12 }}>
+              <div className="grow"><span className="label" style={{ marginTop: 0 }}>Agora</span><TimeInput value={sp.bedGoal ?? ''} label="Meta de deitar agora" onChange={(v) => void setSleep({ bedGoal: v })} /></div>
+              <div className="grow"><span className="label" style={{ marginTop: 0 }}>Aonde quero chegar</span><TimeInput value={sp.bedFinal ?? ''} label="Meta final de deitar" onChange={(v) => void setSleep({ bedFinal: v })} /></div>
+            </div>
+            <p className="tiny muted">O lembrete de deitar segue a meta de agora. O café fica até 8 h antes dela.</p>
+          </section>
+        )}
+
+        <section className="block b-paper">
+          <div className="bh"><h2>Lembretes</h2></div>
+          {r && <Switch on={r.meds !== false} onChange={(v) => void update<'settings'>('settings', { reminders: { ...r, meds: v } })} label="Remédios e vitaminas" hint="No horário e de novo 1 h depois, se você não marcar. Item com apelido aparece pelo apelido na tela bloqueada." />}
+        </section>
+
+        <section className="block b-paper">
+          <div className="bh"><h2>Privacidade</h2><Lock size={20} /></div>
+          <p className="small" style={{ marginTop: 0 }}>A especialista da Mente lê tudo, inclusive o que você escreve nos check-ins. As outras especialistas recebem só números e avisos, sem o que você escreve e sem os nomes dos remédios psiquiátricos.</p>
+          <button className="link" onClick={async () => {
+            if (await confirm({ title: 'Trocar o PIN?', text: 'Você cria um novo no próximo acesso.', ok: 'Trocar' })) {
+              await update<'settings'>('settings', { mind: { ...(settings.mind ?? {}), pinHash: undefined } }); unlockedAt = 0; toast('Crie o novo PIN ao abrir a Mente.');
+            }
+          }}>Trocar o PIN</button>
+        </section>
+
+        {fb.length > 0 && (
+          <section className="block b-paper">
+            <div className="bh"><h2>O que ajudou</h2></div>
+            {fb.slice().reverse().map((f) => (
+              <div key={f.item} className="row-item" style={{ minHeight: 44 }}>
+                {f.liked ? <ThumbsUp size={15} /> : <ThumbsDown size={15} />}
+                <span className="grow small">{f.item}</span>
+                <button className="icon-btn" aria-label="Tirar" onClick={() => void update<'settings'>('settings', { mind: { ...(settings.mind ?? {}), careFeedback: fb.filter((x) => x.item !== f.item) } })}><X size={15} /></button>
+              </div>
+            ))}
+          </section>
+        )}
+        {ask}
+      </PinGate>
+    </AreaPage>
   );
 }
 
@@ -457,8 +614,7 @@ export function IntakeScreen() {
   const [chg, setChg] = useState(false);
   const sorted = (items ?? []).sort((a, b) => Number(b.active) - Number(a.active) || a.order - b.order);
   return (
-    <div className="screen no-nav" data-testid="intake-screen">
-      <PageHead title="O que eu tomo" withDate={false} />
+    <AreaPage area="mente" testId="intake-screen">
       <PinGate>
         {sorted.map((i) => {
           const left = daysLeft(i);
@@ -467,7 +623,7 @@ export function IntakeScreen() {
               <Pill size={18} />
               <span className="grow">
                 <span className="t">{i.name}{i.dose ? <span className="muted"> · {i.dose}</span> : null}</span>
-                <span className="s" style={{ display: 'block' }}>{typeLabel(i.type)} · {i.times.join(', ') || 'sem horário'}{i.rule ? ` · ${i.rule}` : ''}{left != null ? ` · estoque para ${left} dias` : ''}{!i.active ? ' · pausado' : ''}</span>
+                <span className="s" style={{ display: 'block' }}>{typeLabel(i.type)} · {scheduleLabel(i)}{i.rule ? ` · ${i.rule}` : ''}{left != null ? ` · estoque para ${left} dias` : ''}{!i.active ? ' · pausado' : ''}</span>
               </span>
               <ChevronRight size={18} />
             </button>
@@ -487,7 +643,7 @@ export function IntakeScreen() {
       </PinGate>
       <IntakeSheet item={edit} onClose={() => setEdit(null)} count={items?.length ?? 0} />
       <ChangeSheet open={chg} onClose={() => setChg(false)} items={items ?? []} />
-    </div>
+    </AreaPage>
   );
 }
 
@@ -498,7 +654,7 @@ function IntakeSheet({ item, onClose, count }: { item: Intake | 'new' | null; on
   const set = (p: Partial<Intake>) => setF((x) => ({ ...x, ...p }));
   const save = async () => {
     if (!f.name?.trim()) { toast('Dê um nome.', undefined, 'error'); return; }
-    const data = { name: f.name.trim(), alias: f.alias?.trim() || undefined, type: f.type ?? 'medicamento', dose: f.dose?.trim() || undefined, times: (f.times ?? []).filter((t) => toMin(t) != null).sort(), rule: f.rule?.trim() || undefined, stock: f.stock, perDose: f.perDose ?? 1, caffeineSensitive: !!f.caffeineSensitive, shareCare: !!f.shareCare, note: f.note?.trim() || undefined, active: f.active !== false };
+    const data = { name: f.name.trim(), freq: f.freq ?? 'diaria', days: f.freq === 'semanal' ? f.days ?? [] : undefined, alias: f.alias?.trim() || undefined, type: f.type ?? 'medicamento', dose: f.dose?.trim() || undefined, times: (f.times ?? []).filter((t) => toMin(t) != null).sort(), rule: f.rule?.trim() || undefined, stock: f.stock, perDose: f.perDose ?? 1, caffeineSensitive: !!f.caffeineSensitive, shareCare: !!f.shareCare, note: f.note?.trim() || undefined, active: f.active !== false };
     if (item === 'new') await create('intake', { ...data, order: count + 1 });
     else if (item) await update<'intake'>(item.id, data);
     toast('Salvo'); onClose();
@@ -515,6 +671,12 @@ function IntakeSheet({ item, onClose, count }: { item: Intake | 'new' | null; on
       <div className="chips">{TYPES.map((t) => <Chip key={t.id} on={f.type === t.id} onClick={() => set({ type: t.id })}>{t.label}</Chip>)}</div>
       <span className="label">Dose (como está na receita)</span>
       <input value={f.dose ?? ''} onChange={(e) => set({ dose: e.target.value })} placeholder="Ex.: 1 cápsula de 20 mg" />
+      <span className="label">Frequência</span>
+      <div className="chips">
+        <Chip on={f.freq !== 'semanal'} onClick={() => set({ freq: 'diaria' })}>Todo dia</Chip>
+        <Chip on={f.freq === 'semanal'} onClick={() => set({ freq: 'semanal', days: f.days ?? [] })} testId="freq-weekly">Semanal</Chip>
+      </div>
+      {f.freq === 'semanal' && <div className="chips" style={{ marginTop: 8 }}>{[1, 2, 3, 4, 5, 6, 7].map((d) => <Chip key={d} on={f.days?.includes(d)} onClick={() => set({ days: f.days?.includes(d) ? f.days.filter((x) => x !== d) : [...(f.days ?? []), d].sort() })}>{['', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'][d]}</Chip>)}</div>}
       <span className="label">Horários</span>
       {(f.times ?? []).map((t, i) => (
         <div key={i} className="row" style={{ marginBottom: 8 }}>

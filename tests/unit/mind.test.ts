@@ -80,9 +80,18 @@ describe('avisos', () => {
   });
 
   it('déficit grande sobe para importante com sono instável', () => {
-    const days = series((i) => ({ mealsLogged: i >= 1 && i <= 6, kcal: 800, protein: 90, sleepH: i <= 1 ? 4.5 : 7.5 }));
+    const days = series((i) => ({ mealsLogged: i >= 1 && i <= 6, kcal: 850, protein: 90, sleepH: i <= 1 ? 4.5 : 7.5 }));
     const a = computeAlerts(days, { ...ctx, targets: { kcal: 1223, p: 135 } });
     expect(a.find((x) => x.id === 'deficit')?.level).toBe('importante');
+    const ok = series((i) => ({ mealsLogged: i >= 1 && i <= 6, kcal: 1000, protein: 130 }));
+    expect(computeAlerts(ok, { ...ctx, targets: { kcal: 1223, p: 135 } }).some((x) => x.id === 'deficit')).toBe(false);
+  });
+
+  it('item semanal só aparece no dia marcado', () => {
+    const it0: Intake = { ...base, id: 'm', kind: 'intake', name: 'Semanal', type: 'medicamento', times: ['08:00'], freq: 'semanal', days: [3], active: true, order: 1 };
+    expect(dosesFor([it0], [], T).length).toBe(1); // 04/11/2026 é quarta
+    expect(dosesFor([it0], [], addDays(T, 1)).length).toBe(0);
+    expect(dosesFor([{ ...it0, days: [] }], [], T).length).toBe(0);
   });
 
   it('no máximo 1 importante e 2 de atenção', () => {

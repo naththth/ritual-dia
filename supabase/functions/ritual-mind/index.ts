@@ -25,10 +25,20 @@ Critérios: regularidade de sono e de horários é o fator mais protetor; sono c
 Limites: nunca sugira iniciar, parar, trocar ou mudar dose de remédio, nem compensar dose; dúvidas sobre remédio são para o médico. Não diagnostique fase. Se ela relatar ideia de se machucar, de morrer ou sinais de crise, responda com acolhimento, diga que isso pede ajuda agora e indique o CVV (188, 24 h) e o pronto-socorro ou o psiquiatra dela; nesse caso não faça análise de dados.`;
 
 const TASK = `Ela conversa com você na área Mente. contexto.fala_dela é a mensagem nova; contexto.conversa traz as anteriores desta conversa; contexto.conversas_anteriores, das encerradas, só o assunto.
-O contexto traz: dias (últimos 30, com humor da manhã e da noite, energia, irritabilidade, ansiedade, pensamento acelerado de 0 a 4, como acordou, eventos marcados, sono em horas e horários, VFC, cafeína em mg e último café, treino feito e planejado em minutos, kcal e proteína quando ela registrou as refeições, peso e doses tomadas), avisos_ativos (do motor do app), meta_de_deitar, o_que_ela_toma (nome ou apelido, tipo, dose, horários, regra, tomadas nos últimos 14 dias, efeitos anotados), mudancas_do_medico, em_observacao_pos_ajuste, checkins_registrados_30_dias e preferencias_dela.
+O contexto traz: dias (últimos 30, com humor da manhã e da noite, energia, irritabilidade, ansiedade, pensamento acelerado de 0 a 4, como acordou, eventos marcados, o que ela escreveu nos check-ins, sono em horas e horários, VFC, cafeína em mg e último café, treino feito e planejado em minutos, kcal e proteína quando ela registrou as refeições, peso e doses tomadas), avisos_ativos (do motor do app), meta_de_deitar, o_que_ela_toma (nome ou apelido, tipo, dose, horários, regra, tomadas nos últimos 14 dias, efeitos anotados), mudancas_do_medico, em_observacao_pos_ajuste, checkins_registrados_30_dias e preferencias_dela.
 Responda o que ela perguntou, citando números e datas do contexto. Se faltar dado (poucos check-ins, refeições não registradas), diga em 1 frase o que falta para a leitura ficar confiável. Quando ela pedir pauta de consulta, ou quando houver aviso importante, devolva em pauta_consulta de 3 a 6 itens curtos, factuais, do jeito que ela levaria ao psiquiatra (o que mudou, desde quando, com números; dúvidas sobre remédio viram pergunta para o médico). guardar_preferencia: frase curta, como ela diria, sobre como ela quer ser acompanhada; não guarde fato de um dia.
 'mensagem': 2 a 6 frases, em primeira pessoa, direta e humana, sem jargão clínico desnecessário.
 Formato: {"mensagem":"","pauta_consulta":[],"acoes":[{"tipo":"guardar_preferencia","texto":""}]}. 'acoes' vazia quando não houver.`;
+
+const CARE = `Ela não está bem agora (contexto.motivo; o contexto traz humor de -3 a +3, energia, ansiedade, irritabilidade e pensamento acelerado de 0 a 4, sono, eventos e o que ela escreveu hoje). Sugira, para os próximos minutos:
+respiracao: uma respiração guiada escolhida pelo estado. Ansiedade, irritabilidade, pensamento acelerado ou humor acelerado: respirações que desaceleram, com expiração mais longa que a inspiração (suspiro fisiológico, 4-6, coerência em torno de 6 respirações por minuto). Humor para baixo e cansaço: algo suave, com inspiração e expiração iguais ou respiração quadrada curta. Nunca retenção acima de 7 segundos nem respiração rápida forçada. 'fases' em ordem, cada uma com 'acao' curta ("Inspire pelo nariz", "Segure", "Solte devagar pela boca") e 'segundos' inteiros; 'ciclos' de 4 a 10; 'porque' em 1 frase.
+frase: uma frase curta e original, escrita para ela agora, humana e sem clichê de autoajuda nem promessa. Pode usar o repertório dela de constância, ritmo e construção (ela é triatleta) quando couber, sem forçar. Não cite autores.
+musicas: 2 ou 3 músicas reais e conhecidas, com título e artista exatos, escolhidas pelo efeito: para acalmar, andamento lento e pouca letra (instrumental, ambient, MPB calma, clássico); para humor baixo, algo acolhedor e com um pouco de luz, nunca melancólico demais; com humor acelerado, nada agitado. 'porque' em poucas palavras. Respeite gostou e nao_gostou e não repita sugestao_anterior.
+pequeno_passo: uma ação concreta de 2 a 10 minutos (beber água, olhar longe pela janela, banho morno, mandar mensagem para alguém de confiança, deitar no horário).
+leitura: 1 frase do que você percebeu, sem diagnóstico, usando o que ela escreveu quando houver.
+Se o que ela escreveu indicar ideia de se machucar ou de morrer, 'leitura' diz com acolhimento que isso pede ajuda agora: CVV 188 (24 h), pronto-socorro ou o psiquiatra dela; e 'pequeno_passo' é ligar para alguém agora.
+Formato: {"leitura":"","respiracao":{"nome":"","porque":"","fases":[{"acao":"","segundos":4}],"ciclos":6},"frase":"","musicas":[{"titulo":"","artista":"","porque":""}],"pequeno_passo":""}.`;
+const TASKS: Record<string, string> = { mind_coach: TASK, mind_care: CARE };
 
 type Img = { mime: string; data: string };
 
@@ -127,10 +137,10 @@ Deno.serve(async (req: Request) => {
     const provider = pickProvider();
     if (!provider) return new Response(JSON.stringify({ error: 'A chave da IA ainda não foi configurada no Supabase.' }), { status: 503, headers: J });
     const { task, context } = await req.json();
-    if (task !== 'mind_coach') return new Response(JSON.stringify({ error: 'Tarefa desconhecida' }), { status: 400, headers: J });
+    if (!TASKS[task]) return new Response(JSON.stringify({ error: 'Tarefa desconhecida' }), { status: 400, headers: J });
     const ctx = JSON.stringify(context ?? {});
     if (ctx.length > 150000) return new Response(JSON.stringify({ error: 'Contexto grande demais' }), { status: 413, headers: J });
-    const system = [BASE, SPECIALIST, TASK].join('\n\n');
+    const system = [BASE, SPECIALIST, TASKS[task]].join('\n\n');
     const text = await provider.call(system, `Contexto (JSON):\n${ctx}`, [], { level: 'low' });
     return new Response(JSON.stringify({ result: extractJson(text), provider: provider.name }), { headers: J });
   } catch (e) {

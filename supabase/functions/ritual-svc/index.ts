@@ -83,6 +83,7 @@ async function dueReminders(userId: string, now: ReturnType<typeof nowParts>): P
     const slots = new Map<string, string[]>();
     for (const it of recs.filter((x) => x.kind === 'intake' && x.active)) {
       if (it.createdAt && new Date(it.createdAt).toISOString().slice(0, 10) > now.date) continue;
+      if (it.freq === 'semanal' && !(it.days ?? []).includes(now.weekday)) continue;
       for (const t of it.times ?? []) {
         if (today.some((x) => x.kind === 'intakelog' && x.itemId === it.id && x.slot === t)) continue;
         slots.set(t, [...(slots.get(t) ?? []), it.alias || it.name]);

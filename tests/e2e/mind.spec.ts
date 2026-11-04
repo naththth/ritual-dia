@@ -9,6 +9,7 @@ async function seed(page: Page) {
   await page.addInitScript(() => {
     (window as any).__RITUAL_TEST_AI = (task: string, ctx: any) => {
       (window as any).__ctx = { ...((window as any).__ctx ?? {}), [task]: ctx };
+      if (task === 'mind_care') return { leitura: 'Dia pesado e humor abaixo do seu normal.', respiracao: { nome: 'Expiração longa', porque: 'Desacelera.', fases: [{ acao: 'Inspire pelo nariz', segundos: 2 }, { acao: 'Solte devagar', segundos: 3 }], ciclos: 4 }, frase: 'Hoje o ritmo é mais lento, e tudo bem.', musicas: [{ titulo: 'Weightless', artista: 'Marconi Union', porque: 'calma' }], pequeno_passo: 'Beba um copo de água.' };
       if (task === 'mind_coach') return { mensagem: 'Semana estável, com o sono como ponto de atenção.', pauta_consulta: ['Sono começando depois das 23h', 'Humor estável nas últimas noites'], acoes: [] };
       return {};
     };
@@ -36,9 +37,11 @@ async function seed(page: Page) {
 
 test('Mente: tomadas no Hoje, café, PIN, check-in, painel e relatório', async ({ page }) => {
   await seed(page);
-  // Hoje: card da Mente com café, tomada na linha do tempo e "Fechar o dia" apontando para o check-in.
+  // Hoje: um único +, que reúne tudo (inclusive café); a tomada aparece na linha do tempo.
   await expect(page.getByTestId('mind-today')).toBeVisible();
-  await page.getByTestId('coffee-add').click();
+  await expect(page.locator('.water-plus')).toHaveCount(1);
+  await page.getByTestId('fab').click();
+  await page.getByTestId('reg-coffee').click();
   await page.getByTestId('drink-cap-3c').click();
   await expect(page.getByTestId('mind-today')).toContainText('1 café · 65 mg');
   await page.getByTestId('act-dose-06:40').click();
@@ -65,7 +68,9 @@ test('Mente: tomadas no Hoje, café, PIN, check-in, painel e relatório', async 
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/mind-checkin.png', fullPage: true });
   await page.getByTestId('checkin-save').click();
   await expect(page.getByTestId('checkin-pm')).toContainText('Humor +1');
+  await page.getByRole('tab', { name: 'Painel' }).click();
   await expect(page.getByTestId('baseline')).toContainText('1 de 20 noites');
+  await page.getByRole('tab', { name: 'Hoje' }).click();
 
   // Especialista: o diário não vai para a IA.
   await page.getByTestId('spec-open-mind').click();
@@ -73,12 +78,13 @@ test('Mente: tomadas no Hoje, café, PIN, check-in, painel e relatório', async 
   await page.getByTestId('spec-send').click();
   await expect(page.getByTestId('mind-pauta')).toContainText('Sono começando');
   const ctx = await page.evaluate(() => (window as any).__ctx.mind_coach);
-  expect(JSON.stringify(ctx)).not.toContain('Reunião longa');
+  expect(JSON.stringify(ctx)).toContain('Reunião longa');
   expect(ctx.dias.at(-1).humor_noite).toBe(1);
   expect(ctx.o_que_ela_toma.map((i: any) => i.nome)).toContain('Remédio da noite');
   await page.getByLabel('Fechar').click();
 
   // Relatório.
+  await page.getByRole('tab', { name: 'Painel' }).click();
   await page.getByTestId('open-report').click();
   await expect(page.getByTestId('report-screen')).toContainText('Vitamina D');
   await expect(page.getByTestId('report-screen')).toContainText('Reunião longa');
@@ -89,7 +95,28 @@ test('Mente: tomadas no Hoje, café, PIN, check-in, painel e relatório', async 
   await page.reload();
   await expect(page.getByTestId('pin-lock')).toBeVisible();
   await page.getByTestId('pin-input').fill('2468');
-  await expect(page.getByTestId('mind-panel')).toBeVisible();
+  await expect(page.getByTestId('doses')).toBeVisible();
+
+  // Dia ruim: o respiro aparece sozinho, com respiração guiada, frase e música.
+  await page.getByTestId('checkin-pm').click();
+  await page.getByTestId('mood-1').click();
+  await page.getByTestId('mood--2').click();
+  await page.getByTestId('checkin-save').click();
+  await expect(page.getByTestId('care-card')).toContainText('Hoje o ritmo é mais lento');
+  await expect(page.getByTestId('care-card')).toContainText('Weightless');
+  await page.getByTestId('breath-run').click();
+  await expect(page.getByTestId('breath')).toContainText('Inspire pelo nariz');
+  const care = await page.evaluate(() => (window as any).__ctx.mind_care);
+  expect(care.humor).toBe(-2);
+  expect(care.o_que_ela_escreveu_hoje).toContain('Reunião longa');
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/mind-respiro.png', fullPage: true });
+
+  // Ajustes da Mente: cafés e meta de deitar.
+  await page.getByRole('tab', { name: 'Ajustes' }).click();
+  await expect(page.getByTestId('mind-settings')).toContainText('Cafés');
+  await expect(page.getByTestId('mind-settings')).toContainText('Meta de deitar');
+  await page.goto('./#/');
+  await expect(page.getByTestId('care-teaser')).toBeVisible();
 });
 
 test('o menu de baixo cabe com seis abas em 360 px', async ({ page }) => {

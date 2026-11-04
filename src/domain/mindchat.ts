@@ -20,7 +20,7 @@ export async function askMind(text: string, history: SpecMsg[]): Promise<SpecMsg
     escala_humor: '-3 muito para baixo, 0 estável (o normal dela), +3 muito acelerada; energia, irritabilidade, ansiedade e pensamento acelerado de 0 a 4',
     dias: mind.days.slice(-30).map((d) => ({
       data: d.date, humor_manha: d.moodAm, humor_noite: d.moodPm, energia: d.energy, irritabilidade: d.irritability, ansiedade: d.anxiety, pensamento_acelerado: d.racing,
-      acordou: d.wake, eventos: d.tags.length ? d.tags : undefined, sono_h: d.sleepH, inicio_sono: d.sleepStart, acordou_as: d.wakeTime, vfc: d.hrv,
+      acordou: d.wake, eventos: d.tags.length ? d.tags : undefined, o_que_ela_escreveu: d.notes?.length ? d.notes : undefined, sono_h: d.sleepH, inicio_sono: d.sleepStart, acordou_as: d.wakeTime, vfc: d.hrv,
       cafeina_mg: d.caffeineMg || undefined, ultimo_cafe: d.lastCaffeine, treino_min: d.trainMin || undefined, treino_planejado_min: d.plannedMin || undefined,
       kcal: d.mealsLogged ? Math.round(d.kcal ?? 0) : undefined, proteina_g: d.mealsLogged ? Math.round(d.protein ?? 0) : undefined, peso: d.weight,
       doses: d.dosesDue ? `${d.dosesTaken} de ${d.dosesDue}` : undefined

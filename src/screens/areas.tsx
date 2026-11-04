@@ -19,7 +19,8 @@ import { SpecialistButton } from './specchat';
 export const AREAS = {
   treino: { title: 'Treino', tabs: [{ to: '/treino', label: 'Semana' }, { to: '/treino/plano', label: 'Plano' }, { to: '/treino/sessoes', label: 'Sessões' }] },
   cuidados: { title: 'Cuidados', tabs: [{ to: '/cuidados', label: 'Hoje' }, { to: '/cuidados/rotina', label: 'Rotina' }, { to: '/cuidados/produtos', label: 'Produtos' }] },
-  alimentacao: { title: 'Alimentação', tabs: [{ to: '/alimentacao', label: 'Hoje' }, { to: '/alimentacao/plano', label: 'Plano' }, { to: '/alimentacao/alimentos', label: 'Alimentos' }, { to: '/alimentacao/refeicoes', label: 'Refeições' }] }
+  alimentacao: { title: 'Alimentação', tabs: [{ to: '/alimentacao', label: 'Hoje' }, { to: '/alimentacao/plano', label: 'Plano' }, { to: '/alimentacao/alimentos', label: 'Alimentos' }, { to: '/alimentacao/refeicoes', label: 'Refeições' }] },
+  mente: { title: 'Mente', tabs: [{ to: '/mente', label: 'Hoje' }, { to: '/mente/tomo', label: 'Remédios' }, { to: '/mente/painel', label: 'Painel' }, { to: '/mente/ajustes', label: 'Ajustes' }] }
 } as const;
 export type AreaId = keyof typeof AREAS;
 export const AREA_ROUTES = Object.values(AREAS).flatMap((a) => a.tabs.map((t) => t.to));
@@ -39,9 +40,9 @@ export function AreaNav({ area }: { area: AreaId }) {
 }
 
 /** Quem atende em cada área: a treinadora fica na aba Semana do Treino; as outras, em todas as abas da área. */
-const SPEC: Partial<Record<AreaId, 'skin' | 'food'>> = { cuidados: 'skin', alimentacao: 'food' };
+const SPEC: Partial<Record<AreaId, 'skin' | 'food' | 'mind'>> = { cuidados: 'skin', alimentacao: 'food', mente: 'mind' };
 
-function AreaPage({ area, children, testId }: { area: AreaId; children: ReactNode; testId: string }) {
+export function AreaPage({ area, children, testId }: { area: AreaId; children: ReactNode; testId: string }) {
   const spec = SPEC[area];
   return (
     <div className="screen" data-testid={testId}>

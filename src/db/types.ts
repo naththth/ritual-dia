@@ -62,6 +62,8 @@ export interface MindSettings {
   drinks?: Drink[];
   /** id do aviso -> dia em que ela dispensou (volta a aparecer no dia seguinte, se o padrão continuar). */
   dismissed?: Record<string, DateKey>;
+  /** O que ela achou das sugestões de cuidado (respiração, frase, música), para a IA acertar mais. */
+  careFeedback?: { at: DateKey; item: string; liked: boolean }[];
 }
 
 export interface TrainingRule {
@@ -431,6 +433,8 @@ export interface Reminders {
   enabled: boolean; meals: boolean; skin: boolean; classes: boolean; water: boolean;
   morning?: string; evening?: string;
   sleep?: SleepPlan;
+  /** Lembrete das tomadas de remédios e vitaminas (padrão: ligado). */
+  meds?: boolean;
   custom: { id: string; label: string; time: string; days: number[]; note?: string }[];
 }
 export interface Wellness extends Base {
@@ -471,6 +475,9 @@ export interface Intake extends Base {
   type: IntakeType;
   dose?: string;
   times: string[]; // HH:MM
+  /** Semanal (ex.: injeção uma vez por semana): só nos dias em 'days' (1 = segunda ... 7 = domingo). Sem isto, todo dia. */
+  freq?: 'diaria' | 'semanal';
+  days?: number[];
   /** Regra que o médico passou: em jejum, com comida, longe de outro item. */
   rule?: string;
   stock?: number; // unidades em casa

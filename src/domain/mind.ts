@@ -2,7 +2,7 @@
 // que cruza tudo isso com sono, treino e alimentação. A lógica dos avisos é pura (testável); o carregamento fica em loadMindDays.
 // Limites que valem para todo texto daqui: nunca sugerir mudar medicação; padrão preocupante = falar com o psiquiatra;
 // descrever o que os dados mostram, sem diagnosticar fase.
-import { addDays, toKey, todayKey, type DateKey } from '../lib/dates';
+import { addDays, isoWeekday, toKey, todayKey, type DateKey } from '../lib/dates';
 import type { Caffeine, Drink, Intake, IntakeLog, Meal, MedChange, MoodCheckin, SleepPlan, Wellness, Workout } from '../db/types';
 import { effectiveHrv, effectiveSleep } from './wellness';
 
@@ -29,6 +29,8 @@ export const DEFAULT_DRINKS: Drink[] = [
   { id: 'coado-caneca', label: 'Coado no filtro, caneca 300 mL', mg: 150 }
 ];
 export const CAFFEINE_DAY_LIMIT = 400;
+/** Abaixo disto, na média dos dias registrados, o déficit vira aviso. */
+export const DEFICIT_FLOOR = 900;
 /** Horas antes de deitar em que o café já pesa no sono. */
 export const CAFFEINE_CUTOFF_H = 8;
 
@@ -45,7 +47,7 @@ export interface Dose { item: Intake; slot: string; log?: IntakeLog }
 export function dosesFor(items: Intake[], logs: IntakeLog[], date: DateKey): Dose[] {
   const out: Dose[] = [];
   // Só a partir do dia em que o item foi cadastrado: antes disso não há tomada para cobrar.
-  for (const item of items.filter((i) => i.active && !i.deleted && toKey(new Date(i.createdAt)) <= date)) {
+  for (const item of items.filter((i) => i.active && !i.deleted && toKey(new Date(i.createdAt)) <= date && (i.freq !== 'semanal' || (i.days ?? []).includes(isoWeekday(date))))) {
     for (const slot of item.times) out.push({ item, slot, log: logs.find((l) => l.date === date && l.itemId === item.id && l.slot === slot && !l.deleted) });
   }
   return out.sort((a, b) => (toMin(a.slot) ?? 0) - (toMin(b.slot) ?? 0) || a.item.order - b.item.order);
@@ -61,7 +63,17 @@ export function slotsFor(doses: Dose[]) {
 /** Dias que faltam para acabar, pelo estoque e pelas tomadas por dia. */
 export function daysLeft(item: Intake): number | undefined {
   if (item.stock == null || !item.times.length) return undefined;
-  return Math.floor(item.stock / ((item.perDose ?? 1) * item.times.length));
+  const perWeek = (item.perDose ?? 1) * item.times.length * (item.freq === 'semanal' ? (item.days?.length ?? 0) : 7);
+  if (!perWeek) return undefined;
+  return Math.floor((item.stock / perWeek) * 7);
+}
+
+const WD = ['', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
+/** "todo dia às 06:40" ou "semanal, qua às 08:00". */
+export function scheduleLabel(i: Intake) {
+  const t = i.times.length ? `às ${i.times.join(', ')}` : 'sem horário';
+  if (i.freq === 'semanal') return i.days?.length ? `semanal, ${i.days.map((d) => WD[d]).join(', ')} ${t}` : 'semanal, defina o dia';
+  return `todo dia ${t}`;
 }
 
 export const typeLabel = (t: Intake['type']) => ({ medicamento: 'Medicamento', vitamina: 'Vitamina', suplemento: 'Suplemento' })[t];
@@ -93,6 +105,8 @@ export interface MindDay {
   energy?: number; irritability?: number; anxiety?: number; racing?: number;
   wake?: string;
   tags: string[];
+  /** O que ela escreveu nos check-ins (só a especialista da Mente lê). */
+  notes?: string[];
   checkinPm: boolean;
   caffeineMg: number;
   lastCaffeine?: string;
@@ -140,7 +154,7 @@ export function buildDays(input: MindInput, from: DateKey, to: DateKey, nowMin =
       sleepH: sleep?.h, sleepStart: w?.sleepStart, wakeTime: w?.sleepEnd, hrv: effectiveHrv(w), weight: w?.weight,
       moodAm: am?.mood, moodPm: pm?.mood,
       energy: pm?.energy, irritability: pm?.irritability, anxiety: pm?.anxiety, racing: pm?.racing,
-      wake: am?.wake, tags: [...(am?.tags ?? []), ...(pm?.tags ?? [])], checkinPm: !!pm && pm.mood != null,
+      wake: am?.wake, tags: [...(am?.tags ?? []), ...(pm?.tags ?? [])], notes: [am?.note, pm?.note].filter((x): x is string => !!x), checkinPm: !!pm && pm.mood != null,
       caffeineMg: caf.reduce((a, c) => a + c.mg, 0), lastCaffeine: caf[caf.length - 1]?.time, firstCaffeine: caf[0]?.time,
       breakfast: meals.some((m) => m.mealType === 'cafe'),
       kcal: meals.length ? meals.reduce((a, m) => a + (m.kcal ?? 0), 0) : undefined,
@@ -292,11 +306,12 @@ export function computeAlerts(days: MindDay[], ctx: AlertCtx): MindAlert[] {
   /* --- Emagrecimento --- */
   const logged = last(7, 1).filter((d) => d.mealsLogged && d.kcal != null);
   const unstable = last(3).some((d) => (d.moodPm != null && Math.abs(d.moodPm) >= 2) || (d.sleepH != null && sleepRef != null && d.sleepH <= sleepRef - 1.5));
-  if (ctx.targets?.kcal && logged.length >= 4) {
+  // Déficit: ela escolheu a meta atual; o aviso só vale quando a média dos dias registrados fica abaixo de 900 kcal.
+  if (logged.length >= 3) {
     const k = avg(logged.map((d) => d.kcal))!;
-    if (k < ctx.targets.kcal * 0.8) {
-      out.push({ id: 'deficit', level: unstable ? 'importante' : 'atencao', area: 'emagrecimento', title: 'Comendo bem abaixo da meta',
-        text: `Média de ${Math.round(k)} kcal nos dias registrados, para meta de ${ctx.targets.kcal}. Déficit grande piora sono, humor e treino, e acelera a perda de massa magra.${unstable ? ' Com humor ou sono instáveis, a prioridade agora é estabilidade, não velocidade.' : ''} Vale reforçar as refeições em volta do treino.`, action: { label: 'Falar com a nutricionista', to: '/alimentacao' } });
+    if (k < DEFICIT_FLOOR) {
+      out.push({ id: 'deficit', level: unstable ? 'importante' : 'atencao', area: 'emagrecimento', title: `Média de ${Math.round(k)} kcal por dia`,
+        text: `Nos dias registrados, você comeu em média menos de ${DEFICIT_FLOOR} kcal. Abaixo disso, sono, humor e treino costumam pagar a conta, e a massa magra vai junto.${unstable ? ' Com humor ou sono instáveis, a prioridade agora é estabilidade, não velocidade.' : ''} Vale reforçar as refeições em volta do treino.`, action: { label: 'Falar com a nutricionista', to: '/alimentacao' } });
     }
   }
   if (ctx.targets?.p) {

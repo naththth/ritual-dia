@@ -29,7 +29,7 @@ import { Onboarding } from './screens/Onboarding';
 import { ProductReview } from './screens/ProductReview';
 import { RegisterSheet } from './screens/RegisterSheet';
 import { DevAssist } from './screens/devassist';
-import { CheckinScreen, IntakeScreen, MindScreen, ReportScreen } from './screens/mind';
+import { CheckinScreen, IntakeScreen, MindPanelPage, MindScreen, MindSettingsPage, ReportScreen } from './screens/mind';
 import { registerSW } from 'virtual:pwa-register';
 import { toast } from './state/store';
 
@@ -68,7 +68,7 @@ function Shell() {
   if (inOnboarding && !loc.pathname.startsWith('/revisao')) {
     return (<div className="app"><Onboarding /><Toasts /></div>);
   }
-  const mainTabs = ['/', ...AREA_ROUTES, '/mente', '/mais', '/calendario', '/listas', '/evolucao', '/habitos'];
+  const mainTabs = ['/', ...AREA_ROUTES, '/mais', '/calendario', '/listas', '/evolucao', '/habitos'];
   const showNav = mainTabs.includes(loc.pathname);
   return (
     <div className="app">
@@ -95,6 +95,8 @@ function Shell() {
         <Route path="/mente/checkin" element={<CheckinScreen />} />
         <Route path="/mente/tomo" element={<IntakeScreen />} />
         <Route path="/mente/relatorio" element={<ReportScreen />} />
+        <Route path="/mente/painel" element={<MindPanelPage />} />
+        <Route path="/mente/ajustes" element={<MindSettingsPage />} />
         <Route path="/mais" element={<MoreScreen />} />
         <Route path="/diario" element={<JournalScreen />} />
         <Route path="/notas" element={<NotesScreen />} />
