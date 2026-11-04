@@ -22,6 +22,7 @@ import { ExerciseEditor, LogExercises } from './strength-ui';
 import { aiAvailable, askAI, applyTrainingResult } from '../domain/ai';
 import { fmt } from '../domain/nutrition';
 import { CoachButton } from './coach';
+import { aiWorkoutFeedback, feedbackBasis } from '../domain/wfeedback';
 import { syncIntervalsNow } from '../sync/services';
 import { useSync } from '../sync/sync';
 
@@ -319,6 +320,7 @@ export function WorkoutCard({ w, name, ftp, strength }: { w: Workout; name: stri
       {!m && <div className="small">{[w.intensity, w.muscles?.join(', ')].filter(Boolean).join(', ')}</div>}
       {strength && <LogExercises w={w} program={strength.program} firstGroup={strength.firstGroup} hint={strength.hint} onSave={(exercises) => update<'workout'>(w.id, { exercises }).then(() => toast('Exercícios salvos no treino'))} />}
       <WorkoutFeedback w={w} />
+      <CoachRead w={w} />
     </div>
   );
 }
@@ -412,5 +414,42 @@ function PlannedStrength({ t, history, date, onDone }: { t: WorkoutTemplate; his
         <button className="pill-act pa-ghost" data-testid="strength-edit" onClick={() => setDraft(exercises)}>Editar treino</button>
       </div>
     </div>
+  );
+}
+
+/** Leitura da treinadora: gerada sozinha para treinos dos últimos 2 dias, uma vez; dá para refazer depois de lançar esforço, comentário ou cargas. */
+function CoachRead({ w }: { w: Workout }) {
+  const [busy, setBusy] = useState(false);
+  const fb = w.aiFeedback;
+  const recent = w.date >= addDays(todayKey(), -2);
+  const run = async (silent: boolean) => {
+    setBusy(true);
+    try { await aiWorkoutFeedback(w); }
+    catch (e: any) { if (!silent) toast(e.message, undefined, 'error'); } finally { setBusy(false); }
+  };
+  useEffect(() => {
+    if (fb || !recent || !aiAvailable()) return;
+    const k = `wfb:${w.id}`;
+    try { if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, '1'); } catch { /* */ }
+    void run(true);
+  }, [w.id, !!fb]);
+  if (!fb) {
+    if (!aiAvailable()) return null;
+    return <button className="link small" style={{ marginTop: 6 }} onClick={() => run(false)} disabled={busy} data-testid="wfb-ask"><Sparkles size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />{busy ? 'Lendo o treino…' : 'Pedir a leitura da treinadora'}</button>;
+  }
+  const stale = fb.basis !== feedbackBasis(w);
+  return (
+    <section className="wfb" data-testid="wfb">
+      <div className="row between" style={{ alignItems: 'center' }}>
+        <span className="brief-k" style={{ color: 'var(--blue-ink)' }}><Sparkles size={14} />Leitura da treinadora</span>
+        {fb.nota ? <span className="wfb-nota" aria-label={`Execução ${fb.nota} de 5`}>{[1, 2, 3, 4, 5].map((n) => <i key={n} className={n <= fb.nota! ? 'on' : ''} />)}</span> : null}
+      </div>
+      {fb.titulo && <b className="wfb-t">{fb.titulo}</b>}
+      {fb.desempenho && <p>{fb.desempenho}</p>}
+      {fb.recuperacao && <p><b>Recuperação.</b> {fb.recuperacao}</p>}
+      {fb.alimentacao && <p className="wfb-food"><b>Comer agora.</b> {fb.alimentacao}</p>}
+      {fb.proximo && <p><b>Próximo.</b> {fb.proximo}</p>}
+      {aiAvailable() && <button className="link tiny" onClick={() => run(false)} disabled={busy}>{busy ? 'Refazendo…' : stale ? 'Você lançou dados novos: refazer leitura' : 'Refazer leitura'}</button>}
+    </section>
   );
 }

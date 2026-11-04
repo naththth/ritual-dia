@@ -125,12 +125,12 @@ function DevSheet({ open, onClose, route }: { open: boolean; onClose: () => void
           {files.length > 0 && (
             <div className="dev-pending">{files.map((f, i) => <span key={i} className="chip">{f.name.slice(0, 18)}<button aria-label="Tirar print" onClick={() => setFiles(files.filter((_, k) => k !== i))}><X size={12} /></button></span>)}</div>
           )}
-          <div className="chat-input">
+          <div className="composer dev-composer">
             <textarea value={input} rows={1} aria-label="O que ajustar" data-testid="dev-input" placeholder={current!.status === 'precisa_voce' ? 'Responda ao Claude' : 'Ex.: o botão de salvar fica escondido'}
               onChange={(e) => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = `${Math.min(140, e.target.scrollHeight)}px`; }} />
-            <button className="icon-btn" aria-label="Anexar print" onClick={picker.open}><ImagePlus size={20} /></button>
+            <button className="composer-icon" aria-label="Anexar print" onClick={picker.open}><ImagePlus size={20} /></button>
             <MicButton compact label="Falar" onText={(t) => setInput((x) => appendText(x, t))} />
-            <button className="chat-send icon" onClick={() => void send()} disabled={(!input.trim() && !files.length) || busy} aria-label="Enviar" data-testid="dev-send"><Send size={18} /></button>
+            <button className="composer-send" onClick={() => void send()} disabled={(!input.trim() && !files.length) || busy} aria-label="Enviar" data-testid="dev-send"><Send size={18} /></button>
           </div>
           {picker.el}
           <div className="row" style={{ gap: 8, marginTop: 10 }}>

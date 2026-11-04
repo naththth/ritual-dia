@@ -342,6 +342,8 @@ export interface Workout extends Base {
   note?: string;
   rpe?: number; // esforço percebido 1 a 10
   feeling?: string; // como foi, nas palavras dela
+  /** Leitura da IA depois do treino: desempenho, recuperação e o que comer. basis guarda o que ela tinha lançado quando foi gerada. */
+  aiFeedback?: { titulo?: string; desempenho?: string; recuperacao?: string; alimentacao?: string; proximo?: string; nota?: number; at: number; basis: string };
 }
 
 export type PlanDomain = 'skin' | 'training' | 'food';

@@ -1082,3 +1082,78 @@ input[type=checkbox]:checked::after { content: ''; width: 6px; height: 11px; bor
 .kcal-solo .kv { font-family: var(--f-display); font-weight: 800; font-size: 34px; letter-spacing: -0.03em; }
 .kcal-solo .kl { font-weight: 650; font-size: 14px; }
 .kcal-solo .link { color: var(--honey-ink); min-height: 0; }
+
+/* Conversa de ajuste: mesmo compositor das especialistas, nunca passa da borda */
+.dev-composer { margin-top: 10px; }
+.composer textarea { width: auto; min-width: 0; }
+.composer textarea:focus-visible { outline: none; }
+
+/* Barra de baixo: o item ativo cresce até caber o rótulo; os outros dividem o resto */
+.bottomnav { display: flex; align-items: center; gap: 2px; }
+.bottomnav a { flex: 1 1 0; min-width: 0; margin: 0; padding: 0 4px; white-space: nowrap; font-size: 11px; letter-spacing: -0.01em; }
+.bottomnav a.active { flex: 0 0 auto; padding: 0 12px; }
+
+/* =====================================================================
+   App propositivo: ideal agora, prato contra o ideal, leitura do treino,
+   radar do dia e indicadores
+   ===================================================================== */
+.fuel { margin: 10px 0 2px; padding: 12px 14px; border-radius: 16px; background: color-mix(in srgb, var(--honey) 40%, var(--card)); color: var(--honey-ink); }
+.fuel-h { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+.fuel-tag { margin-left: auto; font-size: 11.5px; font-weight: 800; padding: 2px 9px; border-radius: 999px; background: var(--blue-ink); color: #E4F0EC; }
+.fuel-chips { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font-size: 13px; }
+.fuel-chips b { font-family: var(--f-display); font-size: 17px; font-weight: 750; letter-spacing: -0.02em; margin-right: 2px; }
+.fuel-picks { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.fuel-picks li { display: flex; align-items: baseline; gap: 8px; font-size: 14px; padding: 6px 10px; border-radius: 10px; background: rgba(255, 255, 255, .55); }
+.fuel-done { margin: 8px 0 2px; color: var(--ink-2); }
+.plate-coach { margin: 6px 0 14px; padding: 12px 14px; border-radius: 18px; background: color-mix(in srgb, var(--honey) 32%, var(--card)); color: var(--honey-ink); }
+.pc-bars { display: flex; flex-direction: column; gap: 6px; }
+.pc-bar { display: grid; grid-template-columns: 62px 1fr 74px; align-items: center; gap: 8px; }
+.pc-bar .wbar { margin: 0; background: rgba(255, 255, 255, .6); }
+.pc-bar .num { text-align: right; }
+.pc-add { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.pc-add .mini-add { border-style: solid; border-color: var(--honey-2); color: var(--honey-ink); background: rgba(255, 255, 255, .5); }
+.ai-meal { padding: 12px 14px; border-radius: 16px; background: var(--card); margin-bottom: 10px; }
+.ai-meal ul { margin: 6px 0; padding-left: 18px; font-size: 14px; }
+
+.wfb { margin-top: 12px; padding: 12px 14px; border-radius: 16px; background: rgba(255, 255, 255, .62); color: var(--ink); }
+.wfb p { margin: 6px 0 0; font-size: 14px; line-height: 1.45; }
+.wfb-t { display: block; margin-top: 4px; font-size: 15.5px; line-height: 1.3; }
+.wfb-food { padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, var(--honey) 35%, transparent); }
+.wfb-nota { display: inline-flex; gap: 3px; }
+.wfb-nota i { width: 14px; height: 6px; border-radius: 3px; background: var(--line-2); }
+.wfb-nota i.on { background: var(--blue-ink); }
+
+.radar { background: var(--card); border-radius: 24px; padding: 14px 14px 10px; margin: 2px 0 14px; }
+.rd-item { display: flex; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.rd-item:first-of-type { border-top: 0; }
+.rd-ic { flex: 0 0 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; }
+.rd-food .rd-ic { background: var(--honey); color: var(--honey-ink); }
+.rd-water .rd-ic { background: var(--blue); color: var(--blue-ink); }
+.rd-training .rd-ic { background: var(--blue-ink); color: #E4F0EC; }
+.rd-recovery .rd-ic { background: var(--lilac); color: var(--lilac-ink); }
+.rd-skin .rd-ic { background: var(--rose); color: var(--rose-ink); }
+.rd-weather .rd-ic { background: var(--wine); color: var(--wine-ink); }
+.rd-item b { display: block; font-size: 15px; line-height: 1.3; }
+.rd-item p { margin: 2px 0 0; font-size: 14px; line-height: 1.4; color: var(--ink-2); }
+.rd-why { display: block; font-size: 11.5px; color: var(--ink-3); margin-top: 3px; font-style: italic; }
+.rd-act { margin-top: 8px; min-height: 34px; font-size: 13px; }
+
+.ind-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ind-tile { background: var(--card); border-radius: 18px; padding: 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ind-tile .v { font-family: var(--f-display); font-weight: 800; font-size: 24px; letter-spacing: -0.03em; line-height: 1.1; }
+.ind-tile .l { font-size: 12.5px; font-weight: 650; opacity: .85; line-height: 1.25; }
+.ind-tile .r { font-size: 11.5px; line-height: 1.3; margin-top: 4px; padding-top: 4px; border-top: 1px dashed currentColor; opacity: .75; }
+.ind-tile .r.ok::before { content: '● '; color: var(--ok); }
+.ind-tile .r.off::before { content: '● '; color: var(--wine); }
+.ind-tile.t-honey, .ind-tile.t-teal, .ind-tile.t-lilac, .ind-tile.t-rose { border: 0; }
+.ind-bars { display: flex; align-items: flex-end; gap: 3px; height: 92px; margin-bottom: 4px; }
+.ib { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; height: 100%; min-width: 0; }
+.ib-track { position: relative; flex: 1; width: 100%; border-radius: 6px; background: var(--paper-2); overflow: hidden; }
+.ib-fill { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 6px; }
+.ib-goal { position: absolute; left: 0; right: 0; height: 2px; background: var(--ink); opacity: .55; z-index: 1; }
+.ib-l { font-size: 10.5px; font-weight: 700; color: var(--ink-3); height: 13px; }
+.ind-note { font-size: 12.5px; color: var(--ink-2); line-height: 1.4; margin: 6px 0 0; }
+.ind-tile.t-honey { background: var(--honey); color: var(--honey-ink); }
+.ind-tile.t-teal { background: var(--blue-ink); color: #E4F0EC; }
+.ind-tile.t-lilac { background: var(--lilac); color: var(--lilac-ink); }
+.ind-tile.t-rose { background: var(--rose); color: var(--rose-ink); }

@@ -9,6 +9,7 @@ import { planFor, plannedFood } from '../domain/rules';
 import { addDays, shortLabel, todayKey } from '../lib/dates';
 import { addWater, mealFromTemplate, saveMeal, skipPlanned } from '../domain/actions';
 import { lastMealOf, nextMealType } from '../domain/repeat';
+import { FuelNext, useFuel } from './fuel-ui';
 import { fmt, itemNutr, portionText, totals } from '../domain/nutrition';
 import { MACRO_COLORS, MacroBar, MacroLine } from './food-ui';
 import { remove } from '../db/db';
@@ -29,6 +30,7 @@ export function FoodTab() {
   const tmpls = useAll('mtemplate');
   const extras = useByDate('extra', date);
   const recent = useByRange('meal', addDays(date, -21), addDays(date, -1));
+  const fuel = useFuel(date);
   const [nowMin, setNowMin] = useState(() => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); });
   useEffect(() => { const t = setInterval(() => { const d = new Date(); setNowMin(d.getHours() * 60 + d.getMinutes()); }, 60_000); return () => clearInterval(t); }, []);
   if (!settings || !meals || !foods || !tmpls || !plans || !water || !workouts || !skips) return <div className="screen"><TopBar /></div>;
@@ -132,6 +134,7 @@ export function FoodTab() {
                 </button>
               );
             })}
+            {isNext && !meal && fuel && showN && <FuelNext fuel={fuel} mealType={mt.id} label={mt.label} date={date} />}
             {!meal && !skipped && last && (
               <button className="repeat-row" onClick={() => saveMeal(date, mt.id, last.items)} data-testid={`repeat-${mt.id}`}>
                 <span className="rr-ic"><Repeat2 size={18} /></span>

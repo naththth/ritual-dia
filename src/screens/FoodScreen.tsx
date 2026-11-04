@@ -19,6 +19,7 @@ import { BarcodeButton } from './library/Barcode';
 import { defaultItem, displayFood, fmt, itemNutr, portionText, totals } from '../domain/nutrition';
 import { FoodSheet, MacroLine, MacroRing } from './food-ui';
 import { planFor, plannedFood } from '../domain/rules';
+import { PlateCoach, useFuel } from './fuel-ui';
 
 function defaultMeal() {
   const h = new Date().getHours();
@@ -38,6 +39,7 @@ export function FoodScreen() {
   const tmpls = useAll('mtemplate');
   const plans = useAll('plan');
   const dayExtras = useByDate('extra', date);
+  const fuel = useFuel(date);
   const recent = useLiveQuery(() => byDateRange('meal', addDays(date, -21), addDays(date, -1)), [date]);
   const meal = meals?.find((m) => m.mealType === type);
   const [items, setItems] = useState<MealItem[]>([]);
@@ -163,6 +165,9 @@ export function FoodScreen() {
           )}
         </div>
       </div>
+
+      {fuel && showN && <PlateCoach fuel={fuel} mealType={type} label={typeLabel} date={date} plate={items} onAdd={(it) => { putItem(it); toast(`${foods?.find((f) => f.id === it.foodId)?.name ?? 'Item'} no prato. Toque para ajustar.`); }}
+        onUse={(its) => setItems((xs) => [...xs.filter((x) => !its.some((i) => i.foodId === x.foodId)), ...its])} />}
 
       {/* No prato */}
       <section data-testid="meal-selected">

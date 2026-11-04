@@ -21,6 +21,7 @@ import { SettingsScreen } from './screens/SettingsScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { CycleScreen } from './screens/cycle';
 import { WeightScreen } from './screens/WeightScreen';
+import { IndicatorsScreen } from './screens/IndicatorsScreen';
 import { LibraryScreen } from './screens/library/LibraryScreen';
 import { PlanScreen } from './screens/PlanScreen';
 import { AREA_ROUTES, TrainingPlanPage, TrainingSessionsPage, FoodPlanPage, FoodsPage, MealsPage, CareTodayPage, CarePlanPage, CareProductsPage, HabitsGoalsPage } from './screens/areas';
@@ -97,6 +98,7 @@ function Shell() {
         <Route path="/perfil" element={<ProfileScreen />} />
         <Route path="/ciclo" element={<CycleScreen />} />
         <Route path="/peso" element={<WeightScreen />} />
+        <Route path="/indicadores" element={<IndicatorsScreen />} />
         <Route path="/biblioteca/:section" element={<LibraryScreen />} />
         <Route path="/plano/:domain" element={<PlanScreen />} />
         <Route path="/revisao" element={<ProductReview />} />

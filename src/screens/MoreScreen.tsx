@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { CalendarDays, ChartNoAxesColumn, ListChecks, Settings, ChevronRight, NotebookPen, StickyNote, BookOpen, UserRound, Droplet, Scale, Target } from 'lucide-react';
+import { Activity, CalendarDays, ChartNoAxesColumn, ListChecks, Settings, ChevronRight, NotebookPen, StickyNote, BookOpen, UserRound, Droplet, Scale, Target } from 'lucide-react';
 import { TopBar } from './common';
 
 /* Agrupado pelo uso: o que ela consulta sobre si, o que organiza o dia a dia e o que é registro. Cada bloco tem a cor da paleta. */
@@ -10,7 +10,8 @@ const GROUPS = [
       { to: '/perfil', label: 'Perfil e objetivos', sub: 'A base das especialistas', icon: <UserRound size={20} />, tone: 't-olive' },
       { to: '/peso', label: 'Peso', sub: 'Ritmo e previsão', icon: <Scale size={20} />, tone: 't-honey' },
       { to: '/ciclo', label: 'Ciclo', sub: 'Fase e previsão', icon: <Droplet size={20} />, tone: 't-rose' },
-      { to: '/evolucao', label: 'Evolução', sub: 'Semana e mês', icon: <ChartNoAxesColumn size={20} />, tone: 't-teal' }
+      { to: '/indicadores', label: 'Indicadores', sub: 'Você contra as referências', icon: <Activity size={20} />, tone: 't-teal' },
+      { to: '/evolucao', label: 'Evolução', sub: 'Semana, mês e revisão', icon: <ChartNoAxesColumn size={20} />, tone: 't-lilac' }
     ]
   },
   {
@@ -18,7 +19,7 @@ const GROUPS = [
     items: [
       { to: '/listas', label: 'Tarefas', sub: 'Por categoria e prioridade', icon: <ListChecks size={20} />, tone: 't-terra' },
       { to: '/habitos', label: 'Hábitos e metas', sub: 'O que repetir, onde chegar', icon: <Target size={20} />, tone: 't-ink' },
-      { to: '/calendario', label: 'Calendário', sub: 'O mês inteiro', icon: <CalendarDays size={20} />, tone: 't-lilac' }
+      { to: '/calendario', label: 'Calendário', sub: 'O mês inteiro', icon: <CalendarDays size={20} />, tone: 't-olive' }
     ]
   },
   {

@@ -16,6 +16,7 @@ import { BriefTasks, DayBriefBlock } from './ai-ui';
 import { NowAndTimeline, TodayStats } from './today';
 import { WellnessCard } from './wellness';
 import { CycleCard } from './cycle';
+import { RadarCard } from './radar-ui';
 
 export function DayScreen() {
   const date = useApp((s) => s.date);
@@ -27,6 +28,7 @@ export function DayScreen() {
       {/* Ordem pelo uso: números do dia, o que fazer agora e a linha do tempo (pele, comida, treino) primeiro;
           leitura da IA, corpo e ciclo depois; tarefas e hábitos no fim. */}
       <TodayStats date={date} />
+      <RadarCard date={date} />
       <NowAndTimeline date={date} />
       <DayBriefBlock date={date} />
       <WellnessCard date={date} />
