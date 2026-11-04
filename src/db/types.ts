@@ -476,8 +476,11 @@ export interface Intake extends Base {
   dose?: string;
   times: string[]; // HH:MM
   /** Semanal (ex.: injeção uma vez por semana): só nos dias em 'days' (1 = segunda ... 7 = domingo). Sem isto, todo dia. */
-  freq?: 'diaria' | 'semanal';
+  freq?: 'diaria' | 'semanal' | 'intervalo';
   days?: number[];
+  /** A cada N dias (ex.: injeção a cada 10 dias), contando a partir de uma aplicação conhecida. */
+  everyDays?: number;
+  startDate?: DateKey;
   /** Regra que o médico passou: em jejum, com comida, longe de outro item. */
   rule?: string;
   stock?: number; // unidades em casa

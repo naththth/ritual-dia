@@ -2,7 +2,7 @@
 // que cruza tudo isso com sono, treino e alimentação. A lógica dos avisos é pura (testável); o carregamento fica em loadMindDays.
 // Limites que valem para todo texto daqui: nunca sugerir mudar medicação; padrão preocupante = falar com o psiquiatra;
 // descrever o que os dados mostram, sem diagnosticar fase.
-import { addDays, isoWeekday, toKey, todayKey, type DateKey } from '../lib/dates';
+import { addDays, diffDays, isoWeekday, toKey, todayKey, type DateKey } from '../lib/dates';
 import type { Caffeine, Drink, Intake, IntakeLog, Meal, MedChange, MoodCheckin, SleepPlan, Wellness, Workout } from '../db/types';
 import { effectiveHrv, effectiveSleep } from './wellness';
 
@@ -43,11 +43,28 @@ export const moodId = (date: DateKey, period: 'am' | 'pm') => `mood:${date}:${pe
 /* ---------------- O que tomar ---------------- */
 export interface Dose { item: Intake; slot: string; log?: IntakeLog }
 
+/** Se o item tem tomada nesse dia: todo dia, nos dias da semana marcados ou a cada N dias desde uma aplicação conhecida. */
+export function dueOn(i: Intake, date: DateKey) {
+  if (i.freq === 'semanal') return (i.days ?? []).includes(isoWeekday(date));
+  if (i.freq === 'intervalo') {
+    if (!i.everyDays || !i.startDate) return false;
+    const d = diffDays(i.startDate, date);
+    return d >= 0 && d % i.everyDays === 0;
+  }
+  return true;
+}
+
+/** Próximo dia com tomada a partir de 'from' (inclusive), para itens a cada N dias. */
+export function nextDue(i: Intake, from: DateKey = todayKey()): DateKey | undefined {
+  for (let k = 0; k < 400; k++) { const d = addDays(from, k); if (dueOn(i, d)) return d; }
+  return undefined;
+}
+
 /** Tomadas do dia, em ordem de horário, com o registro quando houver. */
 export function dosesFor(items: Intake[], logs: IntakeLog[], date: DateKey): Dose[] {
   const out: Dose[] = [];
   // Só a partir do dia em que o item foi cadastrado: antes disso não há tomada para cobrar.
-  for (const item of items.filter((i) => i.active && !i.deleted && toKey(new Date(i.createdAt)) <= date && (i.freq !== 'semanal' || (i.days ?? []).includes(isoWeekday(date))))) {
+  for (const item of items.filter((i) => i.active && !i.deleted && toKey(new Date(i.createdAt)) <= date && dueOn(i, date))) {
     for (const slot of item.times) out.push({ item, slot, log: logs.find((l) => l.date === date && l.itemId === item.id && l.slot === slot && !l.deleted) });
   }
   return out.sort((a, b) => (toMin(a.slot) ?? 0) - (toMin(b.slot) ?? 0) || a.item.order - b.item.order);
@@ -63,7 +80,7 @@ export function slotsFor(doses: Dose[]) {
 /** Dias que faltam para acabar, pelo estoque e pelas tomadas por dia. */
 export function daysLeft(item: Intake): number | undefined {
   if (item.stock == null || !item.times.length) return undefined;
-  const perWeek = (item.perDose ?? 1) * item.times.length * (item.freq === 'semanal' ? (item.days?.length ?? 0) : 7);
+  const perWeek = (item.perDose ?? 1) * item.times.length * (item.freq === 'semanal' ? (item.days?.length ?? 0) : item.freq === 'intervalo' ? (item.everyDays ? 7 / item.everyDays : 0) : 7);
   if (!perWeek) return undefined;
   return Math.floor((item.stock / perWeek) * 7);
 }
@@ -73,6 +90,11 @@ const WD = ['', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
 export function scheduleLabel(i: Intake) {
   const t = i.times.length ? `às ${i.times.join(', ')}` : 'sem horário';
   if (i.freq === 'semanal') return i.days?.length ? `semanal, ${i.days.map((d) => WD[d]).join(', ')} ${t}` : 'semanal, defina o dia';
+  if (i.freq === 'intervalo') {
+    if (!i.everyDays || !i.startDate) return 'a cada N dias, defina a data';
+    const n = nextDue(i);
+    return `a cada ${i.everyDays} dias ${t}${n ? `, próxima ${n.slice(8, 10)}/${n.slice(5, 7)}` : ''}`;
+  }
   return `todo dia ${t}`;
 }
 

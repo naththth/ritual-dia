@@ -14,7 +14,7 @@ import { PageHead } from './common';
 import { AreaPage } from './areas';
 import type { Intake, IntakeType, MoodCheckin, SleepPlan } from '../db/types';
 import {
-  CONTEXT_TAGS, DEFAULT_DRINKS, MOOD_LABEL, SLIDERS, WAKE_OPTIONS, bedStageProgress, daysLeft, dosesFor, observing, scheduleLabel, slotsFor, toMin, typeLabel,
+  CONTEXT_TAGS, DEFAULT_DRINKS, MOOD_LABEL, SLIDERS, WAKE_OPTIONS, bedStageProgress, daysLeft, dosesFor, dueOn, nextDue, observing, scheduleLabel, slotsFor, toMin, typeLabel,
   moodBaseline, type MindAlert, type MindDay
 } from '../domain/mind';
 import { addCaffeine, dismissAlert, loadMind, markDose, saveCheckin, unmarkDose } from '../domain/mindload';
@@ -338,6 +338,10 @@ function DosesBlock({ date }: { date: DateKey }) {
           </div>
         </div>
       ))}
+      {items.filter((i) => i.active && i.freq && i.freq !== 'diaria' && !dueOn(i, date)).map((i) => {
+        const n = nextDue(i, date);
+        return <p key={`next-${i.id}`} className="small" style={{ margin: '8px 0 0' }} data-testid={`next-${i.id}`}><b>{i.name}</b>: {n ? `próxima em ${n.slice(8, 10)}/${n.slice(5, 7)}${i.times[0] ? ` às ${i.times[0]}` : ''}` : 'defina quando'}</p>;
+      })}
       {items.filter((i) => i.active).map((i) => ({ i, left: daysLeft(i) })).filter((x) => x.left != null && x.left <= 7).map((x) => (
         <p key={x.i.id} className="notice" style={{ marginTop: 10 }}>{x.i.name}: {x.left === 0 ? 'acabou o estoque' : `restam cerca de ${x.left} ${x.left === 1 ? 'dia' : 'dias'}`}. Hora de repor.</p>
       ))}
@@ -654,7 +658,7 @@ function IntakeSheet({ item, onClose, count }: { item: Intake | 'new' | null; on
   const set = (p: Partial<Intake>) => setF((x) => ({ ...x, ...p }));
   const save = async () => {
     if (!f.name?.trim()) { toast('Dê um nome.', undefined, 'error'); return; }
-    const data = { name: f.name.trim(), freq: f.freq ?? 'diaria', days: f.freq === 'semanal' ? f.days ?? [] : undefined, alias: f.alias?.trim() || undefined, type: f.type ?? 'medicamento', dose: f.dose?.trim() || undefined, times: (f.times ?? []).filter((t) => toMin(t) != null).sort(), rule: f.rule?.trim() || undefined, stock: f.stock, perDose: f.perDose ?? 1, caffeineSensitive: !!f.caffeineSensitive, shareCare: !!f.shareCare, note: f.note?.trim() || undefined, active: f.active !== false };
+    const data = { name: f.name.trim(), freq: f.freq ?? 'diaria', days: f.freq === 'semanal' ? f.days ?? [] : undefined, everyDays: f.freq === 'intervalo' ? f.everyDays : undefined, startDate: f.freq === 'intervalo' ? f.startDate : undefined, alias: f.alias?.trim() || undefined, type: f.type ?? 'medicamento', dose: f.dose?.trim() || undefined, times: (f.times ?? []).filter((t) => toMin(t) != null).sort(), rule: f.rule?.trim() || undefined, stock: f.stock, perDose: f.perDose ?? 1, caffeineSensitive: !!f.caffeineSensitive, shareCare: !!f.shareCare, note: f.note?.trim() || undefined, active: f.active !== false };
     if (item === 'new') await create('intake', { ...data, order: count + 1 });
     else if (item) await update<'intake'>(item.id, data);
     toast('Salvo'); onClose();
@@ -675,7 +679,14 @@ function IntakeSheet({ item, onClose, count }: { item: Intake | 'new' | null; on
       <div className="chips">
         <Chip on={f.freq !== 'semanal'} onClick={() => set({ freq: 'diaria' })}>Todo dia</Chip>
         <Chip on={f.freq === 'semanal'} onClick={() => set({ freq: 'semanal', days: f.days ?? [] })} testId="freq-weekly">Semanal</Chip>
+        <Chip on={f.freq === 'intervalo'} onClick={() => set({ freq: 'intervalo', everyDays: f.everyDays ?? 10, startDate: f.startDate ?? todayKey() })} testId="freq-interval">A cada X dias</Chip>
       </div>
+      {f.freq === 'intervalo' && (
+        <div className="row" style={{ gap: 12, marginTop: 8 }}>
+          <div className="grow"><span className="label" style={{ marginTop: 0 }}>A cada</span><div className="row"><NumberInput value={f.everyDays ?? 10} int min={2} max={90} onChange={(v) => set({ everyDays: v ?? 10 })} label="Dias entre aplicações" style={{ width: 80 }} /><span className="small">dias</span></div></div>
+          <div className="grow"><span className="label" style={{ marginTop: 0 }}>Última aplicação</span><input type="date" value={f.startDate ?? ''} onChange={(e) => set({ startDate: e.target.value || undefined })} /></div>
+        </div>
+      )}
       {f.freq === 'semanal' && <div className="chips" style={{ marginTop: 8 }}>{[1, 2, 3, 4, 5, 6, 7].map((d) => <Chip key={d} on={f.days?.includes(d)} onClick={() => set({ days: f.days?.includes(d) ? f.days.filter((x) => x !== d) : [...(f.days ?? []), d].sort() })}>{['', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'][d]}</Chip>)}</div>}
       <span className="label">Horários</span>
       {(f.times ?? []).map((t, i) => (

@@ -84,6 +84,10 @@ async function dueReminders(userId: string, now: ReturnType<typeof nowParts>): P
     for (const it of recs.filter((x) => x.kind === 'intake' && x.active)) {
       if (it.createdAt && new Date(it.createdAt).toISOString().slice(0, 10) > now.date) continue;
       if (it.freq === 'semanal' && !(it.days ?? []).includes(now.weekday)) continue;
+      if (it.freq === 'intervalo') {
+        const gap = it.startDate && it.everyDays ? Math.round((Date.parse(now.date + 'T12:00:00Z') - Date.parse(it.startDate + 'T12:00:00Z')) / 86400000) : -1;
+        if (gap < 0 || gap % it.everyDays !== 0) continue;
+      }
       for (const t of it.times ?? []) {
         if (today.some((x) => x.kind === 'intakelog' && x.itemId === it.id && x.slot === t)) continue;
         slots.set(t, [...(slots.get(t) ?? []), it.alias || it.name]);

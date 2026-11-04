@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { addDays } from '../../src/lib/dates';
-import { bedStageProgress, computeAlerts, daysLeft, dosesFor, moodBaseline, slotsFor, type MindDay } from '../../src/domain/mind';
+import { bedStageProgress, computeAlerts, daysLeft, dosesFor, dueOn, moodBaseline, nextDue, scheduleLabel, slotsFor, type MindDay } from '../../src/domain/mind';
 import { bedFor } from '../../src/domain/sleep';
 import type { Intake, IntakeLog, Wellness } from '../../src/db/types';
 
@@ -85,6 +85,15 @@ describe('avisos', () => {
     expect(a.find((x) => x.id === 'deficit')?.level).toBe('importante');
     const ok = series((i) => ({ mealsLogged: i >= 1 && i <= 6, kcal: 1000, protein: 130 }));
     expect(computeAlerts(ok, { ...ctx, targets: { kcal: 1223, p: 135 } }).some((x) => x.id === 'deficit')).toBe(false);
+  });
+
+  it('a cada 10 dias, a partir da última aplicação', () => {
+    const m: Intake = { ...base, id: 'mj', kind: 'intake', name: 'Mounjaro', type: 'medicamento', times: ['08:00'], freq: 'intervalo', everyDays: 10, startDate: '2026-11-03', active: true, order: 1 };
+    expect(dueOn(m, '2026-11-13')).toBe(true);
+    expect(dueOn(m, '2026-11-12')).toBe(false);
+    expect(dueOn(m, '2026-11-23')).toBe(true);
+    expect(nextDue(m, T)).toBe('2026-11-13');
+    expect(scheduleLabel(m)).toMatch(/a cada 10 dias às 08:00/);
   });
 
   it('item semanal só aparece no dia marcado', () => {
