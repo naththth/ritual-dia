@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, Plus, Sparkles, Trash2, ChevronLeft, ChevronRight, Check as CheckIcon } from 'lucide-react';
+import { Upload, Plus, Sparkles, Trash2, ChevronLeft, ChevronRight, Check as CheckIcon, Activity } from 'lucide-react';
+import { Fold } from '../ui/ui';
 import { TopBar } from './common';
 import { AreaNav } from './areas';
 import { useAll, useByRange, useSettings } from '../db/hooks';
@@ -138,6 +139,13 @@ export function TrainingTab() {
         })}
       </div>
 
+      <div className="mini-stats" data-testid="training-week">
+        <div className="ms t-teal"><span className="v num">{weekDone}{weekPlanned ? <small>/{weekPlanned}</small> : null}</span><span className="l">treinos</span></div>
+        <div className="ms"><span className="v num">{Math.floor(weekMin / 60)}h{String(weekMin % 60).padStart(2, '0')}</span><span className="l">de treino</span></div>
+        {weekKm > 0 ? <div className="ms"><span className="v num">{fmt(weekKm)}</span><span className="l">km</span></div> : <div className="ms"><span className="v num">{weekTss || '–'}</span><span className="l">TSS</span></div>}
+        <div className="ms"><span className="v num">{weekKcal ? fmt(weekKcal) : '–'}</span><span className="l">kcal</span></div>
+      </div>
+
       <section className="block b-blue" style={{ marginTop: 12 }} data-testid="training-day">
         <div className="bh"><h2 style={{ fontSize: 20 }}>{date === todayKey() ? 'Hoje' : shortLabel(date)}</h2></div>
 
@@ -195,18 +203,29 @@ export function TrainingTab() {
         <button className="btn btn-soft" onClick={() => nav('/treino/registrar')}><Plus size={18} />Registrar</button>
       </div>
       <input ref={fileRef} type="file" accept=".fit,.zip,application/octet-stream,application/zip" multiple hidden onChange={(e) => importFit(e.target.files)} data-testid="fit-input" />
-      <p className="tiny muted">Pode escolher vários arquivos de uma vez (.fit ou .zip). Garmin: no site connect.garmin.com, abra a atividade, menu ⚙, Exportar original. MyWhoosh: na atividade, exportar ou baixar o .FIT.</p>
+      <details className="hint-more">
+        <summary>Como exportar o arquivo do relógio</summary>
+        <p className="tiny muted">Pode escolher vários arquivos de uma vez (.fit ou .zip). Garmin: no site connect.garmin.com, abra a atividade, menu ⚙, Exportar original. MyWhoosh: na atividade, exportar ou baixar o .FIT.</p>
+      </details>
 
-      <section className="block b-paper" style={{ marginTop: 14 }} data-testid="training-week">
-        <div className="bh"><h2 style={{ fontSize: 20 }}>Semana</h2></div>
-        <div className="row wrap" style={{ gap: '12px 22px' }}>
-          <div><div className="big-num num">{weekDone}{weekPlanned ? <span className="small" style={{ fontFamily: 'var(--f-ui)' }}> de {weekPlanned}</span> : null}</div><div className="small">treinos</div></div>
-          <div><div className="big-num num">{Math.floor(weekMin / 60)}h{String(weekMin % 60).padStart(2, '0')}</div><div className="small">de treino</div></div>
-          {weekKm > 0 && <div><div className="big-num num">{fmt(weekKm)}</div><div className="small">km</div></div>}
-          {weekTss > 0 && <div><div className="big-num num">{weekTss}</div><div className="small">TSS</div></div>}
-          {weekKcal > 0 && <div><div className="big-num num">{fmt(weekKcal)}</div><div className="small">kcal</div></div>}
-        </div>
-      </section>
+      {(() => {
+        const ahead = Array.from({ length: 7 }, (_, i) => addDays(date, i + 1))
+          .flatMap((d) => plannedOf(d).filter((t) => !doneOf(d).some((w) => w.templateId === t.id || w.modalityId === t.modalityId) && !skips.some((x) => x.date === d && x.domain === 'training' && x.ref === t.id)).map((t) => ({ d, t })))
+          .slice(0, 4);
+        if (!ahead.length) return null;
+        return (
+          <section className="upcoming" data-testid="training-upcoming">
+            <h2 className="sec-h">Próximos treinos</h2>
+            {ahead.map(({ d, t }) => (
+              <button key={`${d}-${t.id}`} className="up-row" onClick={() => setDate(d)}>
+                <span className="up-day"><b>{WEEKDAY_LETTER[isoWeekday(d)]}</b><span className="num">{dayNum(d)}</span></span>
+                <span className="grow"><b>{t.name}</b><span className="small muted">{[t.time, `${t.duration} min`, t.intensity].filter(Boolean).join(' · ')}</span></span>
+                <ChevronRight size={18} />
+              </button>
+            ))}
+          </section>
+        );
+      })()}
 
       {history && history.length > 0 && (() => {
         const load = trainingLoad(history, addDays(todayKey(), -120), todayKey());
@@ -218,8 +237,8 @@ export function TrainingTab() {
         const sleep = avg('sleepH'), hrv = avg('hrv'), rhr = avg('restingHR'), steps = avg('steps');
         const est = history.filter((w) => w.date >= addDays(todayKey(), -42)).some((w) => workoutLoad(w).estimated);
         return (
-          <section className="block b-paper" data-testid="recovery">
-            <div className="bh"><h2 style={{ fontSize: 20 }}>Carga e recuperação</h2><span className="tiny muted">semana</span></div>
+          <Fold title="Carga e recuperação" icon={<Activity size={19} />} testId="recovery"
+            summary={[`forma ${formLabel(now.tsb)}`, `fitness ${Math.round(now.ctl)}`, sleep != null ? `sono ${Math.floor(sleep)}h${String(Math.round((sleep % 1) * 60)).padStart(2, '0')}` : '', hrv != null ? `VFC ${Math.round(hrv)}` : ''].filter(Boolean).join(' · ')}>
             <div className="row wrap" style={{ gap: '12px 22px' }}>
               <div><div className="big-num num">{Math.round(now.ctl)}</div><div className="small">fitness{weekAgo ? ` (${now.ctl >= weekAgo.ctl ? '+' : ''}${Math.round(now.ctl - weekAgo.ctl)} na semana)` : ''}</div></div>
               <div><div className="big-num num">{Math.round(now.atl)}</div><div className="small">fadiga</div></div>
@@ -234,7 +253,7 @@ export function TrainingTab() {
               </div>
             )}
             <p className="tiny muted" style={{ marginBottom: 0 }}>Calculada pelo TSS dos arquivos .FIT{est ? '; treinos sem potência (musculação, aulas) entram por estimativa de duração e intensidade' : ''}. Fica mais precisa depois de algumas semanas de registros.</p>
-          </section>
+          </Fold>
         );
       })()}
 

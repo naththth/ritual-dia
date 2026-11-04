@@ -60,6 +60,7 @@ test('segunda-feira completa: todos os módulos na mesma data', async ({ page })
   // 3) pele da manhã: sinais, plano, salvar
   await page.getByTestId('tl-skin-am').locator('.tl2-body').click();
   await expect(page.getByTestId('page-date')).toContainText('seg, 19/10');
+  await page.getByRole('button', { name: /^Como está a pele/ }).click();
   await page.getByRole('button', { name: 'Boa' }).click();
   await page.getByTestId('sig-oleosidade').click();
   await page.getByTestId('sig-vermelhidao').click();
@@ -497,6 +498,7 @@ test('rotina de cuidados: rosto, corpo e cabelo juntos na noite, com avaliação
   await page.goto('./#/pele?p=pm');
   await expect(page.getByTestId('skin-sec-pos-corpo')).toContainText('Loção de ureia');
   await expect(page.getByTestId('skin-sec-banho-cabelo')).toContainText('Shampoo suave');
+  await page.getByRole('button', { name: /^Como está a pele/ }).click();
   await expect(page.getByTestId('body-hair-signals')).toBeVisible();
   if (process.env.SHOTS) { await page.getByTestId('skin-sec-pos-corpo').scrollIntoViewIfNeeded(); await page.screenshot({ path: '/tmp/claude-0/shots/rotina-noite.png' }); await page.goto('./#/plano/skin'); await page.getByRole('tab', { name: 'Noite' }).click(); await page.screenshot({ path: '/tmp/claude-0/shots/plano-noite.png' }); }
   await page.goto('./#/');
@@ -558,6 +560,7 @@ test('noite se adapta: vermelhidão de manhã tira o ativo da noite', async ({ p
   // manhã com vermelhidão
   await page.goto('./#/pele?p=am');
   await expect(page.getByTestId('skin-sec-pos-rosto')).toContainText('Creme hidratante');
+  await page.getByRole('button', { name: /^Como está a pele/ }).click();
   await page.getByTestId('sig-vermelhidao').click();
   await page.getByTestId('skin-save').click();
   await expect(page.getByTestId('skin-screen')).toBeHidden();
@@ -579,6 +582,7 @@ test('noite se adapta: vermelhidão de manhã tira o ativo da noite', async ({ p
 test('foto: sempre oferece câmera ou galeria', async ({ page }) => {
   await onboard(page);
   await page.goto('./#/pele?p=am');
+  if (await page.getByTestId('skin-extras').isVisible()) await page.getByRole('button', { name: /^Fotos e observação/ }).click();
   await page.getByRole('button', { name: 'Adicionar foto' }).click();
   await expect(page.getByTestId('photo-source')).toContainText('Tirar foto');
   await expect(page.getByTestId('photo-source')).toContainText('Escolher da galeria');

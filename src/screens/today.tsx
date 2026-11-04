@@ -157,11 +157,17 @@ function workoutLine(w: any, _mods: any[]) {
   return parts.length ? parts.join(', ') : 'Feito';
 }
 
+const FILTERS: { id: 'all' | Mod; label: string }[] = [{ id: 'all', label: 'Tudo' }, { id: 'skin', label: 'Pele' }, { id: 'food', label: 'Alimentação' }, { id: 'training', label: 'Treino' }];
+
 export function NowAndTimeline({ date }: { date: DateKey }) {
   const items = useTimeline(date);
   const nav = useNavigate();
   const now = useNowMinutes();
+  const [filter, setFilter] = useState<'all' | Mod>('all');
   if (!items) return null;
+  const counted = items.filter((i) => !i.marker && !i.skipped && i.mod !== 'sleep');
+  const doneN = counted.filter((i) => i.done).length;
+  const shownItems = filter === 'all' ? items : items.filter((i) => i.mod === filter);
   const isToday = date === todayKey();
   const pending = items.filter((i) => !i.done && !i.skipped && !i.marker);
   const next = isToday
@@ -187,9 +193,16 @@ export function NowAndTimeline({ date }: { date: DateKey }) {
           </div>
         </section>
       )}
-      <section aria-label="Linha do tempo" data-testid="timeline" style={{ marginTop: 16 }}>
-        <h2 className="section-title" style={{ marginBottom: 6 }}>{isToday ? 'Seu dia' : 'O dia'}</h2>
-        {items.map((i) => (
+      <section aria-label="Linha do tempo" data-testid="timeline" style={{ marginTop: 18 }}>
+        <div className="row between" style={{ alignItems: 'baseline' }}>
+          <h2 className="section-title">{isToday ? 'Seu dia' : 'O dia'}</h2>
+          <span className="small num" style={{ fontWeight: 700 }} data-testid="day-progress">{doneN} de {counted.length} feitos</span>
+        </div>
+        <div className="day-bar" aria-hidden>{counted.map((i) => <i key={i.key} style={{ background: i.done ? MOD_STYLE[i.mod].ink : 'transparent', borderColor: MOD_STYLE[i.mod].ink }} />)}</div>
+        <div className="chips scroll tl-filter" role="tablist" aria-label="Filtrar o dia">
+          {FILTERS.map((f) => <button key={f.id} role="tab" aria-selected={filter === f.id} className={`chip ${filter === f.id ? 'on' : ''}`} onClick={() => setFilter(f.id)}>{f.label}</button>)}
+        </div>
+        {shownItems.map((i) => (
           <div key={i.key} className={`tl2 ${i.done ? 'done' : ''} ${i.skipped ? 'skipped' : ''}`} data-testid={`tl-${i.key}`}>
             <span className="tl2-time num">{i.time ?? ''}</span>
             <span className="tl2-dot" style={i.mod === 'journal' ? { background: 'var(--wine)', color: 'var(--wine-ink)' } : { background: i.done ? MOD_STYLE[i.mod].ink : MOD_STYLE[i.mod].bg, color: i.done ? 'var(--paper)' : MOD_STYLE[i.mod].ink }}>

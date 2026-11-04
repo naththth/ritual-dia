@@ -24,12 +24,13 @@ export function DayScreen() {
     <div className="screen" data-testid="day-screen">
       <TopBar />
       <DateHeader />
-      {/* Ordem: saúde e ciclo, leitura da IA, o dia com horários, tarefas (as do dia e as sugeridas) e hábitos. */}
+      {/* Ordem pelo uso: números do dia, o que fazer agora e a linha do tempo (pele, comida, treino) primeiro;
+          leitura da IA, corpo e ciclo depois; tarefas e hábitos no fim. */}
       <TodayStats date={date} />
+      <NowAndTimeline date={date} />
+      <DayBriefBlock date={date} />
       <WellnessCard date={date} />
       <CycleCard date={date} />
-      <DayBriefBlock date={date} />
-      <NowAndTimeline date={date} />
       <TodayTasks date={date} tasks={tasks} />
       <BriefTasks date={date} />
       <Suggestion date={date} tasks={tasks} />

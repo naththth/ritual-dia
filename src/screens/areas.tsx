@@ -3,9 +3,12 @@ import { useState, type ReactNode } from 'react';
 import { aiAvailable } from '../domain/ai';
 import { toast } from '../state/store';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ChevronRight, ListOrdered, Moon, Sunrise } from 'lucide-react';
+import { ChevronRight, ListOrdered, Moon, Sunrise, ShoppingBag, Check } from 'lucide-react';
 import { TopBar } from './common';
-import { useByDate } from '../db/hooks';
+import { useAll, useByDate } from '../db/hooks';
+import { planFor, plannedSkin } from '../domain/rules';
+import { update } from '../db/db';
+import { ProductThumb } from '../ui/ProductThumb';
 import { useApp } from '../state/store';
 import { shortLabel, todayKey } from '../lib/dates';
 import { SkinPlan, TrainingPlan, FoodPlan } from './PlanScreen';
@@ -73,10 +76,17 @@ export function CareTodayPage() {
   const nav = useNavigate();
   const date = useApp((s) => s.date);
   const logs = useByDate('skin', date);
+  const products = useAll('product');
+  const plans = useAll('plan');
+  const skips = useByDate('skip', date);
+  const extras = useByDate('extra', date);
+  const plan = planFor(plans ?? [], 'skin', date);
+  const restock = (products ?? []).filter((p) => p.status === 'acabou' || p.status === 'quero_comprar').sort((a, b) => Number(a.status === 'quero_comprar') - Number(b.status === 'quero_comprar') || a.brand.localeCompare(b.brand));
   const card = (p: 'am' | 'pm') => {
     const log = logs?.find((l) => l.period === p);
     const n = log?.productIds.length ?? 0;
-    const status = log ? (log.skipped ? 'Pulada' : `Feita · ${n} ${n === 1 ? 'produto' : 'produtos'}`) : 'Ainda não registrada';
+    const planned = products ? plannedSkin(plan, date, p, products, false, { skips: skips ?? [], extras: extras ?? [] }).length : 0;
+    const status = log ? (log.skipped ? 'Pulada' : `Feita · ${n} ${n === 1 ? 'produto' : 'produtos'}`) : planned ? `${planned} ${planned === 1 ? 'produto' : 'produtos'} no plano` : 'Ainda não registrada';
     return (
       <button key={p} className={`care-card ${p === 'am' ? 'cc-am' : 'cc-pm'} ${log && !log.skipped ? 'done' : ''}`} onClick={() => nav(`/pele?p=${p}`)} data-testid={`care-${p}`}>
         <span className="cc-ic">{p === 'am' ? <Sunrise size={22} /> : <Moon size={22} />}</span>
@@ -95,6 +105,19 @@ export function CareTodayPage() {
         <span className="grow"><b>Rotina da semana</b><br /><span className="small muted">O que entra em cada dia, na ordem de aplicação</span></span>
         <ChevronRight size={18} />
       </button>
+      {restock.length > 0 && (
+        <section className="restock" data-testid="restock">
+          <div className="row between"><h2 className="sec-h" style={{ margin: 0 }}><ShoppingBag size={18} />Para repor</h2><span className="small muted">{restock.length}</span></div>
+          {restock.slice(0, 8).map((p) => (
+            <div key={p.id} className="rs-row">
+              <ProductThumb p={p} size={40} />
+              <span className="grow"><span className="tiny muted">{p.brand}</span><br /><span className="small" style={{ fontWeight: 650 }}>{p.name}</span><br /><span className="tiny muted">{p.status === 'acabou' ? 'Acabou' : 'Quero comprar'}</span></span>
+              <button className="pill-act pa-ghost" onClick={() => update<'product'>(p.id, { status: 'em_uso' }).then(() => toast(`${p.name} de volta em uso`))} aria-label={`Comprei ${p.name}`}><Check size={15} />Comprei</button>
+            </div>
+          ))}
+          {restock.length > 8 && <button className="link" onClick={() => nav('/cuidados/produtos')}>Ver todos os {restock.length}</button>}
+        </section>
+      )}
     </AreaPage>
   );
 }

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, ScanFace, Camera } from 'lucide-react';
 import { useApp } from '../state/store';
 import { useAll, useByDate } from '../db/hooks';
 import { PageHead , useBack } from './common';
-import { Chip, Seg, Sheet, Empty } from '../ui/ui';
+import { Chip, Seg, Sheet, Empty, Fold } from '../ui/ui';
 import { GROUPS, SKIN_CONDITIONS, SKIN_SIGNALS, INTENSITY_LABEL, BODY_SIGNALS, HAIR_SIGNALS, PERIOD_LABEL } from '../domain/defaults';
 import { activesTogether, planFor, plannedSkin, plannedTraining } from '../domain/rules';
 import { nightAdjust } from '../domain/skinAdapt';
@@ -49,7 +49,6 @@ export function SkinScreen() {
   const [signals, setSignals] = useState<Record<string, 1 | 2 | 3>>({});
   const [used, setUsed] = useState<string[]>([]);
   const [note, setNote] = useState('');
-  const [showNote, setShowNote] = useState(false);
   /** Onde ela tocou em "adicionar": o seletor abre já filtrado por etapa e área. */
   const [picker, setPicker] = useState<{ step: Step; area: Area } | null>(null);
   const [loadedKey, setLoadedKey] = useState('');
@@ -63,7 +62,6 @@ export function SkinScreen() {
     setSignals(log?.signals ?? {});
     setUsed(log?.productIds ?? []);
     setNote(log?.note ?? '');
-    setShowNote(!!log?.note);
   }, [key, logs]);
 
   const [dropped, setDropped] = useState<string[]>([]);
@@ -119,6 +117,7 @@ export function SkinScreen() {
     toggle(id);
   };
   const hasBodyOrHair = planned.some((id) => areaOfId(id) !== 'rosto') || used.some((id) => areaOfId(id) !== 'rosto');
+  const nSignals = Object.keys(signals).length;
   const toggleSignal = (id: string) => setSignals((x) => { const n = { ...x }; if (n[id]) delete n[id]; else n[id] = 1; return n; });
 
   const save = async (skipped = false) => {
@@ -129,11 +128,84 @@ export function SkinScreen() {
   };
 
   return (
-    <div className="screen no-nav" data-testid="skin-screen">
+    <div className="screen no-nav with-save-bar" data-testid="skin-screen">
       <PageHead title={period === 'am' ? 'Rotina da manhã' : 'Rotina da noite'} />
       <Seg value={period} onChange={(p) => setPeriod(p)} options={[{ id: 'am', label: 'Manhã' }, { id: 'pm', label: 'Noite' }]} label="Período" />
 
-      <span className="label">Como está a pele</span>
+      {adjust && choice !== 'kept' && !(choice === 'applied' && adjust.kind === 'swap') && (
+        <section className={`night-adjust ${adjust.kind}`} data-testid="night-adjust" role="note">
+          <b>{adjust.title}</b>
+          <p className="small" style={{ margin: '4px 0 0' }}>Por quê: {adjust.reasons.join('; ')}.</p>
+          <div className="row wrap" style={{ gap: 8, marginTop: 10 }}>
+            {adjust.kind === 'swap' && <button className="pill-act pa-rose" onClick={applyAdjust} data-testid="night-adjust-apply">{adjust.useRecovery ? 'Usar a recuperação hoje' : 'Tirar hoje'}</button>}
+            <button className="pill-act pa-ghost" onClick={() => decide('kept')} data-testid="night-adjust-keep">{adjust.kind === 'swap' ? 'Manter o plano' : 'Ok'}</button>
+          </div>
+        </section>
+      )}
+      {choice === 'applied' && adjust?.kind === 'swap' && <p className="small" style={{ margin: '14px 0 0' }} data-testid="night-adjust-done">Ajuste de hoje aplicado: sem ativo forte esta noite. <button className="link" style={{ minHeight: 0 }} onClick={() => { setDropped([]); setRecovery(false); decide('kept'); }}>Desfazer</button></p>}
+
+      {planned.length > 0 && (
+        <section className="skin-progress" data-testid="skin-progress">
+          <div className="sp-ring" style={{ ['--p' as any]: `${shown.length ? Math.round((used.length / shown.length) * 100) : 0}` }}><span className="num">{used.length}<small>/{shown.length}</small></span></div>
+          <div className="grow">
+            <b>{used.length === 0 ? 'Nada marcado ainda' : used.length >= shown.length ? 'Tudo marcado' : `${shown.length - used.length} ${shown.length - used.length === 1 ? 'produto falta' : 'produtos faltam'}`}</b>
+            <span className="small">{recovery ? 'Lista de recuperação' : 'Do seu plano para hoje'}, na ordem de aplicação</span>
+          </div>
+          <button className="pill-act pa-rose" onClick={() => setUsed((u) => Array.from(new Set([...u, ...planned])))} data-testid="skin-use-all" disabled={used.length >= shown.length}>Usei tudo</button>
+        </section>
+      )}
+      <div className="row between" style={{ margin: '4px 0 0', gap: 8 }}>
+        <span className="small muted">Pele irritada ou sensível hoje?</span>
+        <button className={`chip ${recovery ? 'on c-rose' : ''}`} onClick={() => setRecovery(!recovery)} aria-pressed={recovery} style={{ minHeight: 36 }}>Modo recuperação</button>
+      </div>
+      {recovery && planned.length === 0 && <p className="notice calm">Você ainda não montou a lista de recuperação. Configure em Rotina de cuidados, aba Recuperação.</p>}
+      {planned.length === 0 && !recovery && (
+        <p className="notice calm">Sem plano para este dia. Marque abaixo o que usou ou <button className="link" style={{ minHeight: 0 }} onClick={() => nav('/cuidados/rotina')}>monte o plano</button>.</p>
+      )}
+      {STEPS.map((st) => {
+        const ids = shown.filter((id) => byId.get(id) && stepOfId(id) === st.id);
+        return (
+          <section key={st.id} className="stage" data-testid={`stage-${st.id}`} aria-label={st.label}>
+            <div className="stage-head">
+              <h3>{st.label}</h3>
+              <span className="hint">{st.hint}</span>
+            </div>
+            {/* Rosto, cabelo e corpo sempre à vista: o que está vazio mostra só o botão de adicionar. */}
+            {AREAS.map((a) => {
+              const list = ids.filter((id) => areaOfId(id) === a.id);
+              if (!list.length) return null;
+              const n = list.filter((id) => used.includes(id)).length;
+              return (
+                <div key={a.id} className="stage-area" data-testid={`skin-sec-${st.id}-${a.id}`}>
+                  <h4 className="sec-cap">{a.label} <span>{list.length ? `${n} de ${list.length}` : 'nada hoje'}{list.length > 1 && <button className="link reorder-link" onClick={() => setReorder(reorder === `${st.id}-${a.id}` ? null : `${st.id}-${a.id}`)} data-testid={`reorder-${st.id}-${a.id}`}>{reorder === `${st.id}-${a.id}` ? 'Pronto' : 'Mudar ordem'}</button>}</span></h4>
+                  {list.map((id, k) => reorder === `${st.id}-${a.id}` ? (
+                    <div key={id} className="pick reorder" data-testid="reorder-row">
+                      <span className="step-num" aria-hidden>{k + 1}</span>
+                      <ProductThumb p={byId.get(id)!} />
+                      <span className="grow"><span className="brand">{byId.get(id)!.brand}</span><br /><span className="nm">{byId.get(id)!.name}</span></span>
+                      <button className="icon-btn" aria-label="Subir" disabled={k === 0} onClick={() => void move(list, k, -1)}><ArrowUp size={18} /></button>
+                      <button className="icon-btn" aria-label="Descer" disabled={k === list.length - 1} onClick={() => void move(list, k, 1)}><ArrowDown size={18} /></button>
+                    </div>
+                  ) : <ProductPick key={id} p={byId.get(id)!} num={k + 1} on={used.includes(id)} onClick={() => toggle(id)} tag={!planned.includes(id) ? 'fora do plano' : byDerm.has(id) ? 'da dermato, hoje' : undefined} />)}
+                  <button className="add-in" onClick={() => setPicker({ step: st.id, area: a.id })} data-testid={`skin-add-${st.id}-${a.id}`}><Plus size={16} />{list.length ? `Outro produto de ${a.label.toLowerCase()}` : `Adicionar produto de ${a.label.toLowerCase()}`}</button>
+                </div>
+              );
+            })}
+            {AREAS.some((a) => !ids.some((id) => areaOfId(id) === a.id)) && (
+              <div className="stage-adds">
+                {!ids.length && <span className="small muted">Nada nesta etapa hoje.</span>}
+                {AREAS.filter((a) => !ids.some((id) => areaOfId(id) === a.id)).map((a) => (
+                  <button key={a.id} className="mini-add" onClick={() => setPicker({ step: st.id, area: a.id })} data-testid={`skin-add-${st.id}-${a.id}`}><Plus size={14} />{a.label}</button>
+                ))}
+              </div>
+            )}
+          </section>
+        );
+      })}
+
+      <Fold title="Como está a pele" icon={<ScanFace size={19} />} tone="rose" testId="skin-signals"
+        summary={[condition ? SKIN_CONDITIONS.find((c) => c.id === condition)?.label : '', nSignals ? `${nSignals} ${nSignals === 1 ? 'sinal' : 'sinais'}: ${Object.keys(signals).map((id) => [...SKIN_SIGNALS, ...BODY_SIGNALS, ...HAIR_SIGNALS].find((x) => x.id === id)?.label.toLowerCase()).filter(Boolean).slice(0, 3).join(', ')}` : 'Sem sinais marcados'].filter(Boolean).join(' · ')}>
+      <span className="label" style={{ marginTop: 0 }}>Como está a pele</span>
       <div className="chips">
         {SKIN_CONDITIONS.map((c) => <Chip key={c.id} color="rose" on={condition === c.id} onClick={() => setCondition(condition === c.id ? undefined : c.id)}>{c.label}</Chip>)}
       </div>
@@ -164,64 +236,7 @@ export function SkinScreen() {
         </>
       )}
 
-      {adjust && choice !== 'kept' && !(choice === 'applied' && adjust.kind === 'swap') && (
-        <section className={`night-adjust ${adjust.kind}`} data-testid="night-adjust" role="note">
-          <b>{adjust.title}</b>
-          <p className="small" style={{ margin: '4px 0 0' }}>Por quê: {adjust.reasons.join('; ')}.</p>
-          <div className="row wrap" style={{ gap: 8, marginTop: 10 }}>
-            {adjust.kind === 'swap' && <button className="pill-act pa-rose" onClick={applyAdjust} data-testid="night-adjust-apply">{adjust.useRecovery ? 'Usar a recuperação hoje' : 'Tirar hoje'}</button>}
-            <button className="pill-act pa-ghost" onClick={() => decide('kept')} data-testid="night-adjust-keep">{adjust.kind === 'swap' ? 'Manter o plano' : 'Ok'}</button>
-          </div>
-        </section>
-      )}
-      {choice === 'applied' && adjust?.kind === 'swap' && <p className="small" style={{ margin: '14px 0 0' }} data-testid="night-adjust-done">Ajuste de hoje aplicado: sem ativo forte esta noite. <button className="link" style={{ minHeight: 0 }} onClick={() => { setDropped([]); setRecovery(false); decide('kept'); }}>Desfazer</button></p>}
-
-      <div className="section">
-        <h2 className="section-title">Produtos</h2>
-        <button className={`chip ${recovery ? 'on c-rose' : ''}`} onClick={() => setRecovery(!recovery)} aria-pressed={recovery} style={{ minHeight: 38 }}>Modo recuperação</button>
-      </div>
-      {recovery && planned.length === 0 && <p className="notice calm">Você ainda não montou a lista de recuperação. Configure em Rotina de cuidados, aba Recuperação.</p>}
-      {planned.length === 0 && !recovery && (
-        <p className="notice calm">Sem plano para este dia. Marque abaixo o que usou ou <button className="link" style={{ minHeight: 0 }} onClick={() => nav('/cuidados/rotina')}>monte o plano</button>.</p>
-      )}
-      {planned.length > 0 && (
-        <div className="row between" style={{ marginBottom: -4 }}>
-          <span className="small muted">{recovery ? 'Lista de recuperação' : 'Do seu plano para hoje'} · {used.length} de {shown.length} marcados</span>
-          <button className="link" onClick={() => setUsed((u) => Array.from(new Set([...u, ...planned])))} data-testid="skin-use-all">Usei tudo</button>
-        </div>
-      )}
-
-      {STEPS.map((st) => {
-        const ids = shown.filter((id) => byId.get(id) && stepOfId(id) === st.id);
-        return (
-          <section key={st.id} className="stage" data-testid={`stage-${st.id}`} aria-label={st.label}>
-            <div className="stage-head">
-              <h3>{st.label}</h3>
-              <span className="hint">{st.hint}</span>
-            </div>
-            {/* Rosto, cabelo e corpo sempre à vista: o que está vazio mostra só o botão de adicionar. */}
-            {AREAS.map((a) => {
-              const list = ids.filter((id) => areaOfId(id) === a.id);
-              const n = list.filter((id) => used.includes(id)).length;
-              return (
-                <div key={a.id} className={`stage-area${list.length ? '' : ' empty'}`} data-testid={`skin-sec-${st.id}-${a.id}`}>
-                  <h4 className="sec-cap">{a.label} <span>{list.length ? `${n} de ${list.length}` : 'nada hoje'}{list.length > 1 && <button className="link reorder-link" onClick={() => setReorder(reorder === `${st.id}-${a.id}` ? null : `${st.id}-${a.id}`)} data-testid={`reorder-${st.id}-${a.id}`}>{reorder === `${st.id}-${a.id}` ? 'Pronto' : 'Mudar ordem'}</button>}</span></h4>
-                  {list.map((id, k) => reorder === `${st.id}-${a.id}` ? (
-                    <div key={id} className="pick reorder" data-testid="reorder-row">
-                      <span className="step-num" aria-hidden>{k + 1}</span>
-                      <ProductThumb p={byId.get(id)!} />
-                      <span className="grow"><span className="brand">{byId.get(id)!.brand}</span><br /><span className="nm">{byId.get(id)!.name}</span></span>
-                      <button className="icon-btn" aria-label="Subir" disabled={k === 0} onClick={() => void move(list, k, -1)}><ArrowUp size={18} /></button>
-                      <button className="icon-btn" aria-label="Descer" disabled={k === list.length - 1} onClick={() => void move(list, k, 1)}><ArrowDown size={18} /></button>
-                    </div>
-                  ) : <ProductPick key={id} p={byId.get(id)!} num={k + 1} on={used.includes(id)} onClick={() => toggle(id)} tag={!planned.includes(id) ? 'fora do plano' : byDerm.has(id) ? 'da dermato, hoje' : undefined} />)}
-                  <button className="add-in" onClick={() => setPicker({ step: st.id, area: a.id })} data-testid={`skin-add-${st.id}-${a.id}`}><Plus size={16} />{list.length ? `Outro produto de ${a.label.toLowerCase()}` : `Adicionar produto de ${a.label.toLowerCase()}`}</button>
-                </div>
-              );
-            })}
-          </section>
-        );
-      })}
+      </Fold>
 
       <div className="row between" style={{ marginTop: 14, gap: 10, flexWrap: 'wrap' }}>
         <span className="small muted" style={{ flex: '1 1 160px' }}>Quer mudar a rotina de hoje ou da semana?</span>
@@ -234,23 +249,20 @@ export function SkinScreen() {
         </p>
       )}
 
-      <span className="label">Fotos <span className="muted small">(opcional, privadas)</span></span>
-      <PhotoStrip date={date} period={period} photos={(photos ?? []).filter((p) => p.period === period)} />
+      <Fold title="Fotos e observação" icon={<Camera size={19} />} testId="skin-extras" defaultOpen={!!note}
+        summary={[(photos ?? []).filter((p) => p.period === period).length ? `${(photos ?? []).filter((p) => p.period === period).length} fotos` : 'Sem fotos', note ? 'com observação' : ''].filter(Boolean).join(' · ')}>
+        <PhotoStrip date={date} period={period} photos={(photos ?? []).filter((p) => p.period === period)} />
+        <span className="label">Observação</span>
+        <textarea value={note} onChange={(e) => setNote(e.target.value)} aria-label="Observação" placeholder="Algo que mudou, reação, textura…" />
+      </Fold>
 
-      {!showNote ? <button className="link" onClick={() => setShowNote(true)}>Adicionar observação</button> : (
-        <>
-          <span className="label">Observação</span>
-          <textarea value={note} onChange={(e) => setNote(e.target.value)} aria-label="Observação" />
-        </>
-      )}
-
-      <div className="row" style={{ marginTop: 24, gap: 10 }}>
+      <div className="save-bar">
         {log ? (
           <button className="btn btn-soft" onClick={async () => { await deleteRecord(skinId(date, period), 'Registro apagado'); back(); }}>Apagar</button>
         ) : (
           <button className="btn btn-soft" onClick={() => save(true)}>Pular</button>
         )}
-        <button className="btn btn-ink grow" onClick={() => save(false)} data-testid="skin-save">Salvar {PERIOD_LABEL[period]}</button>
+        <button className="btn btn-ink grow" onClick={() => save(false)} data-testid="skin-save">Salvar {PERIOD_LABEL[period]}{shown.length ? ` · ${used.length} de ${shown.length}` : ''}</button>
       </div>
 
       <ProductPicker open={!!picker} onClose={() => setPicker(null)} selected={used} onToggle={(id) => (picker ? pick(id, picker) : toggle(id))} area={picker?.area} step={picker?.step} />

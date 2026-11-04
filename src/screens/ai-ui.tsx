@@ -58,13 +58,19 @@ export function DayBriefBlock({ date }: { date: DateKey }) {
     );
   }
   return (
-    <section className="block b-paper" data-testid="day-brief" aria-label="Orientação do dia">
+    <section className="block b-paper brief" data-testid="day-brief" aria-label="Orientação do dia">
       <div className="bh">
-        <h2 style={{ fontSize: 20 }}>{brief.foco || 'Seu dia'}</h2>
+        <span className="brief-k"><Sparkles size={15} />Leitura do dia</span>
         {aiAvailable() && <button className="icon-btn" aria-label="Refazer orientação" onClick={() => run()} disabled={busy}><RefreshCw size={18} className={busy ? 'spin' : ''} /></button>}
       </div>
-      {brief.pele && <p className="small" style={{ margin: '10px 0 0' }}><b>Pele.</b> {brief.pele}</p>}
-      {brief.treino && <p className="small" style={{ margin: '6px 0 0' }}><b>Treino.</b> {brief.treino}</p>}
+      <h2 style={{ fontSize: 20 }}>{brief.foco || 'Seu dia'}</h2>
+      {(brief.pele || brief.treino) && (
+        <details className="brief-more">
+          <summary>Pele e treino de hoje</summary>
+          {brief.pele && <p className="small" style={{ margin: '8px 0 0' }}><b>Pele.</b> {brief.pele}</p>}
+          {brief.treino && <p className="small" style={{ margin: '6px 0 0' }}><b>Treino.</b> {brief.treino}</p>}
+        </details>
+      )}
     </section>
   );
 }
