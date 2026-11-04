@@ -11,14 +11,16 @@ export interface MindData { days: MindDay[]; alerts: MindAlert[]; bed?: string }
 
 export async function loadMind(today: DateKey = todayKey(), span = 56): Promise<MindData> {
   const from = addDays(today, -span + 1);
-  const [settings, wellness, moods, caffeine, meals, workouts, intakes, intakeLogs, plans, tmpls, extras, foods, changes] = await Promise.all([
+  const [settings, wellness, moods, caffeine, meals, workouts, intakes, intakeLogs, plans, tmpls, extras, foods, changes, skips] = await Promise.all([
     get<'settings'>('settings'), byDateRange('wellness', from, today), byDateRange('mood', from, today), byDateRange('caffeine', from, today),
     byDateRange('meal', from, today), byDateRange('workout', from, today), all('intake'), byDateRange('intakelog', from, today),
-    all('plan'), all('wtemplate'), byDateRange('extra', from, today), all('food'), all('medchange')
+    all('plan'), all('wtemplate'), byDateRange('extra', from, today), all('food'), all('medchange'), byDateRange('skip', from, today)
   ]);
   const plannedMin: Record<DateKey, number> = {};
   for (let d = from; d <= today; d = addDays(d, 1)) {
-    plannedMin[d] = plannedTraining(planFor(plans, 'training', d), d, extras).map((id) => tmpls.find((t) => t.id === id)).reduce((a, t) => a + (t && t.modalityId !== 'mod:descanso' ? t.duration : 0), 0);
+    // O planejado de verdade: plano da semana + avulsos combinados, menos o que ela pulou ("não hoje").
+    const skipped = new Set(skips.filter((x) => x.domain === 'training' && x.date === d).map((x) => x.ref));
+    plannedMin[d] = plannedTraining(planFor(plans, 'training', d), d, extras).filter((id) => !skipped.has(id)).map((id) => tmpls.find((t) => t.id === id)).reduce((a, t) => a + (t && t.modalityId !== 'mod:descanso' ? t.duration : 0), 0);
   }
   const mealsN = meals.map((m) => { const n = totals(m.items, foods).n; return { ...m, kcal: n.kcal, protein: n.p }; });
   const now = new Date();

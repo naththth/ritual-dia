@@ -25,6 +25,9 @@ async function seed(page: Page) {
     const st = tx.objectStore('records');
     const base = { deleted: 0, dirty: 0, updatedAt: 5, createdAt: Date.now() };
     st.put({ ...base, id: 'intake:a', kind: 'intake', name: 'Vitamina D', type: 'vitamina', dose: '1 cápsula', times: ['06:40'], active: true, order: 1, stock: 4 });
+    st.put({ ...base, id: 'wtemplate:pedal', kind: 'wtemplate', name: 'Pedal Z2', modalityId: 'mod:ciclismo', duration: 65, intensity: 'leve' });
+    st.put({ ...base, id: 'plan:tr', kind: 'plan', domain: 'training', validFrom: '2026-10-01', training: { 3: ['wtemplate:pedal'] } });
+    st.put({ ...base, id: 'skip:hoje', kind: 'skip', date: '2026-11-04', domain: 'training', ref: 'wtemplate:pedal' });
     st.put({ ...base, id: 'intake:b', kind: 'intake', name: 'Remédio da noite', type: 'medicamento', dose: '1 cápsula', times: ['20:00'], active: true, order: 2 });
     const g = st.get('settings');
     await new Promise((r) => { g.onsuccess = r; });
@@ -80,6 +83,9 @@ test('Mente: tomadas no Hoje, café, PIN, check-in, painel e relatório', async 
   const ctx = await page.evaluate(() => (window as any).__ctx.mind_coach);
   expect(JSON.stringify(ctx)).toContain('Reunião longa');
   expect(ctx.dias.at(-1).humor_noite).toBe(1);
+  // Treino pulado em outra tela: a especialista da Mente vê que saiu do dia.
+  expect(ctx.dias.at(-1).treino_planejado_min).toBeUndefined();
+  expect(ctx.hoje_e_proximos_dias.dias[0].treinos[0]).toMatchObject({ nome: 'Pedal Z2', pulado: true });
   expect(ctx.o_que_ela_toma.map((i: any) => i.nome)).toContain('Remédio da noite');
   await page.getByLabel('Fechar').click();
 
