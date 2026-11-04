@@ -38,4 +38,20 @@ test('musculação no horário do LPO vira LPO e o comentário tem botão de sal
   await page.getByTestId('feedback-save').click();
   await expect(page.getByTestId('feedback-saved')).toBeVisible();
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/lpo.png', fullPage: true });
+
+  // LPO tem barra e carga: o lançamento já abre com o que ela escreveu no comentário
+  const card = page.getByTestId('workout-card');
+  await page.getByLabel('Como foi o treino').fill('Top demais, fiz arremesso com 41kgs e puxada com 51kgs ao final');
+  await page.getByTestId('feedback-save').click();
+  await card.getByTestId('exercise-log-open').click();
+  await expect(card.getByTestId('exercise-row')).toHaveCount(2);
+  await expect(card.getByTestId('exercise-select').first()).toHaveValue('Arremesso');
+  await expect(card.getByTestId('exercise-select').nth(1)).toHaveValue('Puxada de arremesso');
+  await expect(card.getByTestId('ex-load').first()).toHaveValue('41');
+  await expect(card.getByTestId('exercise-add').locator('option').nth(1)).toHaveText('LPO');
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/lpo-log.png', fullPage: true });
+  await card.getByTestId('exercise-log-save').click();
+  await expect(card.getByTestId('exercise-summary')).toContainText('Arremesso');
+  await expect(card.getByTestId('exercise-summary')).toContainText('5×2, 51 kg');
+  await expect(card.getByTestId('exercise-summary')).not.toContainText('programado');
 });

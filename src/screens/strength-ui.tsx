@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import type { StrengthExercise } from '../db/types';
 import { todayKey } from '../lib/dates';
-import { EXERCISE_CATALOG, OTHER_OPTION, exerciseLine, exerciseVolume, loadsPerSet, newExerciseId, repsPerSet, resizeSets, variationOptions, withPlanned, withRegressive, withSetLoad, withSetReps } from '../domain/strength';
+import { DEFAULT_SETS, defaultReps, EXERCISE_CATALOG, OTHER_OPTION, exerciseLine, exerciseVolume, loadsPerSet, newExerciseId, repsPerSet, resizeSets, variationOptions, withPlanned, withRegressive, withSetLoad, withSetReps } from '../domain/strength';
 
 function NumField({ label, value, onChange, step, testid, compact }: { label: string; value?: number; onChange: (n?: number) => void; step: string; testid: string; compact?: boolean }) {
   const [txt, setTxt] = useState(value == null ? '' : String(value).replace('.', ','));
@@ -23,7 +23,8 @@ function NumField({ label, value, onChange, step, testid, compact }: { label: st
   );
 }
 
-export function ExerciseEditor({ value, onChange, why = {}, compare = false }: { value: StrengthExercise[]; onChange: (v: StrengthExercise[]) => void; why?: Record<string, string>; compare?: boolean }) {
+export function ExerciseEditor({ value, onChange, why = {}, compare = false, firstGroup }: { value: StrengthExercise[]; onChange: (v: StrengthExercise[]) => void; why?: Record<string, string>; compare?: boolean; firstGroup?: string }) {
+  const groups = Object.keys(EXERCISE_CATALOG).sort((a, b) => Number(b === firstGroup) - Number(a === firstGroup));
   const patch = (id: string, p: Partial<StrengthExercise>) => onChange(value.map((e) => (e.id === id ? { ...e, ...p } : e)));
   return (
     <div className="ex-list" data-testid="exercise-editor">
@@ -87,10 +88,10 @@ export function ExerciseEditor({ value, onChange, why = {}, compare = false }: {
           if (!g) return;
           const used = new Set(value.map((x) => x.name));
           const name = EXERCISE_CATALOG[g].find((n) => !used.has(n)) ?? EXERCISE_CATALOG[g][0];
-          onChange([...value, { id: newExerciseId(), group: g, name, sets: 3, reps: 10 }]);
+          onChange([...value, { id: newExerciseId(), group: g, name, sets: DEFAULT_SETS[g] ?? 3, reps: defaultReps(g) }]);
         }}>
           <option value="">Adicionar exercício</option>
-          {Object.keys(EXERCISE_CATALOG).map((g) => <option key={g} value={g}>{g}</option>)}
+          {groups.map((g) => <option key={g} value={g}>{g}</option>)}
         </select>
       </label>
     </div>
@@ -111,12 +112,13 @@ export function ExerciseSummary({ value }: { value: StrengthExercise[] }) {
 }
 
 /** Lançar ou corrigir o que foi feito num treino de musculação já registrado (Garmin ou à mão). */
-export function LogExercises({ w, program, onSave }: { w: { exercises?: StrengthExercise[] }; program: StrengthExercise[]; onSave: (v: StrengthExercise[]) => void }) {
+export function LogExercises({ w, program, onSave, firstGroup, hint }: { w: { exercises?: StrengthExercise[] }; program: StrengthExercise[]; onSave: (v: StrengthExercise[]) => void; firstGroup?: string; hint?: string }) {
   const [draft, setDraft] = useState<StrengthExercise[] | null>(null);
   if (draft) {
     return (
-      <div data-testid="exercise-log">
-        <ExerciseEditor value={draft} onChange={setDraft} compare />
+      <div data-testid="exercise-log" style={{ marginTop: 10 }}>
+        {hint && !w.exercises?.length && draft.length > 0 && <p className="tiny muted" style={{ margin: '0 0 6px' }}>{hint}</p>}
+        <ExerciseEditor value={draft} onChange={setDraft} compare={!firstGroup} firstGroup={firstGroup} />
         <div className="row" style={{ gap: 8, marginTop: 10 }}>
           <button className="pill-act pa-ghost" onClick={() => setDraft(null)}>Cancelar</button>
           <button className="pill-act pa-blue" data-testid="exercise-log-save" onClick={() => { onSave(draft); setDraft(null); }}>Salvar exercícios</button>
@@ -128,8 +130,8 @@ export function LogExercises({ w, program, onSave }: { w: { exercises?: Strength
   return (
     <div style={{ marginTop: 10 }}>
       {has && <><span className="small" style={{ fontWeight: 700 }}>Exercícios</span><ExerciseSummary value={w.exercises!} /></>}
-      <button className="link" style={{ marginTop: 6 }} data-testid="exercise-log-open" onClick={() => setDraft(has ? w.exercises! : withPlanned(program))}>
-        {has ? 'Editar exercícios' : 'Lançar exercícios, séries e carga'}
+      <button className="link" style={{ marginTop: 6 }} data-testid="exercise-log-open" onClick={() => setDraft(has ? w.exercises! : firstGroup ? program : withPlanned(program))}>
+        {has ? 'Editar exercícios' : firstGroup === 'LPO' ? 'Lançar levantamentos, séries e carga' : 'Lançar exercícios, séries e carga'}
       </button>
     </div>
   );

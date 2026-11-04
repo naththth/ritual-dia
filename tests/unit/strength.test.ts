@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { exercisesFromNote, reconcileWithNote, noteWithExercises, defaultExercises, variationOptions, suggestLoad, plannedLoad, programFor, withPlanned } from '../../src/domain/strength';
+import { exercisesFromNote, reconcileWithNote, noteWithExercises, defaultExercises, variationOptions, suggestLoad, plannedLoad, programFor, withPlanned, lpoFromText, lpoProgram, parseNoteLine } from '../../src/domain/strength';
 import type { Workout, StrengthExercise } from '../../src/db/types';
 
 const ex = (p: Partial<StrengthExercise> = {}): StrengthExercise => ({ id: 'a', group: 'Pernas', name: 'Agachamento livre', sets: 3, reps: 10, loadKg: 40, ...p });
@@ -131,5 +131,26 @@ describe('séries regressivas', () => {
     const planned = { name: 'Agachamento livre', sets: 3, reps: 12, setReps: [12, 10, 8] };
     const s = suggestLoad('Agachamento livre', [wo('2026-10-10', [ex({ reps: 12, setReps: [12, 10, 8], loadKg: 40, planned })])]);
     expect(s?.why).toMatch(/subiu/);
+  });
+});
+
+describe('LPO', () => {
+  it('lê os levantamentos e cargas do comentário', () => {
+    const r = lpoFromText('Top demais, fiz arremesso com 41kgs e puxada com 51kgs ao final');
+    expect(r.map((e) => [e.name, e.loadKg, e.group, e.sets, e.reps])).toEqual([
+      ['Arremesso', 41, 'LPO', 5, 2],
+      ['Puxada de arremesso', 51, 'LPO', 5, 2]
+    ]);
+    expect(lpoFromText('puxada de arranco 35,5 kg')[0]).toMatchObject({ name: 'Puxada de arranco', loadKg: 35.5 });
+    expect(lpoFromText('aula boa, cansada')).toEqual([]);
+  });
+  it('sem comentário, parte da última aula com carga sugerida', () => {
+    const prev = { id: 'a', kind: 'workout', date: '2026-10-29', modalityId: 'mod:lpo', rpe: 7, exercises: [{ id: 'x', group: 'LPO', name: 'Arremesso', sets: 5, reps: 2, loadKg: 40 }] } as any;
+    const r = lpoProgram({ id: 'b', date: '2026-11-03', modalityId: 'mod:lpo' }, [prev]);
+    expect(r).toHaveLength(1);
+    expect(r[0]).toMatchObject({ name: 'Arremesso', sets: 5, reps: 2, loadKg: 42 });
+  });
+  it('roteiro com levantamento olímpico cai no grupo LPO', () => {
+    expect(parseNoteLine('1. Puxada de arremesso 5x3')?.group).toBe('LPO');
   });
 });

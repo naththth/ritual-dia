@@ -10,12 +10,17 @@ export const EXERCISE_CATALOG: Record<string, string[]> = {
   Peito: ['Supino reto com halteres', 'Supino inclinado com halteres', 'Supino reto com barra', 'Crucifixo na máquina', 'Crossover na polia', 'Flexão de braço', 'Supino na máquina'],
   Ombros: ['Desenvolvimento com halteres', 'Elevação lateral', 'Desenvolvimento na máquina', 'Elevação frontal', 'Crucifixo inverso', 'Face pull', 'Arnold press'],
   Braços: ['Rosca direta', 'Tríceps na polia (corda)', 'Rosca martelo', 'Tríceps testa', 'Rosca alternada', 'Tríceps banco', 'Rosca scott'],
-  Core: ['Prancha', 'Abdominal infra no solo', 'Abdominal na polia', 'Prancha lateral', 'Dead bug', 'Elevação de pernas', 'Pallof press']
+  Core: ['Prancha', 'Abdominal infra no solo', 'Abdominal na polia', 'Prancha lateral', 'Dead bug', 'Elevação de pernas', 'Pallof press'],
+  LPO: ['Arremesso', 'Arranco', 'Puxada de arremesso', 'Puxada de arranco', 'Power clean', 'Power snatch', 'Clean (só o primeiro tempo)', 'Jerk', 'Push press', 'Agachamento frontal', 'Agachamento overhead', 'Levantamento terra']
 };
+export const LPO_GROUP = 'LPO';
 /** "Corpo todo" monta uma sessão com estes grupos. */
 const FULL_BODY = ['Pernas', 'Costas', 'Peito', 'Ombros', 'Core'];
 const PER_GROUP = 2; // exercícios por grupo quando montamos a sessão sozinhos
-const DEFAULT_REPS: Record<string, number> = { Core: 15, Braços: 12, Ombros: 12 };
+const DEFAULT_REPS: Record<string, number> = { Core: 15, Braços: 12, Ombros: 12, LPO: 2 };
+/** Séries quando ela acrescenta um exercício: no LPO trabalha-se com mais séries curtas. */
+export const DEFAULT_SETS: Record<string, number> = { LPO: 5 };
+export const defaultReps = (group: string) => DEFAULT_REPS[group] ?? 10;
 
 export const OTHER_OPTION = '__outras';
 
@@ -30,6 +35,7 @@ export const groupsOf = (muscles?: string[]): string[] => {
 };
 
 const GROUP_HINTS: [RegExp, string][] = [
+  [/arremesso|arranco|clean|snatch|jerk|push press|overhead/i, LPO_GROUP],
   [/p[ée]lvica|gl[úu]teo|ponte|abdu/i, 'Glúteos'],
   [/agacha|flexora|extensora|leg press|afundo|stiff|passada/i, 'Pernas'],
   [/barra fixa|puxada|remada|pulldown/i, 'Costas'],
@@ -250,3 +256,48 @@ export function loadText(e: LoadShape): string | undefined {
 }
 
 export const exerciseLine = (e: LoadShape) => { const l = loadText(e); return `${e.sets}×${repsText(e)}${l ? `, ${l}` : ''}`; };
+
+/** Exercícios de LPO citados no comentário do treino com carga ("arremesso com 41kg e puxada com 51kg").
+ *  Serve para já abrir o lançamento preenchido; séries e repetições ficam no padrão para ela conferir. */
+const LPO_WORDS: [RegExp, string][] = [
+  [/puxada\s+de\s+arranco/i, 'Puxada de arranco'],
+  [/puxada/i, 'Puxada de arremesso'],
+  [/power\s+clean/i, 'Power clean'],
+  [/power\s+snatch/i, 'Power snatch'],
+  [/push\s+press/i, 'Push press'],
+  [/agachamento\s+frontal|front\s+squat/i, 'Agachamento frontal'],
+  [/agachamento\s+overhead|overhead\s+squat/i, 'Agachamento overhead'],
+  [/terra|deadlift/i, 'Levantamento terra'],
+  [/arremesso|clean\s*(?:&|and|e)\s*jerk/i, 'Arremesso'],
+  [/arranco|snatch/i, 'Arranco'],
+  [/jerk/i, 'Jerk'],
+  [/clean/i, 'Clean (só o primeiro tempo)']
+];
+export function lpoFromText(text?: string): StrengthExercise[] {
+  const out: StrengthExercise[] = [];
+  // Cada trecho "nome ... 41 kg": o nome é o que vem antes do número, desde a última carga citada.
+  const re = /(\d+(?:[.,]\d+)?)\s*(?:kgs?|quilos?)\b/gi;
+  let from = 0;
+  for (const m of (text ?? '').matchAll(re)) {
+    const chunk = text!.slice(from, m.index);
+    from = m.index! + m[0].length;
+    const name = LPO_WORDS.find(([r]) => r.test(chunk))?.[1];
+    if (!name || out.some((e) => e.name === name)) continue;
+    out.push({ id: newExerciseId(), group: LPO_GROUP, name, sets: DEFAULT_SETS.LPO, reps: DEFAULT_REPS.LPO, loadKg: Number(m[1].replace(',', '.')) });
+  }
+  return out;
+}
+
+/** Ponto de partida para lançar uma aula de LPO: o que ela escreveu no comentário; senão os exercícios
+ *  da última aula, com a carga sugerida. */
+export function lpoProgram(w: Pick<Workout, 'id' | 'date' | 'modalityId' | 'feeling'>, done: Workout[]): StrengthExercise[] {
+  const fromText = lpoFromText(w.feeling);
+  if (fromText.length) return fromText;
+  const last = [...done].filter((x) => x.id !== w.id && x.modalityId === w.modalityId && x.date <= w.date && x.exercises?.length).sort((a, b) => (a.date < b.date ? 1 : -1))[0];
+  if (!last) return [];
+  return last.exercises!.map(({ name, group, sets, reps, setReps }) => {
+    const ex: StrengthExercise = { id: newExerciseId(), name, group, sets, reps, ...(setReps ? { setReps } : {}) };
+    const p = plannedLoad(ex, done, w.date);
+    return { ...ex, loadKg: p.loadKg, setLoads: p.setLoads };
+  });
+}

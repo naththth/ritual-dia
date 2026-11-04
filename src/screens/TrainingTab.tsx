@@ -16,7 +16,7 @@ import { effectiveSleep, effectiveHrv, wellnessForAI } from '../domain/wellness'
 import { db, update } from '../db/db';
 import { MicButton, appendText } from '../ui/Dictation';
 import type { StrengthExercise, Workout, WorkoutTemplate } from '../db/types';
-import { programFor, defaultExercises, reconcileWithNote, noteWithExercises, parseNoteLine, loadText, topLoad, loadsPerSet, exerciseVolume, repsPerSet, repsText } from '../domain/strength';
+import { programFor, lpoProgram, lpoFromText, LPO_GROUP, defaultExercises, reconcileWithNote, noteWithExercises, parseNoteLine, loadText, topLoad, loadsPerSet, exerciseVolume, repsPerSet, repsText } from '../domain/strength';
 import { ExerciseEditor, LogExercises } from './strength-ui';
 import { aiAvailable, askAI, applyTrainingResult } from '../domain/ai';
 import { fmt } from '../domain/nutrition';
@@ -69,6 +69,8 @@ export function TrainingTab() {
   const doneOf = (d: DateKey) => workouts.filter((w) => w.date === d);
   const modName = (id: string) => mods.find((m) => m.id === id)?.name ?? 'Treino';
   const isMuscle = (id: string) => mods.find((m) => m.id === id)?.extra === 'muscle';
+  // LPO também tem barra e carga: o card da aula feita ganha o lançamento de levantamentos.
+  const isLpo = (id: string) => id === 'mod:lpo' || /\bLPO\b|levantamento ol[íi]mpico/i.test(modName(id));
 
   const weekPlanned = days.reduce((a, d) => a + plannedOf(d).length, 0);
   const weekDone = workouts.length;
@@ -143,7 +145,9 @@ export function TrainingTab() {
         {dayDone.length > 0 && <span className="label" style={{ marginTop: 0 }}>Feito</span>}
         {dayDone.map((w) => {
           const tpl = isMuscle(w.modalityId) ? (dayPlanned.find((t) => t.id === w.templateId) ?? dayPlanned.find((t) => t.modalityId === w.modalityId)) : undefined;
-          return <WorkoutCard key={w.id} w={w} name={modName(w.modalityId)} ftp={settings?.ftp} strength={isMuscle(w.modalityId) ? { program: tpl ? programFor(tpl, history ?? [], w.date).exercises : [] } : undefined} />;
+          const strength = isMuscle(w.modalityId) ? { program: tpl ? programFor(tpl, history ?? [], w.date).exercises : [] }
+            : isLpo(w.modalityId) ? { program: lpoProgram(w, history ?? []), firstGroup: LPO_GROUP, hint: lpoFromText(w.feeling).length ? 'Comecei pelo que você escreveu no comentário. Confira séries e repetições.' : undefined } : undefined;
+          return <WorkoutCard key={w.id} w={w} name={modName(w.modalityId)} ftp={settings?.ftp} strength={strength} />;
         })}
 
         {/* 2) O planejado: completo só enquanto está pendente; trocado ou pulado vira uma linha. */}
@@ -251,7 +255,7 @@ export function TrainingTab() {
   );
 }
 
-export function WorkoutCard({ w, name, ftp, strength }: { w: Workout; name: string; ftp?: number; strength?: { program: StrengthExercise[] } }) {
+export function WorkoutCard({ w, name, ftp, strength }: { w: Workout; name: string; ftp?: number; strength?: { program: StrengthExercise[]; firstGroup?: string; hint?: string } }) {
   const m = w.metrics;
   const cells: [string, string][] = [];
   if (w.duration) cells.push(['Duração', `${w.duration} min`]);
@@ -294,7 +298,7 @@ export function WorkoutCard({ w, name, ftp, strength }: { w: Workout; name: stri
         </div>
       )}
       {!m && <div className="small">{[w.intensity, w.muscles?.join(', ')].filter(Boolean).join(', ')}</div>}
-      {strength && <LogExercises w={w} program={strength.program} onSave={(exercises) => update<'workout'>(w.id, { exercises }).then(() => toast('Exercícios salvos no treino'))} />}
+      {strength && <LogExercises w={w} program={strength.program} firstGroup={strength.firstGroup} hint={strength.hint} onSave={(exercises) => update<'workout'>(w.id, { exercises }).then(() => toast('Exercícios salvos no treino'))} />}
       <WorkoutFeedback w={w} />
     </div>
   );
