@@ -18,14 +18,14 @@ function Tile({ v, l, hint: refText, tone, ok }: { v: string; l: string; hint?: 
     <div className={`ind-tile ${tone ?? ''}`}>
       <span className="v num">{v}</span>
       <span className="l">{l}</span>
-      {refText && <span className={`r ${ok === true ? 'ok' : ok === false ? 'off' : ''}`}>{refText}</span>}
+      <span className={`r ${refText ? '' : 'empty'} ${ok === true ? 'ok' : ok === false ? 'off' : ''}`}>{refText ?? ''}</span>
     </div>
   );
 }
 
 function DayBars({ days, pick, goal, color, label }: { days: DayRow[]; pick: (d: DayRow) => number | undefined; goal?: number; color: string; label: string }) {
   const vals = days.map(pick);
-  const max = Math.max(goal ?? 0, ...vals.map((v) => v ?? 0)) || 1;
+  const max = Math.max((goal ?? 0) * 1.15, ...vals.map((v) => (v ?? 0) * 1.05)) || 1;
   return (
     <div className="ind-bars" aria-label={label} role="img">
       {days.map((d, i) => (

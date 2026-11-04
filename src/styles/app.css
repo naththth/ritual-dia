@@ -1157,3 +1157,12 @@ input[type=checkbox]:checked::after { content: ''; width: 6px; height: 11px; bor
 .ind-tile.t-teal { background: var(--blue-ink); color: #E4F0EC; }
 .ind-tile.t-lilac { background: var(--lilac); color: var(--lilac-ink); }
 .ind-tile.t-rose { background: var(--rose); color: var(--rose-ink); }
+
+/* Indicadores: blocos da mesma linha compartilham as linhas internas (número, rótulo, referência),
+   então o tracejado e a referência ficam na mesma altura mesmo quando um rótulo quebra em duas linhas. */
+.ind-grid { align-items: stretch; }
+.ind-tile { display: grid; grid-row: span 3; grid-template-rows: subgrid; row-gap: 2px; align-content: start; }
+.ind-tile .v, .ind-tile .l { align-self: start; }
+.ind-tile .r { align-self: start; margin-top: 6px; }
+.ind-tile .r.empty { border-top-color: transparent; }
+.ib-goal { height: 2px; margin-bottom: -1px; opacity: .7; }
