@@ -17,7 +17,7 @@ export type Kind =
   | 'modality' | 'wtemplate' | 'workout'
   | 'plan' | 'skip' | 'extra' | 'brief' | 'devreq'
   | 'wellness' | 'journal' | 'note' | 'book' | 'readlog' | 'review' | 'healthdoc' | 'cycle'
-  | 'intake' | 'intakelog' | 'mood' | 'caffeine' | 'medchange';
+  | 'intake' | 'intakelog' | 'mood' | 'caffeine' | 'medchange' | 'chatstore';
 
 export type Priority = 'alta' | 'media' | 'baixa';
 export const PRIORITIES: Priority[] = ['alta', 'media', 'baixa'];
@@ -517,8 +517,11 @@ export interface MoodCheckin extends Base {
 export interface Caffeine extends Base { kind: 'caffeine'; date: DateKey; time: string; label: string; mg: number }
 export interface MedChange extends Base { kind: 'medchange'; date: DateKey; itemId?: string; text: string }
 
+/** Conversas com as especialistas (aberta e encerradas), guardadas na conta para seguirem entre aparelhos. */
+export interface ChatStore extends Base { kind: 'chatstore'; key: string; value: unknown }
+
 export type AnyRecord =
-  | Intake | IntakeLog | MoodCheckin | Caffeine | MedChange
+  | ChatStore | Intake | IntakeLog | MoodCheckin | Caffeine | MedChange
   | Settings | Category | Task | SuggestionLog | Habit | HabitLog | Goal | GoalEntry
   | Product | SkinLog | Photo | Food | MealTemplate | Meal | Water
   | Modality | WorkoutTemplate | Workout | Plan | Skip | DayBrief
@@ -532,7 +535,7 @@ export type KindMap = {
   modality: Modality; wtemplate: WorkoutTemplate; workout: Workout;
   plan: Plan; skip: Skip; extra: PlanExtra; brief: DayBrief; devreq: DevRequest;
   wellness: Wellness; journal: Journal; note: Note; book: Book; readlog: ReadLog; review: Review; healthdoc: HealthDoc; cycle: CycleDay;
-  intake: Intake; intakelog: IntakeLog; mood: MoodCheckin; caffeine: Caffeine; medchange: MedChange;
+  intake: Intake; intakelog: IntakeLog; mood: MoodCheckin; caffeine: Caffeine; medchange: MedChange; chatstore: ChatStore;
 };
 
 /** Perfil e objetivos. Tudo opcional: a IA usa o que houver e diz o que falta. */

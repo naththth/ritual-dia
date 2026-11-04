@@ -119,10 +119,23 @@ export async function byDateRange<K extends Kind>(kind: K, from: string, to: str
   return rows.filter((r) => !r.deleted) as KindMap[K][];
 }
 
+/** Conversas com as especialistas: ficam na conta (tabela de registros, que sincroniza), não só no aparelho. */
+const ACCOUNT_META = /^(coach|skin|food|mind)-(chat|sessions)$/;
+const chatId = (key: string) => `chatstore:${key}`;
+
 export async function getMeta<T>(key: string): Promise<T | undefined> {
+  if (ACCOUNT_META.test(key)) {
+    const rec = (await db.records.get(chatId(key))) as { value?: unknown; deleted?: 0 | 1 } | undefined;
+    if (rec && !rec.deleted) return rec.value as T;
+    // Conversa antiga, de antes de ir para a conta: leva para a conta agora.
+    const local = (await db.meta.get(key))?.value as T | undefined;
+    if (local !== undefined && !rec) await upsert('chatstore', chatId(key), { key, value: local } as any);
+    return local;
+  }
   return (await db.meta.get(key))?.value as T | undefined;
 }
 export async function setMeta(key: string, value: unknown) {
+  if (ACCOUNT_META.test(key)) { await upsert('chatstore', chatId(key), { key, value } as any); return; }
   await db.meta.put({ key, value });
 }
 
