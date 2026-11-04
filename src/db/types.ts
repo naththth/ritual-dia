@@ -16,7 +16,8 @@ export type Kind =
   | 'food' | 'mtemplate' | 'meal' | 'water'
   | 'modality' | 'wtemplate' | 'workout'
   | 'plan' | 'skip' | 'extra' | 'brief' | 'devreq'
-  | 'wellness' | 'journal' | 'note' | 'book' | 'readlog' | 'review' | 'healthdoc' | 'cycle';
+  | 'wellness' | 'journal' | 'note' | 'book' | 'readlog' | 'review' | 'healthdoc' | 'cycle'
+  | 'intake' | 'intakelog' | 'mood' | 'caffeine' | 'medchange';
 
 export type Priority = 'alta' | 'media' | 'baixa';
 export const PRIORITIES: Priority[] = ['alta', 'media', 'baixa'];
@@ -36,7 +37,7 @@ export interface Settings extends Base {
   ftp?: number;
   aiContext?: string; // observações livres para a IA (rotina, restrições)
   /** Preferências dela por plano; a IA segue, com ressalva só para combinações claramente danosas. */
-  aiPrefs?: { skin?: string; training?: string; food?: string };
+  aiPrefs?: { skin?: string; training?: string; food?: string; mind?: string };
   profile?: Profile; // perfil e objetivos: base para nutrição, treino e pele
   targetsNote?: string; // como a IA chegou às metas
   showNutrition?: boolean; // padrão: ligado
@@ -51,6 +52,16 @@ export interface Settings extends Base {
   /** Regras que ela ensinou à treinadora: como reclassificar o que o relógio grava (ex.: musculação às terças à noite é LPO). */
   trainingRules?: TrainingRule[];
   targets?: { kcal?: number; p?: number; c?: number; f?: number }; // metas próprias; sem elas, usa o plano do dia
+  /** Área Mente: PIN (hash), cafés que ela toma e avisos dispensados no dia. */
+  mind?: MindSettings;
+}
+
+export interface Drink { id: string; label: string; mg: number }
+export interface MindSettings {
+  pinHash?: string;
+  drinks?: Drink[];
+  /** id do aviso -> dia em que ela dispensou (volta a aparecer no dia seguinte, se o padrão continuar). */
+  dismissed?: Record<string, DateKey>;
 }
 
 export interface TrainingRule {
@@ -411,7 +422,11 @@ export interface DayBrief extends Base {
 }
 
 /** Sono: hora de acordar, horas desejadas, minutos para adormecer; alarme e lembrete de deitar. */
-export interface SleepPlan { wake: string; weekendWake?: string; hours: number; latency: number; alarm: boolean; bed: boolean }
+export interface SleepPlan {
+  wake: string; weekendWake?: string; hours: number; latency: number; alarm: boolean; bed: boolean;
+  /** Meta de deitar em etapas: a de agora (bedGoal) e aonde ela quer chegar (bedFinal). Com bedGoal, ela manda no horário de deitar. */
+  bedGoal?: string; bedFinal?: string;
+}
 export interface Reminders {
   enabled: boolean; meals: boolean; skin: boolean; classes: boolean; water: boolean;
   morning?: string; evening?: string;
@@ -446,7 +461,54 @@ export interface Book extends Base {
 export interface ReadLog extends Base { kind: 'readlog'; date: DateKey; bookId: string; pages: number; toPage?: number }
 export interface Review extends Base { kind: 'review'; date: DateKey; scope: 'semana'; text: string; highlights: string[]; focus: string[] }
 
+/* ---------- Mente: o que ela toma, check-ins de humor, café e mudanças feitas pelo médico ---------- */
+export type IntakeType = 'medicamento' | 'vitamina' | 'suplemento';
+export interface Intake extends Base {
+  kind: 'intake';
+  name: string;
+  /** Como aparece para a IA, quando ela prefere não mandar o nome. */
+  alias?: string;
+  type: IntakeType;
+  dose?: string;
+  times: string[]; // HH:MM
+  /** Regra que o médico passou: em jejum, com comida, longe de outro item. */
+  rule?: string;
+  stock?: number; // unidades em casa
+  perDose?: number; // unidades por tomada (padrão 1)
+  /** Marcado por ela, conforme orientação do médico: mudanças bruscas de café merecem atenção. */
+  caffeineSensitive?: boolean;
+  /** A dermatologista e a nutricionista também enxergam (vitaminas e suplementos já enxergam). */
+  shareCare?: boolean;
+  image?: string;
+  note?: string;
+  active: boolean;
+  order: number;
+}
+export interface IntakeLog extends Base {
+  kind: 'intakelog';
+  date: DateKey;
+  itemId: string;
+  slot: string; // horário previsto HH:MM
+  status: 'tomei' | 'pulei';
+  takenAt?: string; // HH:MM
+  sideEffect?: string;
+}
+export type WakeFeeling = 'descansada' | 'ok' | 'cansada' | 'acelerada';
+export interface MoodCheckin extends Base {
+  kind: 'mood';
+  date: DateKey;
+  period: 'am' | 'pm';
+  mood?: number; // -3 (depressão) a +3 (euforia)
+  energy?: number; irritability?: number; anxiety?: number; racing?: number; // 0 a 4
+  wake?: WakeFeeling;
+  tags: string[];
+  note?: string; // fica no app; não vai para a IA
+}
+export interface Caffeine extends Base { kind: 'caffeine'; date: DateKey; time: string; label: string; mg: number }
+export interface MedChange extends Base { kind: 'medchange'; date: DateKey; itemId?: string; text: string }
+
 export type AnyRecord =
+  | Intake | IntakeLog | MoodCheckin | Caffeine | MedChange
   | Settings | Category | Task | SuggestionLog | Habit | HabitLog | Goal | GoalEntry
   | Product | SkinLog | Photo | Food | MealTemplate | Meal | Water
   | Modality | WorkoutTemplate | Workout | Plan | Skip | DayBrief
@@ -460,6 +522,7 @@ export type KindMap = {
   modality: Modality; wtemplate: WorkoutTemplate; workout: Workout;
   plan: Plan; skip: Skip; extra: PlanExtra; brief: DayBrief; devreq: DevRequest;
   wellness: Wellness; journal: Journal; note: Note; book: Book; readlog: ReadLog; review: Review; healthdoc: HealthDoc; cycle: CycleDay;
+  intake: Intake; intakelog: IntakeLog; mood: MoodCheckin; caffeine: Caffeine; medchange: MedChange;
 };
 
 /** Perfil e objetivos. Tudo opcional: a IA usa o que houver e diz o que falta. */

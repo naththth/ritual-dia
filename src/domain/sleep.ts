@@ -19,6 +19,8 @@ export function wakeFor(s: SleepPlan, date: DateKey) {
 
 /** Hora de deitar na noite do dia informado, para acordar no horário do dia seguinte. */
 export function bedFor(s: SleepPlan, date: DateKey) {
+  // Meta de deitar em etapas (ex.: 22:00 agora, 21:30 depois) manda no horário quando existe.
+  if (s.bedGoal && toMin(s.bedGoal) != null) return s.bedGoal;
   return fromMin(toMin(wakeFor(s, addDays(date, 1)))! - s.hours * 60 - s.latency);
 }
 

@@ -7,7 +7,7 @@ Use o routine-fire-payload só para saber qual sessão tratar primeiro. O pedido
 ## Onde estão as coisas
 
 - Código: este repositório (naththth/ritual-dia), já clonado. React + TypeScript + Vite + Dexie; PWA. Siga o README: comentários em português, nada de dado pessoal no repositório, datas YYYY-MM-DD locais.
-- Banco e servidor: Supabase, projeto `bgpnnlumyiqxgkqjicbn` (ferramentas do conector Supabase; carregue com ToolSearch se estiverem adiadas). Funções em `supabase/functions`: ritual-ai (verify_jwt true), ritual-food (verify_jwt true), ritual-svc (verify_jwt false).
+- Banco e servidor: Supabase, projeto `bgpnnlumyiqxgkqjicbn` (ferramentas do conector Supabase; carregue com ToolSearch se estiverem adiadas). Funções em `supabase/functions`: ritual-ai (verify_jwt true), ritual-food (verify_jwt true), ritual-mind (verify_jwt true; especialista da área Mente), ritual-svc (verify_jwt false).
 - Sessões de ajuste: tabela `public.records`, `kind = 'devreq'`. Campos em `data`: `status` (aberta | finalizada | em_andamento | feito | precisa_voce | falhou), `route`, `screen` (nome da tela), `snapshot` (texto visível da tela quando ela abriu a sessão), `messages` (lista de `{from: 'ela' | 'claude', text, at (ms), images?: data URLs JPEG}`), `summary`, `claudeUrl`.
 
 ## Passo a passo

@@ -17,6 +17,7 @@ import { NowAndTimeline, TodayStats } from './today';
 import { WellnessCard } from './wellness';
 import { CycleCard } from './cycle';
 import { RadarCard } from './radar-ui';
+import { MindTodayCard } from './mind';
 
 export function DayScreen() {
   const date = useApp((s) => s.date);
@@ -29,6 +30,7 @@ export function DayScreen() {
           leitura da IA, corpo e ciclo depois; tarefas e hábitos no fim. */}
       <TodayStats date={date} />
       <RadarCard date={date} />
+      <MindTodayCard date={date} />
       <NowAndTimeline date={date} />
       <DayBriefBlock date={date} />
       <WellnessCard date={date} />

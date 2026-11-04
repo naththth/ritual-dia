@@ -48,7 +48,7 @@ function planFor(plans: any[], domain: string, date: string) {
 interface Due { key: string; title: string; body: string; url: string; alarm?: boolean }
 
 async function dueReminders(userId: string, now: ReturnType<typeof nowParts>): Promise<Due[]> {
-  const recs = await userRecords(userId, ['settings', 'plan', 'mtemplate', 'wtemplate', 'food', 'water', 'meal', 'skin']);
+  const recs = await userRecords(userId, ['settings', 'plan', 'mtemplate', 'wtemplate', 'food', 'water', 'meal', 'skin', 'intake', 'intakelog', 'mood']);
   const settings = recs.find((r) => r.kind === 'settings') ?? {};
   const r = { enabled: true, meals: true, skin: true, classes: true, water: false, morning: '06:45', evening: '21:45', custom: [] as any[], ...(settings.reminders ?? {}) };
   if (!r.enabled) return [];
@@ -66,17 +66,35 @@ async function dueReminders(userId: string, now: ReturnType<typeof nowParts>): P
     const wakeFor = (k: string) => (wdOf(k) >= 6 && sp.weekendWake ? sp.weekendWake : sp.wake);
     const hrs = `${Math.floor(sp.hours)} h${sp.hours % 1 ? ` ${Math.round((sp.hours % 1) * 60)}` : ''}`;
     const wake = wakeFor(now.date);
-    const bedMin = (((toMin(wakeFor(addDays(now.date, 1)))! - sp.hours * 60 - sp.latency) % 1440) + 1440) % 1440;
+    // Meta de deitar em etapas (bedGoal) manda no horário quando existe.
+    const bedMin = toMin(sp.bedGoal) ?? (((toMin(wakeFor(addDays(now.date, 1)))! - sp.hours * 60 - sp.latency) % 1440) + 1440) % 1440;
     const bed = `${String(Math.floor(bedMin / 60)).padStart(2, '0')}:${String(bedMin % 60).padStart(2, '0')}`;
     if (sp.alarm) {
       const ids: string[] = planFor(plans, 'training', now.date)?.training?.[String(now.weekday)] ?? [];
       const tr = ids.map((id) => recs.find((x) => x.kind === 'wtemplate' && x.id === id)).filter(Boolean).map((t: any) => t.time ? `${t.name} às ${t.time}` : t.name);
       out.push({ key: 'wake', at: toMin(wake)!, alarm: true, title: `Bom dia. São ${wake}.`, body: tr.length ? `Hoje: ${tr.join(', ')}. Café às ${mealTimes.cafe}.` : `Café às ${mealTimes.cafe}.`, url: '#/' });
     }
-    if (sp.bed) out.push({ key: 'bed', at: bedMin - 15, title: `Deitar às ${bed}`, body: `Faltam 15 min. Tela longe e luz baixa para dormir ${hrs} e acordar às ${wakeFor(addDays(now.date, 1))}.`, url: '#/' });
+    if (sp.bed) out.push({ key: 'bed', at: bedMin - 15, title: `Deitar às ${bed}`, body: sp.bedGoal ? `Faltam 15 min. Tela longe e luz baixa: deitar no horário é o que mais protege o humor e o sono.` : `Faltam 15 min. Tela longe e luz baixa para dormir ${hrs} e acordar às ${wakeFor(addDays(now.date, 1))}.`, url: '#/' });
   }
   if (r.morning) out.push({ key: 'morning', at: toMin(r.morning)!, title: 'Seu dia', body: 'Toque para ver o que vem pela frente.', url: '#/' });
-  if (r.evening) out.push({ key: 'evening', at: toMin(r.evening)!, title: 'Fechar o dia', body: 'Como foi hoje? Leva 30 segundos.', url: '#/diario' });
+  if (r.evening && !today.some((x) => x.kind === 'mood' && x.period === 'pm')) out.push({ key: 'evening', at: toMin(r.evening)!, title: 'Fechar o dia', body: 'Humor, energia e o que marcou o dia. Leva 30 segundos.', url: `#/mente/checkin?p=pm&d=${now.date}` });
+  // Remédios e vitaminas: no horário e, se ainda não marcou, de novo 1 h depois.
+  if (r.meds !== false) {
+    const slots = new Map<string, string[]>();
+    for (const it of recs.filter((x) => x.kind === 'intake' && x.active)) {
+      if (it.createdAt && new Date(it.createdAt).toISOString().slice(0, 10) > now.date) continue;
+      for (const t of it.times ?? []) {
+        if (today.some((x) => x.kind === 'intakelog' && x.itemId === it.id && x.slot === t)) continue;
+        slots.set(t, [...(slots.get(t) ?? []), it.alias || it.name]);
+      }
+    }
+    for (const [t, names] of slots) {
+      const at = toMin(t);
+      if (at == null) continue;
+      out.push({ key: `dose-${t}`, at, title: `Hora de tomar, ${t}`, body: names.join(', '), url: '#/mente' });
+      out.push({ key: `dose-${t}-late`, at: at + 60, title: 'Ainda não marcado', body: `${names.join(', ')} (${t}). Tomou? Marque no app.`, url: '#/mente' });
+    }
+  }
   if (r.meals) {
     const fp = planFor(plans, 'food', now.date)?.food?.[String(now.weekday)] ?? {};
     for (const mt of settings.mealTypes ?? []) {

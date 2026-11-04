@@ -4,7 +4,7 @@ import { db, getMeta, setMeta, restore } from '../db/db';
 import type { AnyRecord } from '../db/types';
 import type { RoutineChange } from './skinSteps';
 
-export type ChatDomain = 'skin' | 'food';
+export type ChatDomain = 'skin' | 'food' | 'mind';
 
 /** Rotina que a dermatologista propõe; só vale depois que ela aprova. Ids reais dos produtos. */
 export interface SkinProposal {

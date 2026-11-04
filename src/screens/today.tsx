@@ -1,7 +1,7 @@
 // O dia como linha do tempo: "Agora" no topo e o resto em ordem de horário.
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check as CheckIcon, Droplets, Dumbbell, Flame, Moon, NotebookPen, Sunrise, Utensils } from 'lucide-react';
+import { Check as CheckIcon, Droplets, Dumbbell, Flame, Moon, NotebookPen, Pill, Sunrise, Sun, Utensils } from 'lucide-react';
 import { useAll, useByDate, useSettings } from '../db/hooks';
 import { planFor, plannedFood, plannedSkin, plannedTraining } from '../domain/rules';
 import { nightAdjust } from '../domain/skinAdapt';
@@ -12,11 +12,13 @@ import { addDays, todayKey, type DateKey } from '../lib/dates';
 import { sleepPlan, wakeFor, bedFor, hoursLabel } from '../domain/sleep';
 import type { MealItem } from '../db/types';
 import { WaterSheet } from './WaterSheet';
+import { dosesFor, slotsFor, toMin as tmin, fromMin } from '../domain/mind';
+import { markDose } from '../domain/mindload';
 
 export const DEFAULT_MEAL_TIMES: Record<string, string> = { cafe: '07:30', almoco: '12:30', lanche: '16:00', jantar: '20:00', ceia: '22:00' };
 export const DEFAULT_SKIN_TIMES = { am: '07:00', pm: '21:30' };
 
-type Mod = 'skin' | 'food' | 'training' | 'journal' | 'sleep';
+type Mod = 'skin' | 'food' | 'training' | 'journal' | 'sleep' | 'mind';
 export interface TLItem {
   key: string;
   time?: string;
@@ -37,7 +39,8 @@ const MOD_STYLE: Record<Mod, { bg: string; ink: string; pill: string }> = {
   food: { bg: 'var(--honey)', ink: 'var(--honey-ink)', pill: 'pa-honey' },
   training: { bg: 'var(--blue)', ink: 'var(--blue-ink)', pill: 'pa-blue' },
   journal: { bg: 'var(--wine)', ink: 'var(--wine-ink)', pill: 'pa-wine' },
-  sleep: { bg: 'var(--paper-2)', ink: 'var(--ink)', pill: 'pa-ghost' }
+  sleep: { bg: 'var(--paper-2)', ink: 'var(--ink)', pill: 'pa-ghost' },
+  mind: { bg: 'var(--lilac)', ink: 'var(--lilac-ink)', pill: 'pa-lilac' }
 };
 
 function useNowMinutes() {
@@ -61,7 +64,10 @@ export function useTimeline(date: DateKey): TLItem[] | undefined {
   const skips = useByDate('skip', date);
   const extras = useByDate('extra', date);
   const journal = useByDate('journal', date);
-  if (!journal || !settings || !plans || !products || !wt || !mt || !foods || !mods || !skin || !meals || !workouts || !skips || !extras) return undefined;
+  const intakes = useAll('intake');
+  const intakeLogs = useByDate('intakelog', date);
+  const moods = useByDate('mood', date);
+  if (!intakes || !intakeLogs || !moods || !journal || !settings || !plans || !products || !wt || !mt || !foods || !mods || !skin || !meals || !workouts || !skips || !extras) return undefined;
   const items: TLItem[] = [];
   const sTimes = settings.skinTimes ?? DEFAULT_SKIN_TIMES;
   const mTimes = { ...DEFAULT_MEAL_TIMES, ...(settings.mealTimes ?? {}) };
@@ -134,15 +140,33 @@ export function useTimeline(date: DateKey): TLItem[] | undefined {
     items.push({ key: `w-${w.id}`, time, mod: 'training', icon: <Dumbbell size={18} />, title: mods.find((m) => m.id === w.modalityId)?.name ?? 'Treino', detail: workoutLine(w, mods), done: true, open: '/treino' });
   }
 
+  // Fechar o dia = check-in da noite da Mente (humor, energia e o que marcou o dia).
   const evening = (settings.reminders?.evening ?? '21:45') || '21:45';
-  const j = journal[0];
-  items.push({ key: 'journal', time: evening, mod: 'journal', icon: <NotebookPen size={18} />, title: 'Fechar o dia', detail: j ? [j.energy && `energia ${j.energy}`, j.mood && `humor ${j.mood}`, j.tags.join(', ')].filter(Boolean).join(', ') || 'Registrado' : 'Energia, humor e uma linha sobre hoje', done: !!j, open: '/diario' });
+  const pm = moods.find((m) => m.period === 'pm');
+  const sgn = (n?: number) => (n == null ? '' : n > 0 ? `+${n}` : String(n));
+  items.push({ key: 'journal', time: evening, mod: 'journal', icon: <NotebookPen size={18} />, title: 'Fechar o dia', detail: pm ? [pm.mood != null && `humor ${sgn(pm.mood)}`, pm.energy != null && `energia ${pm.energy}`, pm.tags.join(', ')].filter(Boolean).join(', ') || 'Registrado' : 'Humor, energia e o que marcou o dia', done: !!pm, open: `/mente/checkin?p=pm&d=${date}` });
+
+  // Remédios e vitaminas, agrupados por horário.
+  for (const s of slotsFor(dosesFor(intakes, intakeLogs, date))) {
+    const pending = s.doses.filter((d) => !d.log);
+    const names = s.doses.map((d) => d.item.name).join(', ');
+    const skipped = s.doses.every((d) => d.log?.status === 'pulei');
+    items.push({
+      key: `dose-${s.slot}`, time: s.slot, mod: 'mind', icon: <Pill size={18} />, title: s.doses.length === 1 ? names : 'Remédios e vitaminas',
+      detail: s.doses.length === 1 ? (s.doses[0].item.dose ?? s.doses[0].item.rule ?? '') : names,
+      done: !pending.length && !skipped, skipped: skipped || undefined,
+      action: pending.length ? { label: 'Tomei', run: async () => { for (const d of pending) await markDose(d.item, date, d.slot, 'tomei'); }, testId: `act-dose-${s.slot}` } : undefined,
+      open: '/mente'
+    });
+  }
 
   const sp = sleepPlan(settings.reminders);
   if (sp) {
     const wake = wakeFor(sp, date);
     const bed = bedFor(sp, date);
     items.push({ key: 'wake', time: wake, mod: 'sleep', icon: <Sunrise size={18} />, title: 'Acordar', detail: `Meta de ${hoursLabel(sp.hours)} de sono`, done: false, marker: true, open: '/ajustes' });
+    const am = moods.find((m) => m.period === 'am');
+    items.push({ key: 'checkin-am', time: fromMin((tmin(wake) ?? 360) + 10), mod: 'mind', icon: <Sun size={18} />, title: 'Como acordou', detail: am ? [am.wake, am.mood != null && `humor ${sgn(am.mood)}`].filter(Boolean).join(', ') || 'Registrado' : 'Sono e humor em 20 segundos', done: !!am, open: `/mente/checkin?p=am&d=${date}` });
     items.push({ key: 'bed', time: bed, mod: 'sleep', icon: <Moon size={18} />, title: 'Deitar', detail: `Luz apagada para dormir ${hoursLabel(sp.hours)} e acordar às ${wakeFor(sp, addDays(date, 1))}`, done: false, open: '/ajustes' });
   }
 

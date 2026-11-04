@@ -13,6 +13,7 @@ import { aiAvailable } from '../domain/ai';
 import { archiveSpecChat, loadSpecSessions, openSpecChat, saveSpecChat, undoSpec, type ChatDomain, type FoodProposal, type SkinProposal, type SpecMsg, type SpecSession } from '../domain/specchat';
 import { askDerm, approveDerm, describeChange } from '../domain/derm';
 import { askNutri, approveNutri } from '../domain/nutri';
+import { askMind } from '../domain/mindchat';
 import { fmt, portionText, totals } from '../domain/nutrition';
 import { MacroLine } from './food-ui';
 import { PlanChat } from './specialist';
@@ -43,6 +44,18 @@ const CONF: Record<ChatDomain, { title: string; sub: string; aria: string; place
       'O que comer antes do pedal das 18h?',
       'Estou sem fome no café da manhã, o que faço?',
       'Hoje não vou lanchar, estou em reunião'
+    ]
+  },
+  mind: {
+    title: 'Acompanhamento', who: 'a especialista da Mente', aria: 'Falar com a especialista da Mente',
+    sub: 'Humor, sono, remédios e rotina, olhando tudo junto',
+    placeholder: 'Conte como você está…', busy: 'Olhando humor, sono, treino e alimentação…',
+    intro: 'Eu acompanho humor, sono, remédios, café, treino e alimentação juntos, e ajudo a ler o que os dados mostram. Não substituo o seu psiquiatra nem a sua terapeuta: quando algo merece conversa com eles, eu digo, e monto a pauta da consulta para você levar.',
+    examples: [
+      'Como foi a minha semana?',
+      'Monta a pauta da próxima consulta',
+      'Estou dormindo tarde, o que está pesando?',
+      'Meu humor muda com o treino?'
     ]
   }
 };
@@ -136,7 +149,7 @@ function SpecSheet({ domain, open, onClose }: { domain: ChatDomain; open: boolea
     if (inputRef.current) inputRef.current.style.height = '';
     try {
       const imgs = files.length ? await Promise.all(files.map((p) => shrinkImage(p.file, 1280))) : undefined;
-      const reply = await (domain === 'skin' ? askDerm : askNutri)(t, msgs, imgs);
+      const reply = domain === 'mind' ? await askMind(t, msgs) : await (domain === 'skin' ? askDerm : askNutri)(t, msgs, imgs);
       commit([...list, reply]);
     } catch (e: any) {
       commit([...list, { from: 'ai', text: `Não consegui responder agora: ${e.message}`, at: Date.now() }]);
@@ -183,7 +196,7 @@ function SpecSheet({ domain, open, onClose }: { domain: ChatDomain; open: boolea
               onChange={(e) => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = `${Math.min(140, e.target.scrollHeight)}px`; }}
               onFocus={() => setTimeout(() => toBottom(true), 250)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && window.matchMedia('(pointer: fine)').matches) { e.preventDefault(); void send(); } }} />
-            <button className="composer-icon" aria-label="Mandar foto" onClick={picker.open} disabled={busy || pics.length >= 3} data-testid="spec-photo"><Camera size={20} /></button>
+            {domain !== 'mind' && <button className="composer-icon" aria-label="Mandar foto" onClick={picker.open} disabled={busy || pics.length >= 3} data-testid="spec-photo"><Camera size={20} /></button>}
             <MicButton compact label="Falar" onText={(t) => setInput((x) => appendText(x, t))} />
             <button className="composer-send" onClick={() => void send()} disabled={(!input.trim() && !pics.length) || busy} aria-label="Enviar" data-testid="spec-send"><Send size={18} /></button>
           </div>
@@ -242,7 +255,9 @@ function SpecSheet({ domain, open, onClose }: { domain: ChatDomain; open: boolea
               {m.proposal?.kind === 'skin' ? <SkinProposalCard p={m.proposal} busy={approving === i} onApprove={() => void approve(i)} onDiscard={() => discard(i)} /> : null}
               {m.proposal?.kind === 'food' ? <FoodProposalCard p={m.proposal} busy={approving === i} onApprove={() => void approve(i)} onDiscard={() => discard(i)} /> : null}
               {m.failed?.length ? <div className="nf"><b>Não consegui</b><ul>{m.failed.map((d, k) => <li key={k}>{d}</li>)}</ul></div> : null}
-              {m.suggestion ? (
+              {m.suggestion && domain === 'mind' ? (
+                <div className="nf" data-testid="mind-pauta"><b>Para a consulta</b><span style={{ whiteSpace: 'pre-line' }}>{m.suggestion}</span></div>
+              ) : m.suggestion ? (
                 <div className="nf">
                   <b>Para o plano</b><span>{m.suggestion}</span>
                   <button className="pill-act pa-blue" style={{ alignSelf: 'flex-start' }} onClick={() => setPlanOpen(true)}>Refazer o plano com ela</button>
@@ -253,7 +268,7 @@ function SpecSheet({ domain, open, onClose }: { domain: ChatDomain; open: boolea
           {busy && <div className="bubble ai typing"><Sparkles size={15} /> {c.busy}</div>}
         </div>
       )}
-      <PlanChat domain={domain} open={planOpen} onClose={() => setPlanOpen(false)} />
+      {domain !== 'mind' && <PlanChat domain={domain} open={planOpen} onClose={() => setPlanOpen(false)} />}
     </Sheet>
   );
 }
