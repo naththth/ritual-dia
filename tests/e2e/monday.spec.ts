@@ -49,8 +49,8 @@ test('segunda-feira completa: todos os módulos na mesma data', async ({ page })
   await expect(page.getByTestId('task-row')).toContainText('Decidir data da viagem');
 
   // 2) buscar "roupa" em Listas e adicionar à segunda
-  await page.getByRole('link', { name: 'Mais' }).click();
-  await page.getByRole('button', { name: /Tarefas/ }).click();
+  await page.getByTestId('nav-menu').click();
+  await page.getByTestId('dr-listas').click();
   await page.getByTestId('lists-search').fill('roupa');
   await expect(page.getByTestId('task-row')).toHaveCount(1);
   await page.getByRole('button', { name: 'Adicionar Comprar conjunto novo de treino a seg, 19/10' }).click();
@@ -124,8 +124,8 @@ test('segunda-feira completa: todos os módulos na mesma data', async ({ page })
   await page.goBack();
 
   // 10) semanas depois, voltar pelo calendário à segunda
-  await page.getByRole('link', { name: 'Mais' }).click();
-  await page.getByRole('button', { name: /Calendário/ }).click();
+  await page.getByTestId('nav-menu').click();
+  await page.getByTestId('dr-calendario').click();
   await page.getByRole('button', { name: 'Próximo mês' }).click();
   await page.getByRole('button', { name: 'Mês anterior' }).click();
   await page.getByRole('button', { name: '2026-10-19' }).click();
@@ -636,9 +636,9 @@ test('áreas: Cuidados, Treino e Alimentação reúnem dia, plano e cadastros', 
   await page.getByRole('link', { name: 'Alimentação' }).click();
   await page.getByTestId('area-nav-alimentacao').getByRole('tab', { name: 'Alimentos' }).click();
   await expect(page.getByTestId('area-alimentacao-alimentos')).toBeVisible();
-  await page.getByRole('link', { name: 'Mais' }).click();
-  await expect(page.getByTestId('more-screen')).not.toContainText('Biblioteca');
-  await page.getByRole('button', { name: /Hábitos e metas/ }).click();
+  await page.getByTestId('nav-menu').click();
+  await expect(page.getByTestId('drawer')).toContainText('Carreira');
+  await page.getByTestId('dr-habitos').click();
   await expect(page.getByTestId('habits-goals')).toBeVisible();
   await page.getByRole('link', { name: 'Hoje' }).click();
   await expect(page.getByTestId('fab')).toBeVisible();

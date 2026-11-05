@@ -159,6 +159,12 @@ export function TaskSheet({ open, onClose, task, defaults }: { open: boolean; on
           <input type="date" value={d.plannedDate ?? ''} onChange={(e) => set({ plannedDate: e.target.value || null })} style={{ position: 'absolute', inset: 0, opacity: 0, minHeight: 0 }} aria-label="Escolher outro dia" />
         </label>
       </div>
+      {d.plannedDate && (
+        <>
+          <span className="label">Lembrar às <span className="muted small">(opcional)</span></span>
+          <input type="time" value={d.remindAt ?? ''} onChange={(e) => set({ remindAt: e.target.value || undefined })} aria-label="Lembrar às" data-testid="task-remind" />
+        </>
+      )}
       {task && (
         <>
           <span className="label">Situação</span>

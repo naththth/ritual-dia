@@ -5,7 +5,6 @@ import { useAll, useSettings } from '../db/hooks';
 import { create, remove, update } from '../db/db';
 import { shortLabel, todayKey, WEEKDAY_SHORT } from '../lib/dates';
 import { brandToday } from '../domain/ritual';
-import { PageHead } from './common';
 import { Chip } from '../ui/ui';
 import type { Post } from '../db/types';
 
@@ -13,13 +12,13 @@ const STATUS: { id: Post['status']; label: string }[] = [
   { id: 'ideia', label: 'Ideia' }, { id: 'rascunho', label: 'Rascunho' }, { id: 'agendado', label: 'Agendado' }, { id: 'publicado', label: 'Publicado' }
 ];
 
-export function BrandScreen() {
+export function BrandPosts() {
   const settings = useSettings();
   const posts = useAll('post');
   const [title, setTitle] = useState('');
   const [filter, setFilter] = useState<Post['status'] | 'abertas'>('abertas');
   const [open, setOpen] = useState<string>();
-  if (!settings || !posts) return <div className="screen no-nav" />;
+  if (!settings || !posts) return null;
   const today = todayKey();
   const b = brandToday(settings, posts, today);
   const br = settings.brand ?? {};
@@ -28,8 +27,7 @@ export function BrandScreen() {
     .sort((a, z) => (a.date ?? '9') .localeCompare(z.date ?? '9') || z.createdAt - a.createdAt);
   const add = async () => { if (!title.trim()) return; await create('post', { title: title.trim(), status: 'ideia' } as any); setTitle(''); };
   return (
-    <div className="screen no-nav" data-testid="brand-screen">
-      <PageHead title="Marca pessoal" withDate={false} />
+    <div data-testid="brand-posts">
       <section className="block b-paper">
         <div className="row between"><b><Linkedin size={16} style={{ verticalAlign: '-3px' }} /> LinkedIn</b><span className="small num">{b.publishedWeek} de {b.perWeek || '–'} na semana</span></div>
         <span className="rt-label" style={{ marginTop: 12 }}>Posts por semana</span>

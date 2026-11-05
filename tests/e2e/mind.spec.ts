@@ -52,7 +52,8 @@ test('Mente: tomadas no Hoje, café, PIN, check-in, painel e relatório', async 
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/mind-hoje.png', fullPage: true });
 
   // Aba Mente: cria o PIN.
-  await page.getByRole('link', { name: 'Mente' }).click();
+  await page.getByTestId('nav-menu').click();
+  await page.getByTestId('dr-mente').click();
   await page.getByTestId('pin-new').fill('2468');
   await page.getByTestId('pin-new2').fill('2468');
   await page.getByTestId('pin-save').click();
@@ -124,12 +125,12 @@ test('Mente: tomadas no Hoje, café, PIN, check-in, painel e relatório', async 
   await expect(page.getByTestId('mind-settings')).toContainText('Meta de deitar');
 });
 
-test('o menu de baixo cabe com seis abas em 360 px', async ({ page }) => {
+test('o menu de baixo cabe em 360 px', async ({ page }) => {
   await seed(page);
   const nav = page.locator('.bottomnav');
-  const links = nav.locator('a');
-  await expect(links).toHaveCount(6);
-  for (let i = 0; i < 6; i++) {
+  const links = nav.locator('a, button');
+  await expect(links).toHaveCount(5);
+  for (let i = 0; i < 5; i++) {
     const w = await links.nth(i).evaluate((el) => [el.textContent, el.scrollWidth, el.clientWidth]);
     expect(w[1] as number, String(w)).toBeLessThanOrEqual((w[2] as number) + 1);
   }

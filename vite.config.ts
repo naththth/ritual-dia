@@ -28,9 +28,11 @@ export default defineConfig(({ mode }) => {
           start_url: base + '?app=1', // marca a janela do app instalado (as notificações abrem nela, não no Chrome)
           scope: base,
           display: 'standalone',
-          orientation: 'portrait',
+          orientation: 'any',
           background_color: '#F1E8D8',
           theme_color: '#F1E8D8',
+          // Clique direito no ícone (PC) ou toque longo (celular): atalho direto para anotar.
+          shortcuts: [{ name: 'Captura rápida', short_name: 'Anotar', url: base + '#/captura', icons: [{ src: 'icons/icon-192.png', sizes: '192x192' }] }],
           icons: [
             { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
             { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },

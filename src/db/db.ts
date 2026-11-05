@@ -120,7 +120,7 @@ export async function byDateRange<K extends Kind>(kind: K, from: string, to: str
 }
 
 /** Conversas com as especialistas: ficam na conta (tabela de registros, que sincroniza), não só no aparelho. */
-const ACCOUNT_META = /^(coach|skin|food|mind)-(chat|sessions)$/;
+const ACCOUNT_META = /^(coach|skin|food|mind|career)-(chat|sessions)$/;
 const chatId = (key: string) => `chatstore:${key}`;
 
 export async function getMeta<T>(key: string): Promise<T | undefined> {

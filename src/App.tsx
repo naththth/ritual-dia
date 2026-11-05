@@ -1,7 +1,8 @@
-import { BrandScreen } from './screens/brand';
+import { Drawer } from './screens/drawer';
+import { CareerWorkPage, CareerBrandPage, CareerWinsPage, CareerOppsPage, CareerGrowPage, CaptureScreen } from './screens/career';
 import { useEffect, useState, useRef } from 'react';
-import { HashRouter, NavLink, Route, Routes, useLocation } from 'react-router-dom';
-import { Brain, Dumbbell, Menu, Plus, Sparkles, Sun, Utensils } from 'lucide-react';
+import { HashRouter, Navigate, NavLink, Route, Routes, useLocation } from 'react-router-dom';
+import { Dumbbell, Menu, Plus, Sparkles, Sun, Utensils } from 'lucide-react';
 import { ensureDefaults } from './domain/defaults';
 import { initSync } from './sync/sync';
 import { useSettings } from './db/hooks';
@@ -66,6 +67,7 @@ function Shell() {
   const settings = useSettings();
   const loc = useLocation();
   const [reg, setReg] = useState(false);
+  const [menu, setMenu] = useState(false);
   if (!settings) return null;
   const inOnboarding = !settings.onboarded || loc.pathname.startsWith('/boas-vindas');
   if (inOnboarding && !loc.pathname.startsWith('/revisao')) {
@@ -111,7 +113,13 @@ function Shell() {
         <Route path="/ciclo" element={<CycleScreen />} />
         <Route path="/peso" element={<WeightScreen />} />
         <Route path="/indicadores" element={<IndicatorsScreen />} />
-        <Route path="/marca" element={<BrandScreen />} />
+        <Route path="/marca" element={<Navigate to="/carreira/marca" replace />} />
+        <Route path="/carreira" element={<CareerWorkPage />} />
+        <Route path="/carreira/marca" element={<CareerBrandPage />} />
+        <Route path="/carreira/conquistas" element={<CareerWinsPage />} />
+        <Route path="/carreira/oportunidades" element={<CareerOppsPage />} />
+        <Route path="/carreira/crescer" element={<CareerGrowPage />} />
+        <Route path="/captura" element={<CaptureScreen />} />
         <Route path="/biblioteca/:section" element={<LibraryScreen />} />
         <Route path="/plano/:domain" element={<PlanScreen />} />
         <Route path="/revisao" element={<ProductReview />} />
@@ -121,14 +129,14 @@ function Shell() {
         <nav className="bottomnav" aria-label="Navegação principal">
           <NavLink to="/" end><Sun size={22} />Hoje</NavLink>
           <NavLink to="/treino" className={() => (loc.pathname.startsWith('/treino') ? 'active' : '')}><Dumbbell size={22} />Treino</NavLink>
-          <NavLink to="/cuidados" className={() => (loc.pathname.startsWith('/cuidados') ? 'active' : '')}><Sparkles size={22} />Cuidados</NavLink>
           <NavLink to="/alimentacao" className={() => (loc.pathname.startsWith('/alimentacao') ? 'active' : '')}><Utensils size={22} />Alimentação</NavLink>
-          <NavLink to="/mente" className={() => (loc.pathname.startsWith('/mente') ? 'active' : '')}><Brain size={22} />Mente</NavLink>
-          <NavLink to="/mais" className={() => (['/mais', '/calendario', '/listas', '/evolucao', '/habitos'].includes(loc.pathname) ? 'active' : '')}><Menu size={22} />Mais</NavLink>
+          <NavLink to="/cuidados" className={() => (loc.pathname.startsWith('/cuidados') ? 'active' : '')}><Sparkles size={22} />Cuidados</NavLink>
+          <button className={`nav-menu ${menu || ['/mais', '/calendario', '/listas', '/evolucao', '/habitos'].includes(loc.pathname) || loc.pathname.startsWith('/mente') || loc.pathname.startsWith('/carreira') ? 'active' : ''}`} onClick={() => setMenu(true)} aria-label="Abrir menu" data-testid="nav-menu"><Menu size={22} />Menu</button>
         </nav>
       )}
       {loc.pathname === '/' && <button className="fab fab-float" aria-label="Registrar" onClick={() => setReg(true)} data-testid="fab"><Plus size={28} strokeWidth={2.4} /></button>}
       <RegisterSheet open={reg} onClose={() => setReg(false)} />
+      <Drawer open={menu} onClose={() => setMenu(false)} />
       <DevAssist />
       <Toasts />
     </div>

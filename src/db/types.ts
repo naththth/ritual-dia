@@ -17,7 +17,7 @@ export type Kind =
   | 'modality' | 'wtemplate' | 'workout'
   | 'plan' | 'skip' | 'extra' | 'brief' | 'devreq'
   | 'wellness' | 'journal' | 'note' | 'book' | 'readlog' | 'review' | 'healthdoc' | 'cycle'
-  | 'intake' | 'intakelog' | 'mood' | 'caffeine' | 'medchange' | 'chatstore' | 'ritual' | 'post';
+  | 'intake' | 'intakelog' | 'mood' | 'caffeine' | 'medchange' | 'chatstore' | 'ritual' | 'post' | 'win' | 'opp' | 'devitem' | 'careerbase';
 
 export type Priority = 'alta' | 'media' | 'baixa';
 export const PRIORITIES: Priority[] = ['alta', 'media', 'baixa'];
@@ -37,7 +37,7 @@ export interface Settings extends Base {
   ftp?: number;
   aiContext?: string; // observações livres para a IA (rotina, restrições)
   /** Preferências dela por plano; a IA segue, com ressalva só para combinações claramente danosas. */
-  aiPrefs?: { skin?: string; training?: string; food?: string; mind?: string };
+  aiPrefs?: { skin?: string; training?: string; food?: string; mind?: string; career?: string };
   profile?: Profile; // perfil e objetivos: base para nutrição, treino e pele
   targetsNote?: string; // como a IA chegou às metas
   showNutrition?: boolean; // padrão: ligado
@@ -116,6 +116,7 @@ export interface Task extends Base {
   completedDate?: DateKey | null;
   history: TaskHistory[];
   sourceId?: string;
+  remindAt?: string; // HH:MM no dia planejado: vira notificação
 }
 
 export type SuggestionAction = 'aceita' | 'adiada' | 'dispensada';
@@ -539,11 +540,24 @@ export interface RitualDay extends Base {
   ai?: { frase?: string; foco?: string; atencao?: string; fechamento?: string; para_amanha?: string; at?: number; offline?: boolean };
   seen: string[];
 }
+/** Base da carreira: quem ela é profissionalmente, a marca e o trabalho atual. Lida pela especialista de carreira. */
+export interface CareerBase extends Base {
+  kind: 'careerbase';
+  workName?: string; // nome da empresa atual, rótulo da aba de trabalho
+  workCategoryId?: string; // categoria de tarefas do trabalho
+  role?: string; posicionamento?: string; publico?: string; pilares?: string; tom?: string; evitar?: string; bio?: string; assinatura?: string; objetivo?: string;
+}
+/** Conquista registrada (o que entregou e o impacto). */
+export interface Win extends Base { kind: 'win'; date: DateKey; title: string; impact?: string; where?: 'trabalho' | 'fora' }
+/** Oportunidade: processo seletivo, conversa, contato de rede ou parceria. */
+export interface Opp extends Base { kind: 'opp'; title: string; org?: string; type: 'vaga' | 'contato' | 'parceria' | 'convite'; stage: 'mapeada' | 'conversa' | 'processo' | 'proposta' | 'encerrada'; next?: string; nextDate?: DateKey; note?: string }
+/** Desenvolvimento: metas do ano, cursos, leituras, eventos e competências. */
+export interface DevItem extends Base { kind: 'devitem'; title: string; type: 'meta' | 'curso' | 'leitura' | 'evento' | 'competencia'; status: 'quero' | 'fazendo' | 'feito'; due?: DateKey; note?: string }
 /** Pautas do LinkedIn (marca pessoal). */
 export interface Post extends Base { kind: 'post'; title: string; note?: string; status: 'ideia' | 'rascunho' | 'agendado' | 'publicado'; date?: DateKey }
 
 export type AnyRecord =
-  | ChatStore | RitualDay | Post | Intake | IntakeLog | MoodCheckin | Caffeine | MedChange
+  | ChatStore | RitualDay | Post | CareerBase | Win | Opp | DevItem | Intake | IntakeLog | MoodCheckin | Caffeine | MedChange
   | Settings | Category | Task | SuggestionLog | Habit | HabitLog | Goal | GoalEntry
   | Product | SkinLog | Photo | Food | MealTemplate | Meal | Water
   | Modality | WorkoutTemplate | Workout | Plan | Skip | DayBrief
@@ -557,7 +571,7 @@ export type KindMap = {
   modality: Modality; wtemplate: WorkoutTemplate; workout: Workout;
   plan: Plan; skip: Skip; extra: PlanExtra; brief: DayBrief; devreq: DevRequest;
   wellness: Wellness; journal: Journal; note: Note; book: Book; readlog: ReadLog; review: Review; healthdoc: HealthDoc; cycle: CycleDay;
-  intake: Intake; intakelog: IntakeLog; mood: MoodCheckin; caffeine: Caffeine; medchange: MedChange; chatstore: ChatStore; ritual: RitualDay; post: Post;
+  intake: Intake; intakelog: IntakeLog; mood: MoodCheckin; caffeine: Caffeine; medchange: MedChange; chatstore: ChatStore; ritual: RitualDay; post: Post; careerbase: CareerBase; win: Win; opp: Opp; devitem: DevItem;
 };
 
 /** Perfil e objetivos. Tudo opcional: a IA usa o que houver e diz o que falta. */

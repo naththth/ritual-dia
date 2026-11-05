@@ -48,7 +48,7 @@ function planFor(plans: any[], domain: string, date: string) {
 interface Due { key: string; title: string; body: string; url: string; alarm?: boolean }
 
 async function dueReminders(userId: string, now: ReturnType<typeof nowParts>): Promise<Due[]> {
-  const recs = await userRecords(userId, ['settings', 'plan', 'mtemplate', 'wtemplate', 'food', 'water', 'meal', 'skin', 'intake', 'intakelog', 'mood']);
+  const recs = await userRecords(userId, ['settings', 'plan', 'mtemplate', 'wtemplate', 'food', 'water', 'meal', 'skin', 'intake', 'intakelog', 'mood', 'task']);
   const settings = recs.find((r) => r.kind === 'settings') ?? {};
   const r = { enabled: true, meals: true, skin: true, classes: true, water: false, morning: '06:45', evening: '21:45', custom: [] as any[], ...(settings.reminders ?? {}) };
   if (!r.enabled) return [];
@@ -76,8 +76,8 @@ async function dueReminders(userId: string, now: ReturnType<typeof nowParts>): P
     }
     if (sp.bed) out.push({ key: 'bed', at: bedMin - 15, title: `Deitar às ${bed}`, body: sp.bedGoal ? `Faltam 15 min. Tela longe e luz baixa: deitar no horário é o que mais protege o humor e o sono.` : `Faltam 15 min. Tela longe e luz baixa para dormir ${hrs} e acordar às ${wakeFor(addDays(now.date, 1))}.`, url: '#/' });
   }
-  if (r.morning) out.push({ key: 'morning', at: toMin(r.morning)!, title: 'Ritual da manhã', body: 'Como acordou, remédios, pele e o dia. Uns 2 minutos.', url: '#/ritual/am' });
-  if (r.evening && !today.some((x) => x.kind === 'mood' && x.period === 'pm')) out.push({ key: 'evening', at: toMin(r.evening)!, title: 'Ritual da noite', body: 'Fechar o dia, remédios, pele e o amanhã. Uns 2 minutos.', url: '#/ritual/pm' });
+  if (r.morning) out.push({ key: 'morning', at: toMin(r.morning)!, title: 'Ritual da manhã', body: 'Como acordou, o básico e o foco do dia. Uns 2 minutos.', url: '#/ritual/am' });
+  if (r.evening && !today.some((x) => x.kind === 'mood' && x.period === 'pm')) out.push({ key: 'evening', at: toMin(r.evening)!, title: 'Ritual da noite', body: 'Como foi, o resumo e o que leva para amanhã. Uns 2 minutos.', url: '#/ritual/pm' });
   // Remédios e vitaminas: no horário e, se ainda não marcou, de novo 1 h depois.
   if (r.meds !== false) {
     const slots = new Map<string, string[]>();
@@ -132,6 +132,11 @@ async function dueReminders(userId: string, now: ReturnType<typeof nowParts>): P
       const expected = Math.round((settings.waterGoalMl * (h - 7)) / 13);
       if (ml < expected * 0.8) out.push({ key: `water-${h}`, at: h * 60, title: 'Água', body: `${(ml / 1000).toLocaleString('pt-BR')} L até agora, de ${(settings.waterGoalMl / 1000).toLocaleString('pt-BR')} L.`, url: '#/alimentacao' });
     }
+  }
+  // Tarefas com horário no dia planejado (anotadas no celular ou na captura rápida do PC).
+  for (const t of recs.filter((x) => x.kind === 'task' && x.status === 'pendente' && x.plannedDate === now.date && x.remindAt)) {
+    const at = toMin(t.remindAt);
+    if (at != null) out.push({ key: `task-${t.id}`, at, title: t.title, body: t.nextStep ? `Próximo passo: ${t.nextStep}` : `Marcado para ${t.remindAt}.`, url: '#/listas' });
   }
   for (const c of r.custom ?? []) {
     if (c.days?.length && !c.days.includes(now.weekday)) continue;

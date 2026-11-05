@@ -1446,3 +1446,43 @@ input[type=checkbox]:checked::after { content: ''; width: 6px; height: 11px; bor
 .rt-sum .small { color: var(--ink-2); }
 .rt-sum-k { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 2px; }
 .rt-post b { font-size: 17px; }
+
+/* ---------- Menu: barra com 4 áreas e painel lateral ---------- */
+.bottomnav .nav-menu { flex: 1 1 0; min-width: 0; height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: #BCA593; font-size: 11px; font-weight: 600; border-radius: 999px; background: none; border: 0; padding: 0 4px; white-space: nowrap; letter-spacing: -0.01em; transition: background .15s ease, color .15s ease; }
+.bottomnav .nav-menu.active { background: var(--wine); color: var(--wine-ink); flex: 0 0 auto; padding: 0 12px; }
+.dr-scrim { z-index: 60; }
+.drawer { position: fixed; top: 0; bottom: 0; left: 0; z-index: 61; width: min(300px, 84vw); background: var(--paper); padding: calc(14px + env(safe-area-inset-top)) 12px calc(18px + var(--safe-b)); overflow-y: auto; animation: dr-in .26s cubic-bezier(.2,.8,.2,1) both; border-radius: 0 26px 26px 0; box-shadow: 8px 0 30px rgba(42, 26, 16, .22); }
+@keyframes dr-in { from { transform: translateX(-104%); } to { transform: none; } }
+.dr-head { display: flex; align-items: center; justify-content: space-between; padding: 0 4px 6px 10px; }
+.dr-brand { font-family: var(--f-display); font-size: 26px; letter-spacing: -.02em; }
+.dr-group { margin-top: 10px; }
+.dr-k { display: block; font-size: 11px; font-weight: 750; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-2); opacity: .75; padding: 6px 12px 4px; }
+.dr-item { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; border-radius: 14px; background: none; border: 0; color: var(--ink); font-size: 15.5px; font-weight: 600; text-align: left; animation: rise-in .3s ease both; }
+.dr-item:active { transform: scale(.98); }
+.dr-item.on { background: var(--ink); color: var(--paper); }
+.dr-sub { margin-left: auto; font-size: 12px; font-weight: 600; opacity: .6; }
+@media (prefers-reduced-motion: reduce) { .drawer, .dr-item { animation: none; } }
+
+/* ---------- Carreira ---------- */
+.cr-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.cr-stat { background: var(--card, #FBF6EC); border-radius: 16px; padding: 10px 12px; display: flex; flex-direction: column; line-height: 1.2; animation: rise-in .35s ease both; }
+.cr-stat:nth-child(2) { animation-delay: 50ms; } .cr-stat:nth-child(3) { animation-delay: 100ms; }
+.cr-stat b { font-family: var(--f-display); font-size: 26px; }
+.cr-stat span { font-size: 12px; color: var(--ink-2); }
+.qa { background: var(--card, #FBF6EC); border-radius: 18px; padding: 10px; margin-bottom: 8px; }
+.qa-row { display: flex; gap: 8px; }
+.qa-row input { flex: 1; font-size: 16px; }
+.qa-go { flex: 0 0 auto; width: 46px; padding: 0; display: grid; place-items: center; }
+.qa-opts { margin-top: 8px; }
+.qa-sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 2px; }
+.qa-time { display: inline-flex; align-items: center; gap: 4px; }
+.qa-time input { border: 0; background: transparent; padding: 0; min-height: 0; height: auto; width: 74px; font: inherit; color: inherit; }
+.cr-more { display: inline-flex; align-items: center; gap: 4px; margin: 16px 2px 6px; }
+.cr-base .cr-quote { font-family: var(--f-display); font-size: 19px; line-height: 1.3; margin: 10px 0 4px; }
+.cr-field { display: flex; flex-direction: column; gap: 2px; margin-top: 12px; }
+.cr-field textarea { margin-top: 4px; }
+.cr-win-ic { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--honey); color: var(--honey-ink); flex: 0 0 auto; }
+.cr-opp { background: var(--card, #FBF6EC); border-radius: 16px; padding: 12px 14px; margin-bottom: 8px; animation: rise-in .3s ease both; }
+.cr-opp-edit { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.capture { max-width: 640px; margin: 0 auto; padding-top: 28px; }
+.cap-head { display: flex; align-items: center; gap: 8px; font-size: 18px; margin-bottom: 14px; }

@@ -21,7 +21,7 @@ const GROUPS = [
       { to: '/listas', label: 'Tarefas', sub: 'Por categoria e prioridade', icon: <ListChecks size={20} />, tone: 't-terra' },
       { to: '/habitos', label: 'Hábitos e metas', sub: 'O que repetir, onde chegar', icon: <Target size={20} />, tone: 't-ink' },
       { to: '/calendario', label: 'Calendário', sub: 'O mês inteiro', icon: <CalendarDays size={20} />, tone: 't-olive' },
-      { to: '/marca', label: 'Marca pessoal', sub: 'Pautas e ritmo do LinkedIn', icon: <Linkedin size={20} />, tone: 't-teal' }
+      { to: '/carreira', label: 'Carreira', sub: 'Trabalho, marca e oportunidades', icon: <Linkedin size={20} />, tone: 't-teal' }
     ]
   },
   {

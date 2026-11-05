@@ -8,16 +8,16 @@ import type { Plan, Product, WorkoutStep } from '../db/types';
 import { addDays, isoWeekday, todayKey, type DateKey } from '../lib/dates';
 import { planFor, plannedSkin, plannedTraining } from './rules';
 
-export type AITask = 'workout_feedback' | 'meal_advice' | 'skin_plan' | 'training_plan' | 'food_plan' | 'day_brief' | 'training_review' | 'week_review' | 'wellness_read' | 'label_read' | 'targets' | 'doc_read' | 'product_read' | 'plate_read' | 'plan_chat' | 'training_coach' | 'skin_coach' | 'food_coach' | 'skin_layers' | 'mind_coach' | 'mind_care' | 'week_cross' | 'ritual_am' | 'ritual_pm';
+export type AITask = 'workout_feedback' | 'meal_advice' | 'skin_plan' | 'training_plan' | 'food_plan' | 'day_brief' | 'training_review' | 'week_review' | 'wellness_read' | 'label_read' | 'targets' | 'doc_read' | 'product_read' | 'plate_read' | 'plan_chat' | 'training_coach' | 'skin_coach' | 'food_coach' | 'skin_layers' | 'mind_coach' | 'mind_care' | 'week_cross' | 'ritual_am' | 'ritual_pm' | 'career_coach';
 
 /** Só nos testes automáticos: uma IA simulada injetada pela página de teste. */
 const testAI = () => (typeof window !== 'undefined' ? (window as any).__RITUAL_TEST_AI as ((task: string, ctx: any) => any) | undefined : undefined);
 
 /** Vai junto com estado_mente: as regras que valem para todas as especialistas quando há dados da área Mente. */
 const MIND_RULES = 'Ela acompanha humor, sono e remédios na área Mente. Nunca sugira iniciar, parar, trocar ou mudar dose de remédio, nem compensar dose esquecida; padrão preocupante = falar com o psiquiatra. Não diagnostique fase. Se houver aviso importante em avisos_ativos, mencione esse ponto primeiro, em 1 frase. Com humor instável (|humor| >= 2), sono curto ou aviso importante, não proponha déficit maior, treino mais pesado nem nada que encurte a noite: a prioridade é estabilidade. Use com naturalidade, sem dramatizar.';
-const MIND_AWARE = new Set<AITask>(['workout_feedback', 'meal_advice', 'skin_plan', 'training_plan', 'food_plan', 'day_brief', 'training_review', 'week_review', 'wellness_read', 'plan_chat', 'training_coach', 'skin_coach', 'food_coach', 'targets', 'ritual_am', 'ritual_pm']);
+const MIND_AWARE = new Set<AITask>(['workout_feedback', 'meal_advice', 'skin_plan', 'training_plan', 'food_plan', 'day_brief', 'training_review', 'week_review', 'wellness_read', 'plan_chat', 'training_coach', 'skin_coach', 'food_coach', 'targets', 'ritual_am', 'ritual_pm', 'career_coach']);
 /** Recebem o que ela escreveu nos rituais (manhã vale para o dia; noite, para o dia seguinte). */
-const RITUAL_AWARE = new Set<AITask>(['day_brief', 'training_coach', 'skin_coach', 'food_coach', 'mind_coach', 'meal_advice', 'workout_feedback', 'plan_chat', 'wellness_read', 'mind_care']);
+const RITUAL_AWARE = new Set<AITask>(['day_brief', 'training_coach', 'skin_coach', 'food_coach', 'mind_coach', 'meal_advice', 'workout_feedback', 'plan_chat', 'wellness_read', 'mind_care', 'career_coach']);
 const CARE_AWARE = new Set<AITask>(['skin_plan', 'skin_coach', 'food_plan', 'food_coach', 'meal_advice', 'targets', 'plan_chat']);
 
 export function aiAvailable() {
@@ -78,7 +78,7 @@ export async function askAI<T = any>(task: AITask, context: unknown, images?: { 
     ctx = { ...extra, ...(ctx as object) };
   }
   const { data, error } = await Promise.race([
-    supabase.functions.invoke(task === 'mind_coach' || task === 'mind_care' || task === 'week_cross' || task === 'ritual_am' || task === 'ritual_pm' ? 'ritual-mind' : 'ritual-ai', { body: { task, context: ctx, images, files } }),
+    supabase.functions.invoke(task === 'mind_coach' || task === 'mind_care' || task === 'week_cross' || task === 'ritual_am' || task === 'ritual_pm' || task === 'career_coach' ? 'ritual-mind' : 'ritual-ai', { body: { task, context: ctx, images, files } }),
     new Promise<never>((_, rej) => setTimeout(() => rej(new Error('A IA demorou demais para responder. Tente de novo.')), files?.length || images?.length || task === 'skin_plan' || task === 'plan_chat' ? 150000 : 90000))
   ]);
   if (error) {

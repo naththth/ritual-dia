@@ -5,7 +5,7 @@ import { toast } from '../state/store';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ChevronRight, ListOrdered, Moon, Sunrise, ShoppingBag, Check } from 'lucide-react';
 import { TopBar } from './common';
-import { useAll, useByDate } from '../db/hooks';
+import { useAll, useByDate, useRecord } from '../db/hooks';
 import { planFor, plannedSkin } from '../domain/rules';
 import { update } from '../db/db';
 import { ProductThumb } from '../ui/ProductThumb';
@@ -20,6 +20,7 @@ export const AREAS = {
   treino: { title: 'Treino', tabs: [{ to: '/treino', label: 'Semana' }, { to: '/treino/plano', label: 'Plano' }, { to: '/treino/sessoes', label: 'Sessões' }] },
   cuidados: { title: 'Cuidados', tabs: [{ to: '/cuidados', label: 'Hoje' }, { to: '/cuidados/rotina', label: 'Rotina' }, { to: '/cuidados/produtos', label: 'Produtos' }] },
   alimentacao: { title: 'Alimentação', tabs: [{ to: '/alimentacao', label: 'Hoje' }, { to: '/alimentacao/plano', label: 'Plano' }, { to: '/alimentacao/alimentos', label: 'Alimentos' }, { to: '/alimentacao/refeicoes', label: 'Refeições' }] },
+  carreira: { title: 'Carreira', tabs: [{ to: '/carreira', label: 'Trabalho' }, { to: '/carreira/marca', label: 'Marca' }, { to: '/carreira/conquistas', label: 'Conquistas' }, { to: '/carreira/oportunidades', label: 'Oportunidades' }, { to: '/carreira/crescer', label: 'Desenvolvimento' }] },
   mente: { title: 'Mente', tabs: [{ to: '/mente', label: 'Hoje' }, { to: '/mente/tomo', label: 'Remédios' }, { to: '/mente/painel', label: 'Painel' }, { to: '/mente/ajustes', label: 'Ajustes' }] }
 } as const;
 export type AreaId = keyof typeof AREAS;
@@ -30,17 +31,19 @@ export function AreaNav({ area }: { area: AreaId }) {
   const nav = useNavigate();
   const loc = useLocation();
   const tabs = AREAS[area].tabs;
+  const base = useRecord<'careerbase'>('careerbase');
+  const label = (t: { to: string; label: string }) => (t.to === '/carreira' && base?.workName ? base.workName : t.label);
   return (
     <div className="seg-tabs area-nav" role="tablist" aria-label={`Seções de ${AREAS[area].title}`} data-testid={`area-nav-${area}`}>
       {tabs.map((t) => (
-        <button key={t.to} role="tab" aria-selected={loc.pathname === t.to} className={loc.pathname === t.to ? 'on' : ''} onClick={() => nav(t.to, { replace: true })}>{t.label}</button>
+        <button key={t.to} role="tab" aria-selected={loc.pathname === t.to} className={loc.pathname === t.to ? 'on' : ''} onClick={() => nav(t.to, { replace: true })}>{label(t)}</button>
       ))}
     </div>
   );
 }
 
 /** Quem atende em cada área: a treinadora fica na aba Semana do Treino; as outras, em todas as abas da área. */
-const SPEC: Partial<Record<AreaId, 'skin' | 'food' | 'mind'>> = { cuidados: 'skin', alimentacao: 'food', mente: 'mind' };
+const SPEC: Partial<Record<AreaId, 'skin' | 'food' | 'mind' | 'career'>> = { cuidados: 'skin', alimentacao: 'food', mente: 'mind', carreira: 'career' };
 
 export function AreaPage({ area, children, testId }: { area: AreaId; children: ReactNode; testId: string }) {
   const spec = SPEC[area];
