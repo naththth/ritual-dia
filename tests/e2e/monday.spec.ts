@@ -316,6 +316,9 @@ test('sono: acordar 6h calcula deitar e organiza o dia', async ({ page }) => {
 
 test('registrar sono, VFC e passos à mão', async ({ page }) => {
   await onboard(page);
+  // Sono e ciclo saíram do Hoje: ficam em Indicadores.
+  await expect(page.getByTestId('wellness-open')).toHaveCount(0);
+  await page.goto('./#/indicadores');
   await page.getByTestId('wellness-open').click();
   await page.getByLabel('Sono', { exact: true }).fill('7h20');
   await page.getByLabel('VFC (ms)').fill('46');
@@ -333,6 +336,7 @@ test('registrar sono, VFC e passos à mão', async ({ page }) => {
 
 test('sem relógio: estimativa de sono com um toque', async ({ page }) => {
   await onboard(page);
+  await page.goto('./#/indicadores');
   await page.getByTestId('no-watch').getByRole('button', { name: '~7 h' }).click();
   await expect(page.getByTestId('wellness')).toContainText('~7h00');
   await expect(page.getByTestId('wellness')).toContainText('estimado');
@@ -372,8 +376,10 @@ test('importar biblioteca do Goodreads', async ({ page }) => {
   await expect(page.getByTestId('book-row')).toHaveCount(2); // lendo: 2, sem duplicar
 });
 
-test('ciclo: marcar menstruação, ver fase no Hoje e previsão', async ({ page }) => {
+test('ciclo: marcar menstruação, ver fase nos Indicadores e previsão', async ({ page }) => {
   await onboard(page);
+  await expect(page.getByTestId('cycle-card')).toHaveCount(0);
+  await page.goto('./#/indicadores');
   await page.getByTestId('cycle-setup').click();
   const mark = async (d: string, flow: string) => {
     await page.getByTestId('cycle-sheet').getByLabel('Dia do registro').fill(d);
@@ -403,7 +409,7 @@ test('ciclo: marcar menstruação, ver fase no Hoje e previsão', async ({ page 
   await expect(page.getByTestId('cycle-history')).not.toContainText('ciclo de 25 dias');
   await expect(page.getByTestId('cycle-history')).not.toContainText('/09');
   await noHorizontalScroll(page);
-  if (process.env.SHOTS) { await page.screenshot({ path: '/tmp/claude-0/shots/ciclo.png', fullPage: true }); await page.goto('./#/'); await page.getByTestId('cycle-card').waitFor(); await page.waitForTimeout(4500); await page.screenshot({ path: '/tmp/claude-0/shots/hoje.png' }); await page.goto('./#/ciclo'); }
+  if (process.env.SHOTS) { await page.screenshot({ path: '/tmp/claude-0/shots/ciclo.png', fullPage: true }); await page.goto('./#/indicadores'); await page.getByTestId('cycle-card').waitFor(); await page.waitForTimeout(4500); await page.screenshot({ path: '/tmp/claude-0/shots/hoje.png' }); await page.goto('./#/ciclo'); }
   await page.getByTestId('cycle-hormonal').click();
   if (process.env.SHOTS) { await page.getByTestId('cycle-settings').scrollIntoViewIfNeeded(); await page.screenshot({ path: '/tmp/claude-0/shots/ciclo-ajustes.png' }); }
   await expect(page.getByTestId('cycle-screen')).toContainText('não há fase natural');

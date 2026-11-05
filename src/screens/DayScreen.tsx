@@ -14,8 +14,6 @@ import type { Habit, Task } from '../db/types';
 import { toast } from '../state/store';
 import { BriefTasks, DayBriefBlock } from './ai-ui';
 import { NowAndTimeline, TodayStats } from './today';
-import { WellnessCard } from './wellness';
-import { CycleCard } from './cycle';
 import { RadarCard } from './radar-ui';
 import { MindTodayCard } from './mind';
 import { RitualHero } from './ritual';
@@ -39,8 +37,6 @@ export function DayScreen() {
       <MindTodayCard date={date} />
       <NowAndTimeline date={date} />
       <DayBriefBlock date={date} />
-      <WellnessCard date={date} />
-      <CycleCard date={date} />
       <TodayTasks date={date} tasks={tasks} />
       <BriefTasks date={date} />
       <Suggestion date={date} tasks={tasks} />

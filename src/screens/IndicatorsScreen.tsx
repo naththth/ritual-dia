@@ -10,6 +10,9 @@ import { fmt } from '../domain/nutrition';
 import { formLabel } from '../domain/load';
 import { planFor, plannedFood } from '../domain/rules';
 import { totals } from '../domain/nutrition';
+import { WellnessCard } from './wellness';
+import { CycleCard } from './cycle';
+import { ChevronRight, Sparkles } from 'lucide-react';
 
 const hmin = (h?: number) => (h == null ? '–' : `${Math.floor(h)}h${String(Math.round((h % 1) * 60)).padStart(2, '0')}`);
 
@@ -67,6 +70,11 @@ export function IndicatorsScreen() {
   return (
     <div className="screen no-nav" data-testid="indicators">
       <PageHead title="Indicadores" withDate={false} />
+      {/* O de hoje: sono e corpo vindos do relógio (com a confirmação de noite curta) e a fase do ciclo. */}
+      <h2 className="sec-h" style={{ marginTop: 4 }}>Hoje</h2>
+      <WellnessCard date={to} />
+      <CycleCard date={to} />
+      <button className="lib-item" style={{ margin: '0 0 18px' }} onClick={() => nav('/semana')} data-testid="ind-week"><span className="lib-icon"><Sparkles size={20} /></span><span className="grow"><b>Sua semana</b><br /><span className="small muted">Leitura da equipe e padrões que são seus</span></span><ChevronRight size={18} /></button>
       <Seg value={n} onChange={setN} options={[{ id: '7', label: '7 dias' }, { id: '28', label: '28 dias' }]} label="Período" />
 
       <h2 className="sec-h">Alimentação</h2>
