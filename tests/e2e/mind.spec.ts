@@ -38,7 +38,7 @@ async function seed(page: Page) {
   await page.reload();
 }
 
-test('Mente: tomadas no Hoje, café, PIN, check-in, painel e relatório', async ({ page }) => {
+test('Mente: tomadas no Hoje, café com horário, sem PIN, check-in, painel e relatório', async ({ page }) => {
   await seed(page);
   // Hoje: um único +, que reúne tudo (inclusive café); a tomada aparece na linha do tempo.
   await expect(page.getByTestId('mind-today')).toHaveCount(0);
@@ -46,22 +46,32 @@ test('Mente: tomadas no Hoje, café, PIN, check-in, painel e relatório', async 
   await expect(page.locator('.water-plus')).toHaveCount(1);
   await page.getByTestId('fab').click();
   await page.getByTestId('reg-coffee').click();
+  // O horário começa em agora e dá para trocar antes de anotar (tocando direto na bebida, sem fechar o teclado).
+  const hora = page.getByTestId('coffee-sheet').getByLabel('Horário do café');
+  await expect(hora).toHaveValue('07:30');
+  await hora.fill('0650');
   await page.getByTestId('drink-cap-3c').click();
   await page.getByTestId('act-dose-06:40').click();
   await expect(page.getByTestId('act-dose-06:40')).toHaveCount(0);
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/mind-hoje.png', fullPage: true });
 
-  // Aba Mente: cria o PIN.
+  // Aba Mente: abre direto, sem PIN.
   await page.getByTestId('nav-menu').click();
   await page.getByTestId('dr-mente').click();
-  await page.getByTestId('pin-new').fill('2468');
-  await page.getByTestId('pin-new2').fill('2468');
-  await page.getByTestId('pin-save').click();
+  await expect(page.getByTestId('pin-create')).toHaveCount(0);
   await expect(page.getByTestId('doses')).toContainText('Tomei às 07:30');
   await expect(page.getByTestId('doses')).toContainText('restam cerca de 3 dias');
   await expect(page.getByTestId('sleep-stage')).toContainText('Deitar às 22:00');
   await expect(page.getByTestId('sleep-stage')).toContainText('Café só até as 14:00');
   await expect(page.getByTestId('coffee')).toContainText('65 mg');
+  await expect(page.getByTestId('coffee')).toContainText('Último às 06:50');
+  // Corrige o horário de um café já anotado.
+  await page.getByTestId('coffee').click();
+  await page.getByTestId('coffee-sheet').getByLabel(/^Horário do Espresso/).fill('0710');
+  await page.getByTestId('coffee-sheet').getByLabel(/^Horário do Espresso/).press('Enter');
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/mind-cafe.png' });
+  await page.getByTestId('coffee-sheet').getByLabel('Fechar').click();
+  await expect(page.getByTestId('coffee')).toContainText('Último às 07:10');
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/mind-tela.png', fullPage: true });
 
   // Check-in da noite.
@@ -98,11 +108,10 @@ test('Mente: tomadas no Hoje, café, PIN, check-in, painel e relatório', async 
   await expect(page.getByTestId('report-screen')).toContainText('Reunião longa');
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/mind-relatorio.png', fullPage: true });
 
-  // PIN pede de novo depois de recarregar.
+  // Depois de recarregar, a Mente continua abrindo direto.
   await page.goto('./#/mente');
   await page.reload();
-  await expect(page.getByTestId('pin-lock')).toBeVisible();
-  await page.getByTestId('pin-input').fill('2468');
+  await expect(page.getByTestId('pin-lock')).toHaveCount(0);
   await expect(page.getByTestId('doses')).toBeVisible();
 
   // Dia ruim: o respiro aparece sozinho, com respiração guiada, frase e música.

@@ -1,105 +1,25 @@
 // Área Mente: check-ins de humor, o que ela toma, café, sono em etapas, painel de 30 dias, avisos e relatório para a consulta.
-// A tela abre com PIN; o Hoje mostra só o necessário (avisos, café, tomadas na linha do tempo).
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+// A tela abre direto, sem PIN; o Hoje mostra só o necessário (avisos, café, tomadas na linha do tempo).
+import { useEffect, useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, Brain, Coffee, FileText, Lock, Moon, Pill, Plus, Trash2, X, ChevronRight, Eye, Wind, Music, Sparkles, Play, Square, ThumbsUp, ThumbsDown, RefreshCw, HeartHandshake } from 'lucide-react';
 import { useAll, useByDate, useByRange, useSettings } from '../db/hooks';
 import { create, get, remove, update } from '../db/db';
 import { toast } from '../state/store';
-import { useSync, signInWithGoogle } from '../sync/sync';
 import { addDays, shortLabel, todayKey, type DateKey } from '../lib/dates';
 import { Chip, Sheet, Switch, TimeInput, NumberInput, useConfirm } from '../ui/ui';
 import { PageHead } from './common';
 import { AreaPage } from './areas';
 import type { Intake, IntakeType, MoodCheckin, SleepPlan } from '../db/types';
 import {
-  CONTEXT_TAGS, DEFAULT_DRINKS, MOOD_LABEL, SLIDERS, WAKE_OPTIONS, bedStageProgress, daysLeft, dosesFor, dueOn, nextDue, observing, scheduleLabel, slotsFor, toMin, typeLabel,
+  CONTEXT_TAGS, DEFAULT_DRINKS, hm, MOOD_LABEL, SLIDERS, WAKE_OPTIONS, bedStageProgress, daysLeft, dosesFor, dueOn, nextDue, observing, scheduleLabel, slotsFor, toMin, typeLabel,
   moodBaseline, type MindAlert, type MindDay
 } from '../domain/mind';
 import { addCaffeine, dismissAlert, loadMind, markDose, saveCheckin, unmarkDose } from '../domain/mindload';
 import { sleepPlan } from '../domain/sleep';
 import { askCare, cachedCare, careFeedback, careSignal, FALLBACK, songLink, type Care } from '../domain/mindcare';
 import { aiAvailable } from '../domain/ai';
-
-/* ---------------- PIN ---------------- */
-let unlockedAt = 0;
-let hiddenAt = 0;
-if (typeof document !== 'undefined') {
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') hiddenAt = Date.now();
-    else if (hiddenAt && Date.now() - hiddenAt > 5 * 60_000) unlockedAt = 0;
-  });
-}
-async function hashPin(pin: string) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`ritual-mente:${pin}`));
-  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
-}
-const RESET_KEY = 'mind-pin-reset';
-
-/** Tranca a área com PIN. Sem PIN criado, pede para criar no primeiro acesso. "Esqueci" pede para entrar de novo com Google. */
-function PinGate({ children }: { children: ReactNode }) {
-  const settings = useSettings();
-  const session = useSync((s) => s.session);
-  const [pin, setPin] = useState('');
-  const [pin2, setPin2] = useState('');
-  const [ok, setOk] = useState(() => unlockedAt > 0);
-  const [err, setErr] = useState('');
-  const hash = settings?.mind?.pinHash;
-
-  // Volta do login feito para redefinir o PIN: login novo depois do pedido apaga o PIN antigo.
-  useEffect(() => {
-    let t = 0; try { t = Number(localStorage.getItem(RESET_KEY) || 0); } catch { /* */ }
-    const last = session?.user?.last_sign_in_at ? new Date(session.user.last_sign_in_at).getTime() : 0;
-    if (t && last > t && hash) {
-      void update<'settings'>('settings', { mind: { ...(settings?.mind ?? {}), pinHash: undefined } }).then(() => { try { localStorage.removeItem(RESET_KEY); } catch { /* */ } toast('PIN apagado. Crie um novo.'); });
-    }
-  }, [session, hash]);
-
-  if (!settings) return null;
-  if (ok && hash) return <>{children}</>;
-  const digits = (v: string) => v.replace(/\D/g, '').slice(0, 6);
-  if (!hash) {
-    const create = async () => {
-      if (pin.length < 4) { setErr('Use de 4 a 6 números.'); return; }
-      if (pin !== pin2) { setErr('Os dois PINs não batem.'); return; }
-      await update<'settings'>('settings', { mind: { ...(settings.mind ?? {}), pinHash: await hashPin(pin) } });
-      unlockedAt = Date.now(); setOk(true); toast('PIN criado');
-    };
-    return (
-      <section className="block b-paper mind-lock" data-testid="pin-create">
-        <Lock size={22} />
-        <h2>Crie um PIN para a Mente</h2>
-        <p className="small">É a área mais sensível do app. O PIN fica só com você: é guardado cifrado e pedido de novo depois de 5 minutos fora do app.</p>
-        <input inputMode="numeric" type="password" autoComplete="new-password" placeholder="PIN de 4 a 6 números" value={pin} onChange={(e) => { setPin(digits(e.target.value)); setErr(''); }} data-testid="pin-new" />
-        <input inputMode="numeric" type="password" autoComplete="new-password" placeholder="Repita o PIN" value={pin2} onChange={(e) => { setPin2(digits(e.target.value)); setErr(''); }} style={{ marginTop: 8 }} data-testid="pin-new2" />
-        {err && <p className="small" style={{ color: 'var(--alert)' }}>{err}</p>}
-        <button className="btn btn-ink btn-block" style={{ marginTop: 12 }} onClick={create} data-testid="pin-save">Criar PIN e entrar</button>
-      </section>
-    );
-  }
-  const check = async (v: string) => {
-    setPin(v); setErr('');
-    if (v.length >= 4 && (await hashPin(v)) === hash) { unlockedAt = Date.now(); setOk(true); }
-    else if (v.length === 6) setErr('PIN incorreto.');
-  };
-  const forgot = async () => {
-    try { localStorage.setItem(RESET_KEY, String(Date.now())); } catch { /* */ }
-    if (!session) { await update<'settings'>('settings', { mind: { ...(settings.mind ?? {}), pinHash: undefined } }); toast('PIN apagado. Crie um novo.'); return; }
-    toast('Entre de novo com Google para redefinir o PIN.');
-    await signInWithGoogle();
-  };
-  return (
-    <section className="block b-paper mind-lock" data-testid="pin-lock">
-      <Lock size={22} />
-      <h2>Mente</h2>
-      <p className="small">Digite o seu PIN.</p>
-      <input inputMode="numeric" type="password" autoComplete="off" autoFocus placeholder="PIN" value={pin} onChange={(e) => void check(digits(e.target.value))} data-testid="pin-input" />
-      {err && <p className="small" style={{ color: 'var(--alert)' }}>{err}</p>}
-      <button className="link small" style={{ marginTop: 12 }} onClick={forgot}>Esqueci o PIN</button>
-    </section>
-  );
-}
 
 /* ---------------- Dados ---------------- */
 export function useMind() {
@@ -129,15 +49,25 @@ function AlertCard({ a, compact }: { a: MindAlert; compact?: boolean }) {
 }
 
 /* ---------------- Café ---------------- */
-/** Folha para anotar café: abre pelo + do Hoje, pela linha de café e pela aba Mente. */
+/** Folha para anotar café: abre pelo + do Hoje, pela linha de café e pela aba Mente.
+ *  O horário começa em agora (ou 09:00 em outro dia) e pode ser trocado antes de anotar;
+ *  os cafés já anotados também têm o horário editável. */
 export function CoffeeSheet({ open, onClose, date }: { open: boolean; onClose: () => void; date: DateKey }) {
   const settings = useSettings();
   const list = useByDate('caffeine', date);
   const drinks = settings?.mind?.drinks ?? DEFAULT_DRINKS;
   const sorted = [...(list ?? [])].sort((a, b) => a.time.localeCompare(b.time));
-  const add = async (label: string, n: number) => { await addCaffeine(date, label, n); toast(`${label} anotado`); onClose(); };
+  const fresh = () => (date === todayKey() ? hm() : '09:00');
+  const [time, setTime] = useState(fresh);
+  // Cada vez que a folha abre, o horário volta para agora.
+  useEffect(() => { if (open) setTime(fresh()); }, [open, date]);
+  const add = async (label: string, n: number) => { await addCaffeine(date, label, n, time); toast(`${label} anotado às ${time}`); onClose(); };
   return (
-    <Sheet open={open} onClose={onClose} title="Café" sub={date === todayKey() ? 'Anota com o horário de agora' : shortLabel(date)} testId="coffee-sheet">
+    <Sheet open={open} onClose={onClose} title="Café" sub={date === todayKey() ? 'Hoje' : shortLabel(date)} testId="coffee-sheet">
+      <div className="row-item" style={{ minHeight: 52 }}>
+        <span className="grow"><span className="t">Horário</span></span>
+        <TimeInput value={time} onChange={setTime} label="Horário do café" style={{ width: 84, textAlign: 'center' }} />
+      </div>
       <div className="stack">
         {drinks.map((d) => (
           <button key={d.id} className="row-item tap" style={{ width: '100%', textAlign: 'left' }} onClick={() => void add(d.label, d.mg)} data-testid={`drink-${d.id}`}>
@@ -148,16 +78,16 @@ export function CoffeeSheet({ open, onClose, date }: { open: boolean; onClose: (
         ))}
       </div>
       {sorted.length > 0 && <>
-        <span className="label">Hoje</span>
+        <span className="label">Já anotados</span>
         {sorted.map((c) => (
-          <div key={c.id} className="row-item">
-            <span className="num" style={{ width: 48 }}>{c.time}</span>
+          <div key={c.id} className="row-item" data-testid={`coffee-row-${c.id}`}>
+            <TimeInput value={c.time} onChange={(v) => void update<'caffeine'>(c.id, { time: v })} label={`Horário do ${c.label}`} style={{ width: 72, textAlign: 'center' }} />
             <span className="grow">{c.label} <span className="muted">· {c.mg} mg</span></span>
             <button className="icon-btn" aria-label="Apagar" onClick={() => void remove(c.id)}><Trash2 size={16} /></button>
           </div>
         ))}
       </>}
-      <p className="tiny muted" style={{ marginTop: 12 }}>Os mg são estimativas. Você ajusta em Mente › Ajustes.</p>
+      <p className="tiny muted" style={{ marginTop: 12 }}>Toque no horário para corrigir. Os mg são estimativas; você ajusta em Mente › Ajustes.</p>
     </Sheet>
   );
 }
@@ -387,7 +317,7 @@ export function CheckinScreen() {
   return (
     <div className="screen no-nav" data-testid="checkin-screen">
       <PageHead title={period === 'am' ? 'Como acordou' : 'Fechar o dia'} withDate={false} />
-      <PinGate>
+      <>
         <p className="small muted" style={{ marginTop: -4 }}>{date === todayKey() ? 'Hoje' : shortLabel(date)}{period === 'am' && w?.sleepH ? ` · o relógio marcou ${w.sleepH.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} h de sono${w.sleepStart ? `, de ${w.sleepStart} a ${w.sleepEnd}` : ''}` : ''}</p>
         {period === 'am' && <>
           <span className="label">Como você acordou?</span>
@@ -418,7 +348,7 @@ export function CheckinScreen() {
         <span className="label">Uma linha, se quiser</span>
         <textarea rows={2} value={st.note ?? ''} onChange={(e) => set({ note: e.target.value })} placeholder="A especialista da Mente lê; as outras, não" data-testid="checkin-note" />
         <button className="btn btn-ink btn-block" style={{ marginTop: 18 }} onClick={save} data-testid="checkin-save">Salvar</button>
-      </PinGate>
+      </>
     </div>
   );
 }
@@ -507,7 +437,7 @@ export function MindScreen() {
   const signal = data ? careSignal(data.days.find((d) => d.date === today), data.alerts) : undefined;
   return (
     <AreaPage area="mente" testId="mind-screen">
-      <PinGate>
+      <>
         {obs && <p className="notice calm" style={{ marginBottom: 14 }} data-testid="observing"><b>Modo observação até {shortLabel(addDays(obs.date, 14))}.</b> Houve ajuste do médico em {shortLabel(obs.date)}: capriche nos check-ins e anote efeitos colaterais. Tudo entra no relatório.</p>}
         {data && <CareCard data={data} force={care} onClose={!signal && care ? () => setCare(false) : undefined} />}
         {data?.alerts.map((a) => <AlertCard key={a.id} a={a} />)}
@@ -516,7 +446,7 @@ export function MindScreen() {
         <DosesBlock date={today} />
         <section className="block b-paper"><div className="bh"><h2>Café</h2></div><CoffeeLine date={today} /></section>
         <SleepStage />
-      </PinGate>
+      </>
     </AreaPage>
   );
 }
@@ -526,18 +456,17 @@ export function MindPanelPage() {
   const nav = useNavigate();
   return (
     <AreaPage area="mente" testId="mind-panel-page">
-      <PinGate>
+      <>
         {data && <Panel days={data.days} />}
         <button className="lib-item" style={{ marginBottom: 10 }} onClick={() => nav('/semana')}><span className="lib-icon"><Sparkles size={20} /></span><span className="grow"><b>Sua semana</b><br /><span className="small muted">Leitura da equipe, padrões e ajustes da próxima</span></span><ChevronRight size={18} /></button>
         <button className="lib-item" onClick={() => nav('/mente/relatorio')} data-testid="open-report"><span className="lib-icon"><FileText size={20} /></span><span className="grow"><b>Relatório para a consulta</b><br /><span className="small muted">30, 60 ou 90 dias, para imprimir ou salvar em PDF</span></span><ChevronRight size={18} /></button>
-      </PinGate>
+      </>
     </AreaPage>
   );
 }
 
 export function MindSettingsPage() {
   const settings = useSettings();
-  const [ask, confirm] = useConfirm();
   if (!settings) return null;
   const drinks = settings.mind?.drinks ?? DEFAULT_DRINKS;
   const setDrinks = (d: typeof drinks) => update<'settings'>('settings', { mind: { ...(settings.mind ?? {}), drinks: d } });
@@ -547,7 +476,7 @@ export function MindSettingsPage() {
   const fb = settings.mind?.careFeedback ?? [];
   return (
     <AreaPage area="mente" testId="mind-settings">
-      <PinGate>
+      <>
         <section className="block b-paper">
           <div className="bh"><h2>Cafés</h2><Coffee size={20} /></div>
           <p className="small" style={{ marginTop: 0 }}>Os que aparecem para anotar, com a cafeína estimada de cada um.</p>
@@ -584,11 +513,6 @@ export function MindSettingsPage() {
         <section className="block b-paper">
           <div className="bh"><h2>Privacidade</h2><Lock size={20} /></div>
           <p className="small" style={{ marginTop: 0 }}>A especialista da Mente lê tudo, inclusive o que você escreve nos check-ins. As outras especialistas recebem só números e avisos, sem o que você escreve e sem os nomes dos remédios psiquiátricos.</p>
-          <button className="link" onClick={async () => {
-            if (await confirm({ title: 'Trocar o PIN?', text: 'Você cria um novo no próximo acesso.', ok: 'Trocar' })) {
-              await update<'settings'>('settings', { mind: { ...(settings.mind ?? {}), pinHash: undefined } }); unlockedAt = 0; toast('Crie o novo PIN ao abrir a Mente.');
-            }
-          }}>Trocar o PIN</button>
         </section>
 
         {fb.length > 0 && (
@@ -603,8 +527,7 @@ export function MindSettingsPage() {
             ))}
           </section>
         )}
-        {ask}
-      </PinGate>
+      </>
     </AreaPage>
   );
 }
@@ -620,7 +543,7 @@ export function IntakeScreen() {
   const sorted = (items ?? []).sort((a, b) => Number(b.active) - Number(a.active) || a.order - b.order);
   return (
     <AreaPage area="mente" testId="intake-screen">
-      <PinGate>
+      <>
         {sorted.map((i) => {
           const left = daysLeft(i);
           return (
@@ -645,7 +568,7 @@ export function IntakeScreen() {
             <button className="icon-btn" aria-label="Apagar" onClick={() => void remove(c.id)}><Trash2 size={16} /></button>
           </div>
         ))}
-      </PinGate>
+      </>
       <IntakeSheet item={edit} onClose={() => setEdit(null)} count={items?.length ?? 0} />
       <ChangeSheet open={chg} onClose={() => setChg(false)} items={items ?? []} />
     </AreaPage>
@@ -765,7 +688,7 @@ export function ReportScreen() {
   return (
     <div className="screen no-nav report" data-testid="report-screen">
       <div className="no-print"><PageHead title="Relatório" withDate={false} /></div>
-      <PinGate>
+      <>
         <div className="row no-print" style={{ gap: 8, marginBottom: 10 }}>
           {[30, 60, 90].map((n) => <Chip key={n} on={span === n} onClick={() => setSpan(n)}>{n} dias</Chip>)}
         </div>
@@ -789,7 +712,7 @@ export function ReportScreen() {
         {tagCount.size > 0 && <><h2 className="report-h">Eventos marcados</h2><p className="small">{Array.from(tagCount.entries()).sort((a, b) => b[1] - a[1]).map(([t, n]) => `${t} (${n})`).join(', ')}</p></>}
         {notes.length > 0 && <><h2 className="report-h">Anotações</h2><ul className="report-list">{notes.map((m) => <li key={m.id}>{shortLabel(m.date)}{m.period === 'am' ? ', manhã' : ''}: {m.note}</li>)}</ul></>}
         <p className="tiny muted" style={{ marginTop: 18 }}>Registro feito pela própria paciente. Não substitui avaliação clínica.</p>
-      </PinGate>
+      </>
     </div>
   );
 }
