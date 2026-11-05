@@ -8,6 +8,8 @@ async function seed(page: Page, when = '2026-11-04T07:30:00-03:00') {
   await page.addInitScript(() => {
     (window as any).__RITUAL_TEST_AI = (task: string, ctx: any) => {
       (window as any).__ctx = { ...((window as any).__ctx ?? {}), [task]: ctx };
+      if (task === 'ritual_am') return { frase: 'Ritmo antes de intensidade: o pedal é à noite, a manhã é para a proposta.', foco: 'Almoço com proteína e lanche às 16h para chegar inteira ao Pedal VO2.', atencao: '' };
+      if (task === 'ritual_pm') return { fechamento: 'Dia pesado no trabalho, mas o treino saiu.', para_amanha: 'Começar pela parte difícil da proposta antes das 10h.' };
       if (task === 'week_cross') return { titulo: 'Semana de base, sono curto no meio', leitura: 'O sono caiu na quarta e o humor acompanhou.', funcionou: ['Remédios em dia'], pesou: ['Duas noites curtas'], proxima_semana: [{ area: 'treino', acao: 'Trocar o pedal de quarta por Z2', por_que: 'Sono curto nas quartas' }, { area: 'sono', acao: 'Café só até as 14h', por_que: 'Noites mais curtas depois de café tarde' }] };
       return {};
     };
@@ -45,27 +47,47 @@ test('ritual da manhã passo a passo e o conselho troca o treino forte', async (
   await page.getByTestId('ritual-hero-am').click();
   await expect(page.getByTestId('ritual-am')).toContainText('Como você acordou?');
   await expect(page.getByTestId('ritual-am')).toContainText('5,4 h de sono');
+  await expect(page.getByTestId('rt-tab-treino')).toHaveCount(0);
   await page.getByTestId('rt-wake-cansada').click();
   await page.getByTestId('rt-mood--1').click();
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/ritual-checkin.png' });
   await page.getByTestId('rt-checkin-save').click();
-  await expect(page.getByTestId('ritual-am')).toContainText('Remédios e vitaminas');
+  await expect(page.getByTestId('ritual-am')).toContainText('Antes de sair');
   // Sai no meio: o ritual continua no Hoje e retoma de onde parou.
   await page.getByLabel('Fechar').click();
-  await expect(page.getByTestId('ritual-hero-am')).toContainText('Continuar · 1 de 3');
-  await expect(page.getByTestId('ritual-pill-pm')).toContainText('0 de 2');
+  await expect(page.getByTestId('ritual-hero-am')).toContainText('Continuar · 1 de 5');
+  await expect(page.getByTestId('ritual-pill-pm')).toContainText('0 de 4');
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/hoje-ritual-meio.png', fullPage: true });
   await page.getByTestId('ritual-hero-am').click();
-  await expect(page.getByTestId('ritual-am')).toContainText('Remédios e vitaminas');
+  await expect(page.getByTestId('ritual-am')).toContainText('Antes de sair');
   // Volta ao check-in para mexer: o que registrou continua lá.
-  await page.getByTestId('rt-tab-checkin').click();
+  await page.getByTestId('rt-tab-acordar').click();
   await expect(page.getByTestId('rt-mood--1')).toHaveClass(/on/);
   await page.getByTestId('rt-checkin-save').click();
-  await expect(page.getByTestId('ritual-am')).toContainText('Remédios e vitaminas');
-  await page.getByTestId('rt-doses').click();
-  await expect(page.getByTestId('ritual-am')).toContainText('O treino de hoje');
-  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/ritual-treino.png' });
-  await page.getByTestId('rt-train').click();
+  // O básico: um toque em cada.
+  await page.getByTestId('rt-basic-doses').click();
+  await page.getByTestId('rt-basic-banho').click();
+  await expect(page.getByTestId('rt-basic-banho')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('rt-basic-doses')).toHaveAttribute('aria-pressed', 'true');
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/ritual-basico.png' });
+  await page.getByTestId('rt-basics').click();
+  // Pergunta do dia (noite curta muda a pergunta) e foco.
+  await expect(page.getByTestId('rt-question')).toContainText('noite curta');
+  await page.getByTestId('rt-answer').fill('Fechar a proposta antes do almoço');
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/ritual-foco.png' });
+  await page.getByTestId('rt-focus-save').click();
+  // Marca: primeira vez, combina o ritmo do LinkedIn.
+  await expect(page.getByTestId('ritual-am')).toContainText('LinkedIn no seu ritmo');
+  await page.getByTestId('brand-per-2').click();
+  await page.getByTestId('brand-setup').click();
+  await expect(page.getByTestId('rt-phrase')).toContainText('Ritmo antes de intensidade');
+  await expect(page.getByTestId('rt-foco')).toContainText('Pedal VO2');
+  const ctx = await page.evaluate(() => (window as any).__ctx.ritual_am);
+  expect(ctx.o_que_ela_escreveu_agora).toBe('Fechar a proposta antes do almoço');
+  expect(ctx.basico_da_manha.banho).toBe(true);
+  expect(ctx.agenda.treinos[0].nome).toBe('Pedal VO2');
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/ritual-dia.png' });
+  await page.getByTestId('rt-start').click();
   await expect(page.getByTestId('ritual-done')).toContainText('Manhã pronta');
   await page.waitForTimeout(1200);
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/ritual-fim.png' });
@@ -79,17 +101,39 @@ test('ritual da manhã passo a passo e o conselho troca o treino forte', async (
   await expect(page.getByTestId('council-regen')).toHaveCount(0);
 });
 
-test('ritual da noite fecha o dia e mostra o amanhã', async ({ page }) => {
+test('ritual da noite resume o dia, guarda a ideia de post e o amanhã aparece de manhã', async ({ page }) => {
   await seed(page, '2026-11-04T20:30:00-03:00');
   await page.getByTestId('ritual-hero-pm').click();
   await page.getByTestId('rt-mood-0').click();
   await page.getByLabel('Energia 2').click();
   await page.getByTestId('rt-checkin-save').click();
+  await expect(page.getByTestId('ritual-pm')).toContainText('O dia em resumo');
+  await page.getByTestId('rt-trained-sim').click();
+  await expect(page.getByTestId('rt-sum-train')).toContainText('Feito');
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/ritual-resumo.png' });
+  await page.getByTestId('rt-summary').click();
+  await page.getByTestId('rt-answer').fill('Reunião difícil, mas o treino segurou o dia');
+  await page.getByTestId('rt-post-idea').fill('Constância no trabalho e no esporte');
+  await page.getByTestId('rt-reflect-save').click();
   await expect(page.getByTestId('ritual-pm')).toContainText('Amanhã, quinta');
   await expect(page.getByTestId('ritual-pm')).toContainText('Deitar às 22:00');
+  await expect(page.getByTestId('rt-tomorrow-ai')).toContainText('parte difícil da proposta');
+  const ctx = await page.evaluate(() => (window as any).__ctx.ritual_pm);
+  expect(ctx.o_que_ela_escreveu_agora).toContain('Reunião difícil');
+  expect(ctx.treinou_hoje).toBe('sim');
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/ritual-noite.png' });
   await page.getByTestId('rt-night').click();
   await expect(page.getByTestId('ritual-done')).toContainText('Boa noite');
+  await page.getByTestId('rt-close').click();
+  // A ideia vira pauta.
+  await page.goto('./#/marca');
+  await expect(page.getByTestId('post-row')).toContainText('Constância no trabalho e no esporte');
+  // Na manhã seguinte, o fechamento de ontem abre o ritual.
+  await page.clock.setFixedTime(new Date('2026-11-05T07:10:00-03:00'));
+  await page.goto('./#/');
+  await page.reload();
+  await page.getByTestId('ritual-hero-am').click();
+  await expect(page.getByTestId('rt-carry')).toContainText('parte difícil da proposta');
 });
 
 test('leitura da semana: números, leitura da equipe e ajustes levados à especialista', async ({ page }) => {

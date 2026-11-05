@@ -44,8 +44,20 @@ Limites: nunca sugira mudar remédio ou dose; padrão preocupante de humor ou so
 const WEEK = `Faça a leitura cruzada da semana (contexto.semana). O contexto traz cada dia (humor de -3 a +3, energia, ansiedade e irritabilidade de 0 a 4, eventos, o que ela escreveu, sono e horário, VFC, café, treino feito e planejado, kcal e proteína quando registrou, peso, doses), o resumo com a semana anterior para comparar, os treinos, a pele, padroes_dela (já calculados nos registros dela: use, cite e não invente outros), avisos ativos, mudanças do médico e o objetivo.
 'titulo': uma frase curta que resume a semana, sem clichê. 'leitura': 3 a 5 frases que liguem as áreas com números e datas (ex.: o que o sono fez com o humor e o treino; como a alimentação acompanhou a carga). Diferencie "não registrado" de "não feito". 'funcionou': 2 a 3 itens concretos. 'pesou': 1 a 3 itens concretos, sem culpa. 'proxima_semana': 2 a 4 ajustes pequenos e específicos, cada um com 'area' (treino | alimentacao | mente | cuidados | sono), 'acao' (o que fazer, em uma frase, escrita como pedido que ela levaria à especialista) e 'por_que' (os números que sustentam). Se faltarem dados para uma leitura confiável, diga em 'leitura' o que faltou.
 Formato: {"titulo":"","leitura":"","funcionou":[],"pesou":[],"proxima_semana":[{"area":"treino","acao":"","por_que":""}]}.`;
-const TASKS: Record<string, string> = { mind_coach: TASK, mind_care: CARE, week_cross: WEEK };
-const PERSONA: Record<string, string> = { week_cross: TEAM };
+const RAM = `Ritual da manhã. Ela preenche antes de começar a trabalhar (contexto.trabalho_comeca). O contexto traz como dormiu e acordou, humor e energia de agora, o básico da manhã (remédios, banho, café), a pergunta do dia e o que ela respondeu, o fechamento de ontem à noite (o que ela escreveu e o que você sugeriu), a agenda de hoje (treinos com horário, tarefas, o foco que ela escolheu, horário de deitar, post do LinkedIn, metas) e os avisos ativos.
+'frase': 1 frase curta, original, escrita para ela hoje, ligada ao que ela respondeu ou ao estado dela; sem clichê, sem autoajuda, sem citar autores. Pode usar o repertório de constância e ritmo (ela é triatleta) quando couber.
+'foco': 1 ou 2 frases práticas sobre como conduzir o dia, usando a agenda (ex.: treino à noite pede almoço e lanche que sustentem; noite curta pede menos café depois do almoço e foco no que ela escolheu). Cite horários e nomes da agenda.
+'atencao': só se houver algo real que merece cuidado hoje (aviso ativo, noite curta com treino forte, humor fora do normal); 1 frase. Senão, string vazia.
+Não repita o que ela escreveu de volta. Nada de lista de tarefas.
+Se o que ela escreveu indicar ideia de se machucar ou de morrer, 'frase' acolhe em poucas palavras e 'atencao' diz que isso pede ajuda agora: CVV 188 (24 h), pronto-socorro ou o psiquiatra dela; nesse caso 'foco' fica vazio.
+Formato: {"frase":"","foco":"","atencao":""}.`;
+const RPM = `Ritual da noite. O contexto traz o dia: sono da noite anterior, humor e energia, eventos, café, o que comeu (quando registrou), se treinou (contexto.treinou_hoje e a agenda), remédios, a pergunta da noite e o que ela respondeu, a ideia de post, e a agenda de amanhã (treinos, horário de acordar e de deitar).
+'fechamento': 2 frases que leiam o dia ligando as áreas com o que os dados mostram e o que ela escreveu, sem julgamento e sem parabéns genérico. Diferencie "não registrado" de "não feito".
+'para_amanha': 1 ou 2 ações concretas para amanhã, ligadas ao que pesou ou funcionou hoje e à agenda de amanhã (ela vai ler isso no ritual da manhã). Proteja o sono: nada que encurte a noite.
+Se o que ela escreveu indicar ideia de se machucar ou de morrer, 'fechamento' acolhe e diz que isso pede ajuda agora: CVV 188 (24 h), pronto-socorro ou o psiquiatra dela; e 'para_amanha' é falar com alguém de confiança ou com o psiquiatra.
+Formato: {"fechamento":"","para_amanha":""}.`;
+const TASKS: Record<string, string> = { mind_coach: TASK, mind_care: CARE, week_cross: WEEK, ritual_am: RAM, ritual_pm: RPM };
+const PERSONA: Record<string, string> = { week_cross: TEAM, ritual_am: TEAM, ritual_pm: TEAM };
 
 type Img = { mime: string; data: string };
 

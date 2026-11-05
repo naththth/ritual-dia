@@ -17,7 +17,7 @@ export type Kind =
   | 'modality' | 'wtemplate' | 'workout'
   | 'plan' | 'skip' | 'extra' | 'brief' | 'devreq'
   | 'wellness' | 'journal' | 'note' | 'book' | 'readlog' | 'review' | 'healthdoc' | 'cycle'
-  | 'intake' | 'intakelog' | 'mood' | 'caffeine' | 'medchange' | 'chatstore';
+  | 'intake' | 'intakelog' | 'mood' | 'caffeine' | 'medchange' | 'chatstore' | 'ritual' | 'post';
 
 export type Priority = 'alta' | 'media' | 'baixa';
 export const PRIORITIES: Priority[] = ['alta', 'media', 'baixa'];
@@ -54,6 +54,8 @@ export interface Settings extends Base {
   targets?: { kcal?: number; p?: number; c?: number; f?: number }; // metas próprias; sem elas, usa o plano do dia
   /** Área Mente: PIN (hash), cafés que ela toma e avisos dispensados no dia. */
   mind?: MindSettings;
+  /** Marca pessoal: ritmo de posts no LinkedIn. */
+  brand?: { perWeek?: number; days?: number[]; off?: boolean };
 }
 
 export interface Drink { id: string; label: string; mg: number }
@@ -524,8 +526,24 @@ export interface MedChange extends Base { kind: 'medchange'; date: DateKey; item
 /** Conversas com as especialistas (aberta e encerradas), guardadas na conta para seguirem entre aparelhos. */
 export interface ChatStore extends Base { kind: 'chatstore'; key: string; value: unknown }
 
+/** O que ela respondeu nos rituais. A manhã vale para o dia; a noite, para o dia seguinte (a IA lê os dois). */
+export interface RitualDay extends Base {
+  kind: 'ritual';
+  date: DateKey;
+  period: 'am' | 'pm';
+  basics?: { banho?: boolean; cafe?: boolean };
+  q?: string; a?: string;
+  focus?: string[]; // tarefas que ela escolheu para o dia
+  trained?: 'sim' | 'nao' | 'outro';
+  postIdea?: string;
+  ai?: { frase?: string; foco?: string; atencao?: string; fechamento?: string; para_amanha?: string; at?: number; offline?: boolean };
+  seen: string[];
+}
+/** Pautas do LinkedIn (marca pessoal). */
+export interface Post extends Base { kind: 'post'; title: string; note?: string; status: 'ideia' | 'rascunho' | 'agendado' | 'publicado'; date?: DateKey }
+
 export type AnyRecord =
-  | ChatStore | Intake | IntakeLog | MoodCheckin | Caffeine | MedChange
+  | ChatStore | RitualDay | Post | Intake | IntakeLog | MoodCheckin | Caffeine | MedChange
   | Settings | Category | Task | SuggestionLog | Habit | HabitLog | Goal | GoalEntry
   | Product | SkinLog | Photo | Food | MealTemplate | Meal | Water
   | Modality | WorkoutTemplate | Workout | Plan | Skip | DayBrief
@@ -539,7 +557,7 @@ export type KindMap = {
   modality: Modality; wtemplate: WorkoutTemplate; workout: Workout;
   plan: Plan; skip: Skip; extra: PlanExtra; brief: DayBrief; devreq: DevRequest;
   wellness: Wellness; journal: Journal; note: Note; book: Book; readlog: ReadLog; review: Review; healthdoc: HealthDoc; cycle: CycleDay;
-  intake: Intake; intakelog: IntakeLog; mood: MoodCheckin; caffeine: Caffeine; medchange: MedChange; chatstore: ChatStore;
+  intake: Intake; intakelog: IntakeLog; mood: MoodCheckin; caffeine: Caffeine; medchange: MedChange; chatstore: ChatStore; ritual: RitualDay; post: Post;
 };
 
 /** Perfil e objetivos. Tudo opcional: a IA usa o que houver e diz o que falta. */

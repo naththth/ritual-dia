@@ -1,3 +1,4 @@
+import { BrandScreen } from './screens/brand';
 import { useEffect, useState, useRef } from 'react';
 import { HashRouter, NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import { Brain, Dumbbell, Menu, Plus, Sparkles, Sun, Utensils } from 'lucide-react';
@@ -110,6 +111,7 @@ function Shell() {
         <Route path="/ciclo" element={<CycleScreen />} />
         <Route path="/peso" element={<WeightScreen />} />
         <Route path="/indicadores" element={<IndicatorsScreen />} />
+        <Route path="/marca" element={<BrandScreen />} />
         <Route path="/biblioteca/:section" element={<LibraryScreen />} />
         <Route path="/plano/:domain" element={<PlanScreen />} />
         <Route path="/revisao" element={<ProductReview />} />

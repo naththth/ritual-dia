@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, Activity, CalendarDays, ChartNoAxesColumn, ListChecks, Settings, ChevronRight, NotebookPen, StickyNote, BookOpen, UserRound, Droplet, Scale, Target } from 'lucide-react';
+import { Sparkles, Activity, CalendarDays, ChartNoAxesColumn, ListChecks, Settings, ChevronRight, NotebookPen, StickyNote, BookOpen, UserRound, Droplet, Scale, Target, Linkedin } from 'lucide-react';
 import { TopBar } from './common';
 
 /* Agrupado pelo uso: o que ela consulta sobre si, o que organiza o dia a dia e o que é registro. Cada bloco tem a cor da paleta. */
@@ -20,7 +20,8 @@ const GROUPS = [
     items: [
       { to: '/listas', label: 'Tarefas', sub: 'Por categoria e prioridade', icon: <ListChecks size={20} />, tone: 't-terra' },
       { to: '/habitos', label: 'Hábitos e metas', sub: 'O que repetir, onde chegar', icon: <Target size={20} />, tone: 't-ink' },
-      { to: '/calendario', label: 'Calendário', sub: 'O mês inteiro', icon: <CalendarDays size={20} />, tone: 't-olive' }
+      { to: '/calendario', label: 'Calendário', sub: 'O mês inteiro', icon: <CalendarDays size={20} />, tone: 't-olive' },
+      { to: '/marca', label: 'Marca pessoal', sub: 'Pautas e ritmo do LinkedIn', icon: <Linkedin size={20} />, tone: 't-teal' }
     ]
   },
   {
