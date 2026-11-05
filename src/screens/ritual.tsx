@@ -3,16 +3,15 @@
 import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Bath, Check, ChevronRight, Coffee, Dumbbell, Linkedin, Moon, Pill, RefreshCw, Sparkles, Sun, Sunrise, Target, Utensils, X } from 'lucide-react';
+import { Bath, Check, ChevronRight, Coffee, Dumbbell, Moon, Pill, RefreshCw, Sparkles, Sun, Sunrise, Target, Utensils, X } from 'lucide-react';
 import { useAll, useByDate, useRecord, useSettings } from '../db/hooks';
-import { create, update } from '../db/db';
-import { addDays, todayKey, WEEKDAY_LONG, WEEKDAY_SHORT, isoWeekday, type DateKey } from '../lib/dates';
+import { addDays, todayKey, WEEKDAY_LONG, isoWeekday, type DateKey } from '../lib/dates';
 import { planFor, plannedFood, plannedTraining, suggestTasks, tasksForDay } from '../domain/rules';
-import { mealFromTemplate, planTask, skipPlanned, workoutFromTemplate } from '../domain/actions';
-import { fmt, totals } from '../domain/nutrition';
+import { planTask } from '../domain/actions';
+import { fmt } from '../domain/nutrition';
 import { dosesFor, toMin, CONTEXT_TAGS, SLIDERS, WAKE_OPTIONS, MOOD_LABEL, type Dose } from '../domain/mind';
 import { loadMind } from '../domain/mindload';
-import { markDose, saveCheckin, unmarkDose } from '../domain/mindload';
+import { markDose, saveCheckin } from '../domain/mindload';
 import { bedFor, sleepPlan, wakeFor } from '../domain/sleep';
 import { brandToday, questionFor, ritualId, saveRitual } from '../domain/ritual';
 import { askRitual, type RitualAgenda } from '../domain/ritualai';
@@ -66,7 +65,7 @@ export function useRitual(date: DateKey, p: P) {
   const dayTasks = tasksForDay(tasks, date).filter((t) => t.status !== 'concluida');
   const suggested = suggestTasks(tasks, slogs, date, {}, 3).filter((t) => !dayTasks.some((x) => x.id === t.id));
   const steps: StepId[] = p === 'am'
-    ? ['acordar', 'basico', 'foco', ...((!brand.off && (!brand.configured || brand.isDay || brand.scheduledToday || brand.overdue.length || seen.includes('marca'))) ? ['marca' as const] : []), 'saida']
+    ? ['acordar', 'basico', 'foco', 'saida']
     : ['comofoi', 'resumo', 'reflexao', 'amanha'];
   const done: Partial<Record<StepId, boolean>> = {};
   for (const s of steps) done[s] = s === 'acordar' || s === 'comofoi' ? !!mood : seen.includes(s);
@@ -113,7 +112,6 @@ export function RitualScreen() {
             {cur === 'comofoi' && <CheckinStep p="pm" date={date} d={d} onDone={() => next()} />}
             {cur === 'basico' && <BasicsStep date={date} d={d} onDone={() => next('basico')} />}
             {cur === 'foco' && <FocusStep date={date} d={d} onDone={() => next('foco')} />}
-            {cur === 'marca' && <BrandStep date={date} d={d} onDone={() => next('marca')} />}
             {cur === 'saida' && <DayStep date={date} d={d} onDone={() => next('saida')} />}
             {cur === 'resumo' && <SummaryStep date={date} d={d} onDone={() => next('resumo')} />}
             {cur === 'reflexao' && <ReflectStep date={date} d={d} onDone={() => next('reflexao')} />}
@@ -186,10 +184,12 @@ function Tile({ on, icon, title, sub, onClick, testId }: { on: boolean; icon: Re
 }
 
 function DoseTile({ date, doses, label }: { date: DateKey; doses: Dose[]; label: string }) {
+  const nav = useNavigate();
   const all = doses.length > 0 && doses.every((x) => x.log);
+  // Marca só o que falta. Desfazer é na Mente, onde está o registro de cada tomada.
   const toggle = async () => {
-    if (all) for (const x of doses) await unmarkDose(x.item, date, x.slot);
-    else for (const x of doses.filter((y) => !y.log)) await markDose(x.item, date, x.slot, 'tomei');
+    if (all) { toast('Já registrado na Mente', () => nav('/mente/tomo'), 'default', { label: 'Ajustar' }); return; }
+    for (const x of doses.filter((y) => !y.log)) await markDose(x.item, date, x.slot, 'tomei');
   };
   return <Tile on={all} icon={<Pill size={20} />} title={label} sub={doses.map((x) => short(x.item.alias?.trim() || x.item.name)).join(', ')} onClick={() => void toggle()} testId="rt-basic-doses" />;
 }
@@ -197,23 +197,22 @@ function DoseTile({ date, doses, label }: { date: DateKey; doses: Dose[]; label:
 function BasicsStep({ date, d, onDone }: { date: DateKey; d: RitualData; onDone: () => void }) {
   const nav = useNavigate();
   const b = d.r?.basics ?? {};
+  // O ritual só anota que você comeu; o que foi o café é registrado na Alimentação, nunca presumido pelo plano.
   const cafeOn = !!d.cafeMeal || !!b.cafe;
-  const kcal = d.cafe ? totals(d.cafe.items, d.foods).n.kcal : 0;
-  const toggleCafe = async () => {
-    if (d.cafeMeal) { nav('/alimentacao/refeicao?m=cafe'); return; }
-    if (!b.cafe && d.cafe) await mealFromTemplate(d.cafe as any, date, 'cafe', true);
-    await saveRitual(date, 'am', { basics: { ...b, cafe: !b.cafe } });
+  const toggleCafe = () => {
+    if (d.cafeMeal) { toast('Já registrado na Alimentação', () => nav('/alimentacao/refeicao?m=cafe'), 'default', { label: 'Ver' }); return; }
+    void saveRitual(date, 'am', { basics: { ...b, cafe: !b.cafe } });
   };
   return (
     <>
       <h1 className="rt-title">Antes de sair</h1>
-      <p className="rt-sub">Um toque em cada. O detalhe fica nas outras áreas.</p>
+      <p className="rt-sub">Um toque em cada. Aqui só marca que foi feito; o detalhe fica nas outras áreas.</p>
       <div className="rt-tiles">
         {d.doses.length > 0 && <DoseTile date={date} doses={d.doses} label="Remédios" />}
         <Tile on={!!b.banho} icon={<Bath size={20} />} title="Banho" onClick={() => void saveRitual(date, 'am', { basics: { ...b, banho: !b.banho } })} testId="rt-basic-banho" />
-        <Tile on={cafeOn} icon={<Coffee size={20} />} title="Café da manhã" sub={d.cafeMeal ? 'Na Alimentação' : d.cafe ? `${d.cafe.name}${kcal ? ` · ${fmt(kcal)} kcal` : ''}` : undefined} onClick={() => void toggleCafe()} testId="rt-basic-cafe" />
+        <Tile on={cafeOn} icon={<Coffee size={20} />} title="Café da manhã" sub={d.cafeMeal ? 'Na Alimentação' : b.cafe ? 'Falta dizer o quê' : undefined} onClick={toggleCafe} testId="rt-basic-cafe" />
       </div>
-      {!d.cafeMeal && d.cafe && <button className="link small" style={{ alignSelf: 'center', marginTop: 12 }} onClick={() => nav('/alimentacao/refeicao?m=cafe')}>Comi outra coisa</button>}
+      {!d.cafeMeal && <button className="link small" style={{ alignSelf: 'center', marginTop: 12 }} onClick={() => nav('/alimentacao/refeicao?m=cafe')} data-testid="rt-cafe-log">Registrar o que comi</button>}
       <Foot primary="Seguir" onPrimary={onDone} testId="rt-basics" />
     </>
   );
@@ -258,62 +257,6 @@ function FocusStep({ date, d, onDone }: { date: DateKey; d: RitualData; onDone: 
   );
 }
 
-/* ---------- Marca pessoal: LinkedIn no ritmo dela ---------- */
-function BrandStep({ date, d, onDone }: { date: DateKey; d: RitualData; onDone: () => void }) {
-  const nav = useNavigate();
-  const b = d.brand;
-  const [per, setPer] = useState(2);
-  const [days, setDays] = useState<number[]>([2, 4]);
-  const [idea, setIdea] = useState('');
-  const saveBrand = (x: { perWeek?: number; days?: number[]; off?: boolean }) => update<'settings'>('settings', { brand: { ...d.settings.brand, ...x } });
-  const addIdea = async () => { if (!idea.trim()) return; await create('post', { title: idea.trim(), status: 'ideia' } as any); setIdea(''); toast('Pauta guardada'); };
-  if (!b.configured) return (
-    <>
-      <h1 className="rt-title">LinkedIn no seu ritmo</h1>
-      <p className="rt-sub">O ritual lembra do post nos dias que você escolher e guarda as ideias que aparecerem no caminho.</p>
-      <span className="rt-label">Posts por semana</span>
-      <div className="chips rt-chips">{[1, 2, 3].map((n) => <Chip key={n} on={per === n} onClick={() => setPer(n)} testId={`brand-per-${n}`}>{n}</Chip>)}</div>
-      <span className="rt-label">Em quais dias</span>
-      <div className="chips rt-chips">{[1, 2, 3, 4, 5, 6, 7].map((n) => <Chip key={n} on={days.includes(n)} onClick={() => setDays((x) => (x.includes(n) ? x.filter((y) => y !== n) : [...x, n].sort()))}>{WEEKDAY_SHORT[n]}</Chip>)}</div>
-      <Foot primary="Combinado" onPrimary={async () => { await saveBrand({ perWeek: per, days, off: false }); onDone(); }} onSkip={async () => { await saveBrand({ off: true }); onDone(); }} skipLabel="Não quero isso no ritual" testId="brand-setup" />
-    </>
-  );
-  const post = b.scheduledToday ?? b.overdue[0];
-  const setPost = (id: string, patch: any) => update<'post'>(id, patch);
-  return (
-    <>
-      <h1 className="rt-title">{post ? 'Post de hoje' : b.isDay ? 'Hoje é dia de post' : 'Sua marca'}</h1>
-      <p className="rt-sub">{b.publishedWeek} de {b.perWeek} {b.perWeek === 1 ? 'post' : 'posts'} na semana{b.ideas ? ` · ${b.ideas} ${b.ideas === 1 ? 'pauta guardada' : 'pautas guardadas'}` : ''}.</p>
-      {post ? (
-        <div className="rt-card rt-post" data-testid="brand-post">
-          <span className="rt-ic big"><Linkedin size={22} /></span>
-          <b>{post.title}</b>
-          {post.note && <span className="small">{post.note}</span>}
-          <div className="row wrap" style={{ gap: 8, marginTop: 8 }}>
-            <button className="btn btn-ink btn-sm" onClick={async () => { await setPost(post.id, { status: 'publicado', date }); toast('Publicado. Boa.'); }} data-testid="brand-published">Publiquei</button>
-            <button className="btn btn-sm btn-line" onClick={() => void setPost(post.id, { status: 'rascunho', date: undefined })}>Fica para outro dia</button>
-          </div>
-        </div>
-      ) : b.next ? (
-        <div className="rt-card rt-post" data-testid="brand-next">
-          <span className="rt-ic big"><Linkedin size={22} /></span>
-          <span className="small">{b.next.status === 'rascunho' ? 'Rascunho pronto' : 'Próxima pauta'}</span>
-          <b>{b.next.title}</b>
-          {b.isDay && <div className="row wrap" style={{ gap: 8, marginTop: 8 }}>
-            <button className="btn btn-ink btn-sm" onClick={() => void setPost(b.next!.id, { status: 'agendado', date })} data-testid="brand-today">Publico hoje</button>
-          </div>}
-        </div>
-      ) : <p className="rt-sub">Nenhuma pauta guardada ainda. Anote a primeira:</p>}
-      <span className="rt-label">Uma ideia que apareceu</span>
-      <div className="row" style={{ gap: 8 }}>
-        <input className="rt-note" style={{ marginTop: 0, flex: 1 }} value={idea} onChange={(e) => setIdea(e.target.value)} placeholder="Ex.: o que o triathlon me ensinou sobre metas" data-testid="brand-idea" />
-        <button className="btn btn-ink btn-sm" disabled={!idea.trim()} onClick={() => void addIdea()} data-testid="brand-idea-add">Guardar</button>
-      </div>
-      <Foot primary="Seguir" onPrimary={onDone} onSkip={() => nav('/marca')} skipLabel="Ver todas as pautas" testId="brand-next-step" />
-    </>
-  );
-}
-
 /* ---------- Agenda que vai para a IA e aparece no fim da manhã ---------- */
 function agendaFor(d: RitualData, date: DateKey): RitualAgenda {
   const t = d.settings.targets;
@@ -324,7 +267,6 @@ function agendaFor(d: RitualData, date: DateKey): RitualAgenda {
     deitar: d.sp ? bedFor(d.sp, date) : undefined,
     acordar_amanha: d.sp ? wakeFor(d.sp, d.tomorrow) : undefined,
     treinos_amanha: d.tomorrowTraining.map((t) => ({ nome: t.name, horario: t.time, minutos: t.duration })),
-    post: (d.brand.scheduledToday ?? (d.brand.isDay ? d.brand.next : undefined))?.title,
     metas: t ? { kcal: t.kcal, proteina: t.p } : undefined
   };
 }
@@ -350,7 +292,6 @@ function DayStep({ date, d, onDone }: { date: DateKey; d: RitualData; onDone: ()
       <div className="rt-list" style={{ marginTop: 6 }}>
         {d.training.map((t) => <div key={t.id} className="rt-item"><span className="rt-ic"><Dumbbell size={18} /></span><span className="grow"><b>{t.name}</b><br /><span className="small">{t.time ? `${t.time} · ` : ''}{t.duration} min{t.done ? ' · feito' : t.skipped ? ' · fica para outro dia' : ''}</span></span></div>)}
         {a.foco?.map((x) => <div key={x} className="rt-item"><span className="rt-ic"><Target size={18} /></span><span className="grow"><b>{x}</b></span></div>)}
-        {a.post && <div className="rt-item"><span className="rt-ic"><Linkedin size={18} /></span><span className="grow"><b>{a.post}</b><br /><span className="small">Post de hoje</span></span></div>}
         {a.deitar && <div className="rt-item"><span className="rt-ic"><Moon size={18} /></span><span className="grow"><b>Deitar às {a.deitar}</b></span></div>}
       </div>
       {!busy && <button className="link small" style={{ alignSelf: 'center', marginTop: 10 }} onClick={() => void run()}><RefreshCw size={13} style={{ verticalAlign: '-2px' }} /> Outra leitura</button>}
@@ -369,12 +310,8 @@ function SummaryStep({ date, d, onDone }: { date: DateKey; d: RitualData; onDone
   const t = d.settings.targets;
   const done = d.tasks.filter((x) => x.completedDate === date).length;
   const planned = tasksForDay(d.tasks, date).length;
-  const answer = async (v: 'sim' | 'nao' | 'outro') => {
-    if (v === 'sim') for (const x of open) await workoutFromTemplate(x, date, true);
-    if (v === 'nao') for (const x of open) await skipPlanned(date, 'training', x.id);
-    await saveRitual(date, 'pm', { trained: v });
-    if (v === 'outro') nav('/treino/registrar');
-  };
+  // A resposta fica no ritual. Registrar ou tirar o treino do dia é na área Treino, com os dados reais.
+  const answer = (v: 'sim' | 'nao' | 'outro') => void saveRitual(date, 'pm', { trained: d.r?.trained === v ? undefined : v });
   return (
     <>
       <h1 className="rt-title">O dia em resumo</h1>
@@ -382,14 +319,15 @@ function SummaryStep({ date, d, onDone }: { date: DateKey; d: RitualData; onDone
         <div className="rt-card" data-testid="rt-sum-train">
           <span className="rt-sum-k"><Dumbbell size={15} /> Treino</span>
           <b>{d.training.map((x) => x.name).join(' + ')}</b>
-          {open.length && !tr ? <>
+          {open.length ? <>
             <span className="small">Conseguiu treinar?</span>
             <div className="chips" style={{ marginTop: 6 }}>
-              <Chip onClick={() => void answer('sim')} testId="rt-trained-sim">Treinei</Chip>
-              <Chip onClick={() => void answer('nao')} testId="rt-trained-nao">Não deu</Chip>
-              <Chip onClick={() => void answer('outro')}>Fiz outra coisa</Chip>
+              <Chip on={tr === 'sim'} onClick={() => answer('sim')} testId="rt-trained-sim">Treinei</Chip>
+              <Chip on={tr === 'nao'} onClick={() => answer('nao')} testId="rt-trained-nao">Não deu</Chip>
+              <Chip on={tr === 'outro'} onClick={() => answer('outro')}>Fiz outra coisa</Chip>
             </div>
-          </> : <span className="small">{d.training.every((x) => x.done) ? `Feito${day?.trainMin ? ` · ${day.trainMin} min` : ''}` : tr === 'nao' || d.training.every((x) => x.skipped) ? 'Ficou para outro dia' : 'Registrado'}</span>}
+            {(tr === 'sim' || tr === 'outro') && <button className="link small" style={{ marginTop: 8, alignSelf: 'flex-start' }} onClick={() => nav('/treino')} data-testid="rt-train-log">Registrar no Treino</button>}
+          </> : <span className="small">{d.training.every((x) => x.done) ? `Feito${day?.trainMin ? ` · ${day.trainMin} min` : ''}` : 'Ficou para outro dia'}</span>}
         </div>
       )}
       <div className="rt-sum-grid">
@@ -408,11 +346,8 @@ function ReflectStep({ date, d, onDone }: { date: DateKey; d: RitualData; onDone
   const [shift, setShift] = useState(0);
   const q = shift === 0 && d.r?.q ? d.r.q : questionFor('pm', date, { mood: d.mood?.mood, energy: d.mood?.energy }, shift);
   const [a, setA] = useState(d.r?.a ?? '');
-  const [idea, setIdea] = useState(d.r?.postIdea ?? '');
   const save = async () => {
-    const id = idea.trim();
-    if (id && id !== d.r?.postIdea) await create('post', { title: id, status: 'ideia' } as any);
-    await saveRitual(date, 'pm', { q, a: a.trim() || undefined, postIdea: id || undefined });
+    await saveRitual(date, 'pm', { q, a: a.trim() || undefined });
     onDone();
   };
   return (
@@ -420,10 +355,6 @@ function ReflectStep({ date, d, onDone }: { date: DateKey; d: RitualData; onDone
       <h1 className="rt-title rt-q" data-testid="rt-question">{q}</h1>
       <button className="link small rt-shuffle" onClick={() => setShift((x) => x + 1)}><RefreshCw size={13} /> Outra pergunta</button>
       <textarea rows={4} className="rt-note rt-answer" value={a} onChange={(e) => setA(e.target.value)} placeholder="O que você escrever aqui entra na leitura de amanhã." data-testid="rt-answer" />
-      {!d.brand.off && <>
-        <span className="rt-label"><Linkedin size={14} style={{ verticalAlign: '-2px' }} /> Algo de hoje vira post?</span>
-        <input className="rt-note" style={{ marginTop: 0 }} value={idea} onChange={(e) => setIdea(e.target.value)} placeholder="Uma linha basta. Fica nas pautas." data-testid="rt-post-idea" />
-      </>}
       <Foot primary="Seguir" onPrimary={() => void save()} testId="rt-reflect-save" />
     </>
   );

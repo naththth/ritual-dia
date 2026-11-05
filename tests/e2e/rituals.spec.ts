@@ -55,7 +55,7 @@ test('ritual da manhã passo a passo e o conselho troca o treino forte', async (
   await expect(page.getByTestId('ritual-am')).toContainText('Antes de sair');
   // Sai no meio: o ritual continua no Hoje e retoma de onde parou.
   await page.getByLabel('Fechar').click();
-  await expect(page.getByTestId('ritual-hero-am')).toContainText('Continuar · 1 de 5');
+  await expect(page.getByTestId('ritual-hero-am')).toContainText('Continuar · 1 de 4');
   await expect(page.getByTestId('ritual-pill-pm')).toContainText('0 de 4');
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/hoje-ritual-meio.png', fullPage: true });
   await page.getByTestId('ritual-hero-am').click();
@@ -67,6 +67,17 @@ test('ritual da manhã passo a passo e o conselho troca o treino forte', async (
   // O básico: um toque em cada.
   await page.getByTestId('rt-basic-doses').click();
   await page.getByTestId('rt-basic-banho').click();
+  // Café: só marca no ritual; não inventa refeição do plano.
+  await page.getByTestId('rt-basic-cafe').click();
+  await expect(page.getByTestId('rt-basic-cafe')).toContainText('Falta dizer o quê');
+  const meals = await page.evaluate(async () => {
+    const req = indexedDB.open('ritual');
+    const db: IDBDatabase = await new Promise((r) => { req.onsuccess = () => r(req.result); });
+    const st = db.transaction('records').objectStore('records');
+    const g = st.get('meal:2026-11-04:cafe');
+    return await new Promise((r) => { g.onsuccess = () => r(g.result ? 1 : 0); });
+  });
+  expect(meals).toBe(0);
   await expect(page.getByTestId('rt-basic-banho')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByTestId('rt-basic-doses')).toHaveAttribute('aria-pressed', 'true');
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/ritual-basico.png' });
@@ -76,10 +87,7 @@ test('ritual da manhã passo a passo e o conselho troca o treino forte', async (
   await page.getByTestId('rt-answer').fill('Fechar a proposta antes do almoço');
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/ritual-foco.png' });
   await page.getByTestId('rt-focus-save').click();
-  // Marca: primeira vez, combina o ritmo do LinkedIn.
-  await expect(page.getByTestId('ritual-am')).toContainText('LinkedIn no seu ritmo');
-  await page.getByTestId('brand-per-2').click();
-  await page.getByTestId('brand-setup').click();
+  await expect(page.getByTestId('rt-tab-marca')).toHaveCount(0);
   await expect(page.getByTestId('rt-phrase')).toContainText('Ritmo antes de intensidade');
   await expect(page.getByTestId('rt-foco')).toContainText('Pedal VO2');
   const ctx = await page.evaluate(() => (window as any).__ctx.ritual_am);
@@ -101,7 +109,7 @@ test('ritual da manhã passo a passo e o conselho troca o treino forte', async (
   await expect(page.getByTestId('council-regen')).toHaveCount(0);
 });
 
-test('ritual da noite resume o dia, guarda a ideia de post e o amanhã aparece de manhã', async ({ page }) => {
+test('ritual da noite resume o dia e o amanhã aparece de manhã', async ({ page }) => {
   await seed(page, '2026-11-04T20:30:00-03:00');
   await page.getByTestId('ritual-hero-pm').click();
   await page.getByTestId('rt-mood-0').click();
@@ -109,11 +117,11 @@ test('ritual da noite resume o dia, guarda a ideia de post e o amanhã aparece d
   await page.getByTestId('rt-checkin-save').click();
   await expect(page.getByTestId('ritual-pm')).toContainText('O dia em resumo');
   await page.getByTestId('rt-trained-sim').click();
-  await expect(page.getByTestId('rt-sum-train')).toContainText('Feito');
+  // A resposta fica no ritual; o registro do treino é na área Treino.
+  await expect(page.getByTestId('rt-train-log')).toBeVisible();
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/ritual-resumo.png' });
   await page.getByTestId('rt-summary').click();
   await page.getByTestId('rt-answer').fill('Reunião difícil, mas o treino segurou o dia');
-  await page.getByTestId('rt-post-idea').fill('Constância no trabalho e no esporte');
   await page.getByTestId('rt-reflect-save').click();
   await expect(page.getByTestId('ritual-pm')).toContainText('Amanhã, quinta');
   await expect(page.getByTestId('ritual-pm')).toContainText('Deitar às 22:00');
@@ -125,9 +133,6 @@ test('ritual da noite resume o dia, guarda a ideia de post e o amanhã aparece d
   await page.getByTestId('rt-night').click();
   await expect(page.getByTestId('ritual-done')).toContainText('Boa noite');
   await page.getByTestId('rt-close').click();
-  // A ideia vira pauta.
-  await page.goto('./#/marca');
-  await expect(page.getByTestId('post-row')).toContainText('Constância no trabalho e no esporte');
   // Na manhã seguinte, o fechamento de ontem abre o ritual.
   await page.clock.setFixedTime(new Date('2026-11-05T07:10:00-03:00'));
   await page.goto('./#/');
