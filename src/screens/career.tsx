@@ -1,7 +1,7 @@
 // Área Carreira: trabalho atual, marca pessoal, conquistas, oportunidades e desenvolvimento, com a especialista de carreira.
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Award, BellRing, Briefcase, Check, ChevronDown, Plus, Sparkles, Trash2, Zap } from 'lucide-react';
+import { Award, BellRing, Check, ChevronDown, Plus, Sparkles, Trash2, Zap } from 'lucide-react';
 import { useAll, useRecord, useSettings } from '../db/hooks';
 import { create, remove, update, upsert } from '../db/db';
 import { addDays, shortLabel, todayKey, weekStart, type DateKey } from '../lib/dates';
@@ -9,6 +9,7 @@ import { CAREER_ID, DEV_TYPE, isWork, OPP_STAGE, OPP_TYPE, WORK_FALLBACK } from 
 import { AreaPage } from './areas';
 import { TaskRow, TaskSheet } from './tasks';
 import { BrandPosts } from './brand';
+import { MenuButton } from './common';
 import { Chip } from '../ui/ui';
 import { haptic, toast, useApp } from '../state/store';
 import type { CareerBase, DevItem, Opp, Task } from '../db/types';
@@ -319,7 +320,7 @@ export function CaptureScreen() {
   const shown = (tasks ?? []).filter((t) => recent.includes(t.id));
   return (
     <div className="screen no-nav capture" data-testid="capture-screen">
-      <div className="cap-head"><Briefcase size={20} /><b>Captura rápida</b><button className="link small" style={{ marginLeft: 'auto' }} onClick={() => nav('/carreira')}>Abrir a Carreira</button></div>
+      <div className="cap-head"><MenuButton /><b>Captura rápida</b><button className="link small" style={{ marginLeft: 'auto' }} onClick={() => nav('/carreira')}>Abrir a Carreira</button></div>
       <QuickAdd categoryId={work ?? personal} alt={alt} autoFocus onAdded={(t) => setRecent((r) => [t.id, ...r].slice(0, 8))} />
       <p className="small muted" style={{ margin: '10px 2px' }}>Enter anota. Com horário, chega como notificação no celular no dia marcado.</p>
       {shown.length > 0 && <div className="list">{shown.map((t) => (

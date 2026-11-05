@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ChevronLeft, ChevronRight, Settings as Cog } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Menu, Settings as Cog } from 'lucide-react';
 import { useApp } from '../state/store';
 import { addDays, isoWeekday, longDate, shortLabel, todayKey, weekDays, WEEKDAY_LETTER, WEEKDAY_LONG, dayNum } from '../lib/dates';
 import { factDots, useFacts } from '../domain/facts';
@@ -21,11 +21,16 @@ export function SyncDot() {
   return <span className="sync-dot" style={{ background: c }} title={label} aria-label={label} role="img" />;
 }
 
+/** Abre o menu lateral (todas as áreas e telas). */
+export function MenuButton() {
+  return <button className="icon-btn menu-btn" aria-label="Abrir menu" onClick={() => useApp.getState().setMenu(true)} data-testid="nav-menu"><Menu size={24} /></button>;
+}
+
 export function TopBar({ right }: { right?: ReactNode }) {
   const nav = useNavigate();
   return (
     <div className="topbar">
-      <span className="row" style={{ gap: 8 }}><span className="wordmark">Ritual</span><SyncDot /></span>
+      <span className="row" style={{ gap: 6 }}><MenuButton /><span className="wordmark">Ritual</span><SyncDot /></span>
       <span className="row" style={{ gap: 0 }}>
         {right}
         <button className="icon-btn" aria-label="Ajustes" onClick={() => nav('/ajustes')}><Cog size={22} /></button>

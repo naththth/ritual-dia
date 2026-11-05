@@ -1,5 +1,5 @@
 // Cada área reúne o dia, o plano e os cadastros dela: Treino, Cuidados e Alimentação. Sem pular entre pastas.
-import { useState, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { aiAvailable } from '../domain/ai';
 import { toast } from '../state/store';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -33,8 +33,14 @@ export function AreaNav({ area }: { area: AreaId }) {
   const tabs = AREAS[area].tabs;
   const base = useRecord<'careerbase'>('careerbase');
   const label = (t: { to: string; label: string }) => (t.to === '/carreira' && base?.workName ? base.workName : t.label);
+  const box = useRef<HTMLDivElement>(null);
+  // A aba aberta fica sempre à vista, mesmo quando está no fim da faixa.
+  useLayoutEffect(() => {
+    const el = box.current?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (el && box.current) box.current.scrollLeft = Math.max(0, el.offsetLeft - (box.current.clientWidth - el.offsetWidth) / 2);
+  }, [loc.pathname]);
   return (
-    <div className="seg-tabs area-nav" role="tablist" aria-label={`Seções de ${AREAS[area].title}`} data-testid={`area-nav-${area}`}>
+    <div ref={box} className="seg-tabs area-nav" role="tablist" aria-label={`Seções de ${AREAS[area].title}`} data-testid={`area-nav-${area}`}>
       {tabs.map((t) => (
         <button key={t.to} role="tab" aria-selected={loc.pathname === t.to} className={loc.pathname === t.to ? 'on' : ''} onClick={() => nav(t.to, { replace: true })}>{label(t)}</button>
       ))}

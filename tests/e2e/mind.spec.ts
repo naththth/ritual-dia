@@ -125,14 +125,12 @@ test('Mente: tomadas no Hoje, café, PIN, check-in, painel e relatório', async 
   await expect(page.getByTestId('mind-settings')).toContainText('Meta de deitar');
 });
 
-test('o menu de baixo cabe em 360 px', async ({ page }) => {
+test('sem barra de baixo: o menu fica no topo e abre deslizando da borda', async ({ page }) => {
   await seed(page);
-  const nav = page.locator('.bottomnav');
-  const links = nav.locator('a, button');
-  await expect(links).toHaveCount(5);
-  for (let i = 0; i < 5; i++) {
-    const w = await links.nth(i).evaluate((el) => [el.textContent, el.scrollWidth, el.clientWidth]);
-    expect(w[1] as number, String(w)).toBeLessThanOrEqual((w[2] as number) + 1);
-  }
-  if (process.env.SHOTS) await nav.screenshot({ path: '/tmp/shots/mind-nav.png' });
+  await expect(page.locator('.bottomnav')).toHaveCount(0);
+  await expect(page.getByTestId('nav-menu')).toBeVisible();
+  await page.getByTestId('nav-menu').click();
+  await expect(page.getByTestId('drawer')).toBeVisible();
+  await page.getByLabel('Fechar menu').click();
+  await expect(page.getByTestId('drawer')).toHaveCount(0);
 });

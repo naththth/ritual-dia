@@ -51,7 +51,7 @@
   --f-display: 'Bricolage Grotesque Variable', 'Bricolage Grotesque', 'Figtree Variable', system-ui, sans-serif;
   --f-ui: 'Figtree Variable', 'Figtree', system-ui, sans-serif;
 
-  --nav-h: 76px;
+  --nav-h: 0px; /* sem barra de baixo: o menu fica no topo */
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
   color-scheme: light;
@@ -1486,3 +1486,6 @@ input[type=checkbox]:checked::after { content: ''; width: 6px; height: 11px; bor
 .cr-opp-edit { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
 .capture { max-width: 640px; margin: 0 auto; padding-top: 28px; }
 .cap-head { display: flex; align-items: center; gap: 8px; font-size: 18px; margin-bottom: 14px; }
+
+.menu-btn { margin-left: -8px; }
+.cap-head .menu-btn { margin-left: -8px; }

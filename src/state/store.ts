@@ -22,6 +22,9 @@ interface AppState {
   /** Pedido para abrir uma especialista com o texto já escrito (vindo da leitura da semana ou do conselho). */
   ask?: { domain: 'training' | 'skin' | 'food' | 'mind'; text: string };
   setAsk: (a?: { domain: 'training' | 'skin' | 'food' | 'mind'; text: string }) => void;
+  /** Menu lateral aberto. */
+  menu: boolean;
+  setMenu: (v: boolean) => void;
 }
 
 let seq = 1;
@@ -29,6 +32,8 @@ let seq = 1;
 export const useApp = create<AppState>((set, get) => ({
   date: todayKey(),
   setDate: (date) => set({ date }),
+  menu: false,
+  setMenu: (menu) => set({ menu }),
   toasts: [],
   toast: (text, undo, tone = 'default', opts = {}) => {
     const id = seq++;

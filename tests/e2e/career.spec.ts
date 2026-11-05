@@ -33,8 +33,7 @@ async function seed(page: Page) {
 test('menu lateral leva a todas as áreas e a Carreira organiza trabalho, marca, conquistas e oportunidades', async ({ page }) => {
   await seed(page);
   // Barra de baixo: as quatro áreas mais usadas e o Menu.
-  await expect(page.locator('.bottomnav')).toContainText('Treino');
-  await expect(page.locator('.bottomnav')).not.toContainText('Mente');
+  await expect(page.locator('.bottomnav')).toHaveCount(0);
   await page.getByTestId('nav-menu').click();
   await expect(page.getByTestId('drawer')).toContainText('Alimentação');
   if (process.env.SHOTS) { await page.waitForTimeout(400); await page.screenshot({ path: '/tmp/shots/menu.png' }); }
@@ -93,6 +92,7 @@ test('menu lateral leva a todas as áreas e a Carreira organiza trabalho, marca,
   await page.getByRole('button', { name: 'Em processo' }).click();
   await expect(page.getByTestId('opp-row')).toContainText('Em processo');
   await page.getByTestId('area-nav-carreira').getByRole('tab', { name: 'Desenvolvimento' }).click();
+  await expect(page.getByTestId('area-nav-carreira').getByRole('tab', { name: 'Desenvolvimento' })).toBeInViewport();
   await page.getByTestId('dev-title').fill('Curso de pricing');
   await page.getByTestId('dev-add').click();
   await page.getByRole('button', { name: 'Comecei' }).click();
@@ -128,6 +128,7 @@ test('captura rápida do PC: anota com dia e horário em trabalho ou pessoal', a
   await page.goto('./#/captura');
   await expect(page.getByTestId('capture-screen')).toBeVisible();
   await expect(page.getByTestId('qa-title')).toBeFocused();
+  await expect(page.getByTestId('capture-screen').getByTestId('nav-menu')).toBeVisible();
   await page.getByTestId('qa-title').fill('Pauta do 1:1 da equipe');
   await page.getByRole('button', { name: 'Amanhã' }).click();
   await page.getByTestId('qa-time').fill('08:45');

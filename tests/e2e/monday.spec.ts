@@ -32,6 +32,13 @@ async function noHorizontalScroll(page: Page) {
   expect(over).toBeLessThanOrEqual(0);
 }
 
+/** Navega pelo menu lateral. */
+async function go(page: import('@playwright/test').Page, to: string) {
+  if (!(await page.getByTestId('nav-menu').count())) await page.evaluate(() => history.back());
+  await page.getByTestId('nav-menu').click();
+  await page.getByTestId(`dr-${to.replace('/', '') || 'hoje'}`).click();
+}
+
 test('segunda-feira completa: todos os módulos na mesma data', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
@@ -54,7 +61,7 @@ test('segunda-feira completa: todos os módulos na mesma data', async ({ page })
   await page.getByTestId('lists-search').fill('roupa');
   await expect(page.getByTestId('task-row')).toHaveCount(1);
   await page.getByRole('button', { name: 'Adicionar Comprar conjunto novo de treino a seg, 19/10' }).click();
-  await page.getByRole('link', { name: 'Hoje' }).click();
+  await go(page, '/');
   await expect(page.getByTestId('task-row')).toHaveCount(2);
 
   // 3) pele da manhã: sinais, plano, salvar
@@ -70,7 +77,7 @@ test('segunda-feira completa: todos os módulos na mesma data', async ({ page })
   await expect(page.getByTestId('tl-skin-am')).toContainText('3 produtos usados');
 
   // 4) almoço por toques
-  await page.getByRole('link', { name: 'Alimentação' }).click();
+  await go(page, '/alimentacao');
   await page.getByTestId('add-almoco').click();
   await page.getByRole('tab', { name: 'Todos' }).click();
   for (const f of ['Frango', 'Arroz', 'Feijão', 'Salada de folhas']) {
@@ -82,7 +89,7 @@ test('segunda-feira completa: todos os módulos na mesma data', async ({ page })
   await expect(page.getByTestId('meal-sec-almoco')).toContainText('Frango');
   await expect(page.getByTestId('meal-sec-almoco')).toContainText('Salada de folhas');
   await page.getByRole('button', { name: '+300 mL' }).click();
-  await page.getByRole('link', { name: 'Hoje' }).click();
+  await go(page, '/');
   await expect(page.getByTestId('water-open')).toContainText('300 mL');
   await expect(page.getByTestId('tl-meal-almoco')).toContainText('Frango');
 
@@ -367,7 +374,7 @@ test('treino trocado: fez outra modalidade no lugar do planejado', async ({ page
   await page.getByTestId('workout-form').getByRole('button', { name: '45 min' }).click();
   await page.getByTestId('workout-save').click();
   await expect(page.getByTestId('day-screen')).toBeVisible();
-  await page.getByRole('link', { name: 'Treino' }).click();
+  await go(page, '/treino');
   await expect(page.getByTestId('swap-ask')).toContainText('musculação no lugar');
   await page.getByTestId('swap-yes').click();
   await expect(page.getByTestId('planned-skipped')).toContainText('não hoje');
@@ -620,7 +627,7 @@ test('preferências para a IA na rotina de cuidados', async ({ page }) => {
 
 test('áreas: Cuidados, Treino e Alimentação reúnem dia, plano e cadastros', async ({ page }) => {
   await onboard(page);
-  await page.getByRole('link', { name: 'Cuidados' }).click();
+  await go(page, '/cuidados');
   await expect(page.getByTestId('area-cuidados')).toContainText('Rotina da manhã');
   await page.getByTestId('area-nav-cuidados').getByRole('tab', { name: 'Rotina' }).click();
   await expect(page.getByTestId('spec-skin')).toContainText('Dermatologista');
@@ -628,19 +635,19 @@ test('áreas: Cuidados, Treino e Alimentação reúnem dia, plano e cadastros', 
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/cuidados-rotina.png' });
   await page.getByTestId('area-nav-cuidados').getByRole('tab', { name: 'Produtos' }).click();
   await expect(page.getByTestId('area-cuidados-produtos')).toContainText('Gel de limpeza');
-  await page.getByRole('link', { name: 'Treino' }).click();
+  await go(page, '/treino');
   await page.getByTestId('area-nav-treino').getByRole('tab', { name: 'Sessões' }).click();
   await expect(page.getByTestId('wt-intro')).toBeVisible();
   await page.getByTestId('area-nav-treino').getByRole('tab', { name: 'Plano' }).click();
   await expect(page.getByTestId('spec-training')).toBeVisible();
-  await page.getByRole('link', { name: 'Alimentação' }).click();
+  await go(page, '/alimentacao');
   await page.getByTestId('area-nav-alimentacao').getByRole('tab', { name: 'Alimentos' }).click();
   await expect(page.getByTestId('area-alimentacao-alimentos')).toBeVisible();
   await page.getByTestId('nav-menu').click();
   await expect(page.getByTestId('drawer')).toContainText('Carreira');
   await page.getByTestId('dr-habitos').click();
   await expect(page.getByTestId('habits-goals')).toBeVisible();
-  await page.getByRole('link', { name: 'Hoje' }).click();
+  await go(page, '/');
   await expect(page.getByTestId('fab')).toBeVisible();
   await noHorizontalScroll(page);
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/hoje-nav.png' });

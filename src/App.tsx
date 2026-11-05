@@ -1,8 +1,9 @@
 import { Drawer } from './screens/drawer';
 import { CareerWorkPage, CareerBrandPage, CareerWinsPage, CareerOppsPage, CareerGrowPage, CaptureScreen } from './screens/career';
 import { useEffect, useState, useRef } from 'react';
-import { HashRouter, Navigate, NavLink, Route, Routes, useLocation } from 'react-router-dom';
-import { Dumbbell, Menu, Plus, Sparkles, Sun, Utensils } from 'lucide-react';
+import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { useApp } from './state/store';
+import { Plus } from 'lucide-react';
 import { ensureDefaults } from './domain/defaults';
 import { initSync } from './sync/sync';
 import { useSettings } from './db/hooks';
@@ -26,7 +27,7 @@ import { WeightScreen } from './screens/WeightScreen';
 import { IndicatorsScreen } from './screens/IndicatorsScreen';
 import { LibraryScreen } from './screens/library/LibraryScreen';
 import { PlanScreen } from './screens/PlanScreen';
-import { AREA_ROUTES, TrainingPlanPage, TrainingSessionsPage, FoodPlanPage, FoodsPage, MealsPage, CareTodayPage, CarePlanPage, CareProductsPage, HabitsGoalsPage } from './screens/areas';
+import { TrainingPlanPage, TrainingSessionsPage, FoodPlanPage, FoodsPage, MealsPage, CareTodayPage, CarePlanPage, CareProductsPage, HabitsGoalsPage } from './screens/areas';
 import { Onboarding } from './screens/Onboarding';
 import { ProductReview } from './screens/ProductReview';
 import { RegisterSheet } from './screens/RegisterSheet';
@@ -67,14 +68,22 @@ function Shell() {
   const settings = useSettings();
   const loc = useLocation();
   const [reg, setReg] = useState(false);
-  const [menu, setMenu] = useState(false);
+  const menu = useApp((st) => st.menu);
+  const setMenu = useApp((st) => st.setMenu);
+  // Deslizar a partir da borda esquerda abre o menu.
+  useEffect(() => {
+    let x0 = -1, y0 = 0;
+    const start = (e: TouchEvent) => { const t = e.touches[0]; x0 = t.clientX < 22 ? t.clientX : -1; y0 = t.clientY; };
+    const move = (e: TouchEvent) => { if (x0 < 0) return; const t = e.touches[0]; if (t.clientX - x0 > 60 && Math.abs(t.clientY - y0) < 50) { x0 = -1; useApp.getState().setMenu(true); } };
+    window.addEventListener('touchstart', start, { passive: true });
+    window.addEventListener('touchmove', move, { passive: true });
+    return () => { window.removeEventListener('touchstart', start); window.removeEventListener('touchmove', move); };
+  }, []);
   if (!settings) return null;
   const inOnboarding = !settings.onboarded || loc.pathname.startsWith('/boas-vindas');
   if (inOnboarding && !loc.pathname.startsWith('/revisao')) {
     return (<div className="app"><Onboarding /><Toasts /></div>);
   }
-  const mainTabs = ['/', ...AREA_ROUTES, '/mais', '/calendario', '/listas', '/evolucao', '/habitos'];
-  const showNav = mainTabs.includes(loc.pathname);
   return (
     <div className="app">
       <Routes>
@@ -125,15 +134,6 @@ function Shell() {
         <Route path="/revisao" element={<ProductReview />} />
         <Route path="*" element={<DayScreen />} />
       </Routes>
-      {showNav && (
-        <nav className="bottomnav" aria-label="Navegação principal">
-          <NavLink to="/" end><Sun size={22} />Hoje</NavLink>
-          <NavLink to="/treino" className={() => (loc.pathname.startsWith('/treino') ? 'active' : '')}><Dumbbell size={22} />Treino</NavLink>
-          <NavLink to="/alimentacao" className={() => (loc.pathname.startsWith('/alimentacao') ? 'active' : '')}><Utensils size={22} />Alimentação</NavLink>
-          <NavLink to="/cuidados" className={() => (loc.pathname.startsWith('/cuidados') ? 'active' : '')}><Sparkles size={22} />Cuidados</NavLink>
-          <button className={`nav-menu ${menu || ['/mais', '/calendario', '/listas', '/evolucao', '/habitos'].includes(loc.pathname) || loc.pathname.startsWith('/mente') || loc.pathname.startsWith('/carreira') ? 'active' : ''}`} onClick={() => setMenu(true)} aria-label="Abrir menu" data-testid="nav-menu"><Menu size={22} />Menu</button>
-        </nav>
-      )}
       {loc.pathname === '/' && <button className="fab fab-float" aria-label="Registrar" onClick={() => setReg(true)} data-testid="fab"><Plus size={28} strokeWidth={2.4} /></button>}
       <RegisterSheet open={reg} onClose={() => setReg(false)} />
       <Drawer open={menu} onClose={() => setMenu(false)} />
