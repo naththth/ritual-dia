@@ -94,6 +94,8 @@ test('segunda-feira completa: todos os módulos na mesma data', async ({ page })
   await page.getByTestId('workout-form').getByRole('button', { name: '45 min' }).click();
   await page.getByTestId('workout-save').click(); // salvar volta sozinho
   await expect(page.getByTestId('timeline')).toContainText('Musculação');
+  // Hábitos ficam em Indicadores.
+  await page.goto('./#/indicadores');
   const musc = page.getByTestId('habit-Musculação');
   await expect(musc).toContainText('1 de 3 na semana');
   await musc.click(); // já contou pelo treino
@@ -104,20 +106,22 @@ test('segunda-feira completa: todos os módulos na mesma data', async ({ page })
   await expect(page.getByTestId('habit-Meditação')).toHaveAttribute('aria-pressed', 'true');
 
   // 7) fim do dia: concluir a tarefa de roupa
+  await page.goBack();
   await page.getByRole('checkbox', { name: 'Concluir Comprar conjunto novo de treino' }).click();
   await expect(page.getByRole('checkbox', { name: 'Concluir Comprar conjunto novo de treino' })).toHaveAttribute('aria-checked', 'true');
 
   // 8) recarregar: nada some
   await page.reload();
   await expect(page.getByTestId('tl-skin-am')).toContainText('3 produtos usados');
-  await expect(page.getByTestId('habit-Musculação')).toContainText('1 de 3 na semana');
 
   // 9) terça é independente
   await page.getByRole('button', { name: 'ter, 20/10' }).click();
   await expect(page.getByTestId('tl-skin-am')).not.toContainText('usados');
   await expect(page.getByTestId('timeline')).not.toContainText('Frango');
   await expect(page.getByTestId('task-row')).toHaveCount(0);
+  await page.goto('./#/indicadores');
   await expect(page.getByTestId('habit-Musculação')).toContainText('1 de 3 na semana');
+  await page.goBack();
 
   // 10) semanas depois, voltar pelo calendário à segunda
   await page.getByRole('link', { name: 'Mais' }).click();
@@ -136,10 +140,12 @@ test('editar e desfazer registro em data anterior', async ({ page }) => {
   await onboard(page);
   await page.getByRole('button', { name: 'Semana anterior' }).click();
   await page.getByRole('button', { name: 'qua, 14/10' }).click();
+  await page.goto('./#/indicadores');
   await page.getByTestId('habit-Meditação').click();
   await expect(page.getByTestId('habit-Meditação')).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: 'Desfazer' }).click();
   await expect(page.getByTestId('habit-Meditação')).toHaveAttribute('aria-pressed', 'false');
+  await page.goBack();
   // concluir tarefa em data passada pede confirmação da data
   await page.getByTestId('pick-task').click();
   await page.getByRole('button', { name: 'Adicionar Comprar estante vermelha alta' }).click();
@@ -185,7 +191,9 @@ test('plano de treino seg/qua/sex: sugestão e check', async ({ page }) => {
   await page.goto('./#/');
   await expect(page.getByTestId('tl-train-done')).toBeVisible();
   await page.getByTestId('tl-train-done').click();
+  await page.goto('./#/indicadores');
   await expect(page.getByTestId('habit-Musculação')).toContainText('1 de 3 na semana');
+  await page.goBack();
   await page.getByRole('button', { name: 'ter, 20/10' }).click();
   await expect(page.getByTestId('timeline')).toBeVisible();
   await expect(page.getByTestId('tl-train-done')).toHaveCount(0);
@@ -195,6 +203,7 @@ test('plano de treino seg/qua/sex: sugestão e check', async ({ page }) => {
 
 test('backup e restauração', async ({ page }) => {
   await onboard(page);
+  await page.goto('./#/indicadores');
   await page.getByTestId('habit-Meditação').click();
   await page.goto('./#/ajustes');
   await page.getByRole('button', { name: /^Backup e restauração/ }).click();
@@ -311,7 +320,7 @@ test('sono: acordar 6h calcula deitar e organiza o dia', async ({ page }) => {
   await page.goto('./#/');
   await expect(page.getByTestId('tl-wake')).toContainText('06:00');
   await expect(page.getByTestId('tl-bed')).toContainText('21:45');
-  await expect(page.getByTestId('now-card')).not.toContainText('Acordar');
+  await expect(page.getByTestId('now-card')).toHaveCount(0);
 });
 
 test('registrar sono, VFC e passos à mão', async ({ page }) => {

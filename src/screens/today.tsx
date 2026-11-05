@@ -183,7 +183,7 @@ function workoutLine(w: any, _mods: any[]) {
 
 const FILTERS: { id: 'all' | Mod; label: string }[] = [{ id: 'all', label: 'Tudo' }, { id: 'skin', label: 'Pele' }, { id: 'food', label: 'Alimentação' }, { id: 'training', label: 'Treino' }];
 
-export function NowAndTimeline({ date }: { date: DateKey }) {
+export function NowAndTimeline({ date, hideNow }: { date: DateKey; hideNow?: boolean }) {
   const items = useTimeline(date);
   const nav = useNavigate();
   const now = useNowMinutes();
@@ -194,7 +194,7 @@ export function NowAndTimeline({ date }: { date: DateKey }) {
   const shownItems = filter === 'all' ? items : items.filter((i) => i.mod === filter);
   const isToday = date === todayKey();
   const pending = items.filter((i) => !i.done && !i.skipped && !i.marker);
-  const next = isToday
+  const next = isToday && !hideNow
     ? pending.find((i) => (toMin(i.time) ?? 9999) >= now - 60) ?? pending.find((i) => !i.time) ?? pending[0]
     : undefined;
   const runAction = async (i: TLItem) => {

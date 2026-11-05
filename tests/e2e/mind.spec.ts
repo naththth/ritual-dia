@@ -41,12 +41,12 @@ async function seed(page: Page) {
 test('Mente: tomadas no Hoje, café, PIN, check-in, painel e relatório', async ({ page }) => {
   await seed(page);
   // Hoje: um único +, que reúne tudo (inclusive café); a tomada aparece na linha do tempo.
-  await expect(page.getByTestId('mind-today')).toBeVisible();
+  await expect(page.getByTestId('mind-today')).toHaveCount(0);
+  await expect(page.getByTestId('ritual-pills')).toBeVisible();
   await expect(page.locator('.water-plus')).toHaveCount(1);
   await page.getByTestId('fab').click();
   await page.getByTestId('reg-coffee').click();
   await page.getByTestId('drink-cap-3c').click();
-  await expect(page.getByTestId('mind-today')).toContainText('1 café · 65 mg');
   await page.getByTestId('act-dose-06:40').click();
   await expect(page.getByTestId('act-dose-06:40')).toHaveCount(0);
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/mind-hoje.png', fullPage: true });
@@ -60,6 +60,7 @@ test('Mente: tomadas no Hoje, café, PIN, check-in, painel e relatório', async 
   await expect(page.getByTestId('doses')).toContainText('restam cerca de 3 dias');
   await expect(page.getByTestId('sleep-stage')).toContainText('Deitar às 22:00');
   await expect(page.getByTestId('sleep-stage')).toContainText('Café só até as 14:00');
+  await expect(page.getByTestId('coffee')).toContainText('65 mg');
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/mind-tela.png', fullPage: true });
 
   // Check-in da noite.
@@ -121,8 +122,6 @@ test('Mente: tomadas no Hoje, café, PIN, check-in, painel e relatório', async 
   await page.getByRole('tab', { name: 'Ajustes' }).click();
   await expect(page.getByTestId('mind-settings')).toContainText('Cafés');
   await expect(page.getByTestId('mind-settings')).toContainText('Meta de deitar');
-  await page.goto('./#/');
-  await expect(page.getByTestId('care-teaser')).toBeVisible();
 });
 
 test('o menu de baixo cabe com seis abas em 360 px', async ({ page }) => {

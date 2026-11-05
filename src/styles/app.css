@@ -1283,9 +1283,37 @@ input[type=checkbox]:checked::after { content: ''; width: 6px; height: 11px; bor
 .rt-top { display: flex; align-items: center; justify-content: space-between; }
 .rt-kicker { display: inline-flex; align-items: center; gap: 6px; font-weight: 750; font-size: 14px; }
 .rt-progress { display: flex; gap: 6px; margin: 10px 0 18px; }
-.rt-progress i { flex: 1; height: 5px; border-radius: 3px; background: rgba(42, 26, 16, .14); overflow: hidden; position: relative; }
-.rt-progress i.on::after, .rt-progress i.cur::after { content: ''; position: absolute; inset: 0; background: var(--ink); transform-origin: left; animation: grow-x .45s ease both; }
-.rt-progress i.cur::after { opacity: .45; }
+.rt-progress button { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; padding: 6px 0 2px; background: none; border: 0; color: inherit; text-align: left; cursor: pointer; }
+.rt-progress button span { font-size: 11px; font-weight: 650; opacity: .5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: opacity .2s; }
+.rt-progress button.cur span { opacity: 1; }
+.rt-progress button.on:not(.cur) span { opacity: .75; }
+.rt-progress i { display: block; height: 5px; border-radius: 3px; background: rgba(42, 26, 16, .14); overflow: hidden; position: relative; }
+.r-pm .rt-progress i { background: rgba(255, 255, 255, .18); }
+.rt-progress .on i::after, .rt-progress .cur i::after { content: ''; position: absolute; inset: 0; background: currentColor; transform-origin: left; animation: grow-x .45s ease both; }
+.rt-progress .cur:not(.on) i::after { opacity: .4; }
+.rt-tally { font-size: 13px; font-weight: 750; opacity: .7; min-width: 40px; text-align: right; }
+.rt-back { display: block; margin: 14px auto 0; opacity: .75; }
+.rh-dots { display: flex; gap: 5px; margin-top: 10px; }
+.rh-dots i { width: 22px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.3); transition: background .3s; }
+.rh-dots i.on { background: #fff; }
+.ritual-pills { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 0 14px; }
+.ritual-pill { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--r-lg, 16px); background: var(--card, #fff); border: 1px solid var(--line, rgba(42,26,16,.1)); text-align: left; color: inherit; min-width: 0; transition: transform .12s ease; }
+.ritual-pill:active { transform: scale(.97); }
+.ritual-pill b { font-size: 15px; display: block; }
+.rp-k { display: block; font-size: 10.5px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; opacity: .55; }
+.rp-st { display: block; }
+.ritual-pills.one { grid-template-columns: 1fr; }
+.ritual-pills.one .ritual-pill { padding: 8px 12px; }
+.ritual-pills.one .ritual-pill .grow { display: flex; align-items: baseline; gap: 8px; }
+.ritual-pills.one .rp-st { margin-left: auto; }
+.ritual-pill .grow { min-width: 0; line-height: 1.25; }
+.rp-ring { --p: 0deg; width: 34px; height: 34px; flex: 0 0 auto; border-radius: 50%; display: grid; place-items: center; position: relative; background: conic-gradient(var(--rp) var(--p), rgba(42,26,16,.1) 0); transition: --p .4s; }
+.rp-ring::before { content: ''; position: absolute; inset: 3px; border-radius: 50%; background: var(--card, #fff); }
+.rp-ring svg { position: relative; color: var(--rp); }
+.rp-am { --rp: #D9764A; }
+.rp-pm { --rp: #5A1E37; }
+.ritual-pill.done .rp-ring::before { background: var(--rp); }
+.ritual-pill.done .rp-ring svg { color: #fff; }
 .rt-stage { flex: 1; display: flex; flex-direction: column; }
 .rt-step { flex: 1; display: flex; flex-direction: column; }
 .rt-step.in-f { animation: slide-f .38s cubic-bezier(.2, .8, .2, 1) both; }

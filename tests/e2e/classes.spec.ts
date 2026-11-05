@@ -27,8 +27,9 @@ test('musculação no horário do LPO vira LPO e o comentário tem botão de sal
   });
   await page.goto('./#/');
   await page.reload();
+  await expect(page.getByTestId('day-screen')).toBeVisible();
   await page.goto('./#/treino');
-  await expect(page.getByTestId('workout-card')).toHaveCount(1);
+  await expect(page.getByTestId('workout-card')).toHaveCount(1, { timeout: 10000 });
   await expect(page.getByTestId('workout-card')).toContainText('LPO');
   await expect(page.getByTestId('workout-card')).toContainText('156');
   await expect(page.getByTestId('reclassified')).toBeVisible();

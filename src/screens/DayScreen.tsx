@@ -15,8 +15,7 @@ import { toast } from '../state/store';
 import { BriefTasks, DayBriefBlock } from './ai-ui';
 import { NowAndTimeline, TodayStats } from './today';
 import { RadarCard } from './radar-ui';
-import { MindTodayCard } from './mind';
-import { RitualHero } from './ritual';
+import { RitualBar } from './ritual';
 import { CouncilCard } from './council';
 import { WeekTeaser } from './week';
 
@@ -27,20 +26,18 @@ export function DayScreen() {
     <div className="screen" data-testid="day-screen">
       <TopBar />
       <DateHeader />
-      {/* Ordem pelo uso: números do dia, o que fazer agora e a linha do tempo (pele, comida, treino) primeiro;
-          leitura da IA, corpo e ciclo depois; tarefas e hábitos no fim. */}
-      <RitualHero date={date} />
+      {/* Ordem pelo uso: rituais e números do dia, o que as especialistas combinaram e o radar; depois o dia
+          (linha do tempo), a leitura do dia e as tarefas. Sono, ciclo e hábitos ficam em Indicadores; Mente, no menu. */}
+      <RitualBar date={date} />
       <TodayStats date={date} />
       <WeekTeaser date={date} />
       <CouncilCard date={date} />
       <RadarCard date={date} />
-      <MindTodayCard date={date} />
-      <NowAndTimeline date={date} />
+      <NowAndTimeline date={date} hideNow />
       <DayBriefBlock date={date} />
       <TodayTasks date={date} tasks={tasks} />
       <BriefTasks date={date} />
       <Suggestion date={date} tasks={tasks} />
-      <HabitsBlock date={date} />
     </div>
   );
 }

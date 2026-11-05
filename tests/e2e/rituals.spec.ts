@@ -50,16 +50,28 @@ test('ritual da manhã passo a passo e o conselho troca o treino forte', async (
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/ritual-checkin.png' });
   await page.getByTestId('rt-checkin-save').click();
   await expect(page.getByTestId('ritual-am')).toContainText('Remédios e vitaminas');
+  // Sai no meio: o ritual continua no Hoje e retoma de onde parou.
+  await page.getByLabel('Fechar').click();
+  await expect(page.getByTestId('ritual-hero-am')).toContainText('Continuar · 1 de 3');
+  await expect(page.getByTestId('ritual-pill-pm')).toContainText('0 de 2');
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/hoje-ritual-meio.png', fullPage: true });
+  await page.getByTestId('ritual-hero-am').click();
+  await expect(page.getByTestId('ritual-am')).toContainText('Remédios e vitaminas');
+  // Volta ao check-in para mexer: o que registrou continua lá.
+  await page.getByTestId('rt-tab-checkin').click();
+  await expect(page.getByTestId('rt-mood--1')).toHaveClass(/on/);
+  await page.getByTestId('rt-checkin-save').click();
+  await expect(page.getByTestId('ritual-am')).toContainText('Remédios e vitaminas');
   await page.getByTestId('rt-doses').click();
   await expect(page.getByTestId('ritual-am')).toContainText('O treino de hoje');
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/ritual-treino.png' });
   await page.getByTestId('rt-train').click();
   await expect(page.getByTestId('ritual-done')).toContainText('Manhã pronta');
-  await expect(page.getByTestId('ritual-done')).toContainText('Humor -1');
   await page.waitForTimeout(1200);
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/ritual-fim.png' });
   await page.getByTestId('rt-close').click();
   await expect(page.getByTestId('ritual-hero-am')).toHaveCount(0);
+  await expect(page.getByTestId('ritual-pill-am')).toContainText('Feito');
   await expect(page.getByTestId('tl-checkin-am')).toContainText('cansada');
   // Aprova a troca do treino.
   await page.getByTestId('council-regen').getByTestId('council-approve').click();

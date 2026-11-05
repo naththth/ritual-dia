@@ -12,6 +12,9 @@ import { planFor, plannedFood } from '../domain/rules';
 import { totals } from '../domain/nutrition';
 import { WellnessCard } from './wellness';
 import { CycleCard } from './cycle';
+import { HabitsBlock } from './DayScreen';
+import { useApp } from '../state/store';
+import { shortLabel } from '../lib/dates';
 import { ChevronRight, Sparkles } from 'lucide-react';
 
 const hmin = (h?: number) => (h == null ? '–' : `${Math.floor(h)}h${String(Math.round((h % 1) * 60)).padStart(2, '0')}`);
@@ -46,6 +49,7 @@ function DayBars({ days, pick, goal, color, label }: { days: DayRow[]; pick: (d:
 
 export function IndicatorsScreen() {
   const nav = useNavigate();
+  const day = useApp((s) => s.date);
   const [n, setN] = useState<'7' | '28'>('7');
   const to = todayKey();
   const N = Number(n);
@@ -71,9 +75,10 @@ export function IndicatorsScreen() {
     <div className="screen no-nav" data-testid="indicators">
       <PageHead title="Indicadores" withDate={false} />
       {/* O de hoje: sono e corpo vindos do relógio (com a confirmação de noite curta) e a fase do ciclo. */}
-      <h2 className="sec-h" style={{ marginTop: 4 }}>Hoje</h2>
-      <WellnessCard date={to} />
-      <CycleCard date={to} />
+      <h2 className="sec-h" style={{ marginTop: 4 }}>{day === to ? 'Hoje' : shortLabel(day)}</h2>
+      <WellnessCard date={day} />
+      <CycleCard date={day} />
+      <HabitsBlock date={day} />
       <button className="lib-item" style={{ margin: '0 0 18px' }} onClick={() => nav('/semana')} data-testid="ind-week"><span className="lib-icon"><Sparkles size={20} /></span><span className="grow"><b>Sua semana</b><br /><span className="small muted">Leitura da equipe e padrões que são seus</span></span><ChevronRight size={18} /></button>
       <Seg value={n} onChange={setN} options={[{ id: '7', label: '7 dias' }, { id: '28', label: '28 dias' }]} label="Período" />
 
