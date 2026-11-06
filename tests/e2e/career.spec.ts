@@ -30,7 +30,7 @@ async function seed(page: Page) {
   await page.reload();
 }
 
-test('menu lateral leva a todas as áreas e a Carreira organiza trabalho, marca, conquistas e oportunidades', async ({ page }) => {
+test('menu lateral leva a todas as áreas e a Carreira organiza trabalho, marca e desenvolvimento', async ({ page }) => {
   await seed(page);
   // Barra de baixo: as quatro áreas mais usadas e o Menu.
   await expect(page.locator('.bottomnav')).toHaveCount(0);
@@ -62,16 +62,8 @@ test('menu lateral leva a todas as áreas e a Carreira organiza trabalho, marca,
   expect(t.categoryId).toBe('cat:trabalho');
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/carreira-trabalho.png', fullPage: true });
 
-  // Entregue vira conquista.
-  await page.getByRole('checkbox', { name: 'Concluir Mandar a proposta revisada' }).click();
-  await page.getByTestId('work-done-toggle').click();
-  await page.getByRole('button', { name: /Virou conquista/ }).click();
-  await page.getByTestId('area-nav-carreira').getByRole('tab', { name: 'Conquistas' }).click();
-  await expect(page.getByTestId('win-row')).toContainText('Mandar a proposta revisada');
-  await page.getByTestId('win-title').fill('Estruturei o funil de prospecção');
-  await page.getByTestId('win-impact').fill('+30% de reuniões qualificadas');
-  await page.getByTestId('win-add').click();
-  await expect(page.getByTestId('win-row')).toHaveCount(2);
+  // Conquistas e Oportunidades saíram: só Trabalho, Marca e Desenvolvimento.
+  await expect(page.getByTestId('area-nav-carreira').getByRole('tab')).toHaveText(['Acme', 'Marca', 'Desenvolvimento']);
 
   // Marca: base e pautas.
   await page.getByTestId('area-nav-carreira').getByRole('tab', { name: 'Marca' }).click();
@@ -83,14 +75,7 @@ test('menu lateral leva a todas as áreas e a Carreira organiza trabalho, marca,
   await expect(page.getByTestId('brand-base')).toContainText('Estratégia comercial');
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/carreira-marca.png', fullPage: true });
 
-  // Oportunidades e desenvolvimento.
-  await page.getByTestId('area-nav-carreira').getByRole('tab', { name: 'Oportunidades' }).click();
-  await page.getByTestId('opp-title').fill('Gerente de Growth');
-  await page.getByPlaceholder('Empresa').fill('Beta');
-  await page.getByTestId('opp-add').click();
-  await page.getByTestId('opp-row').getByRole('button').first().click();
-  await page.getByRole('button', { name: 'Em processo' }).click();
-  await expect(page.getByTestId('opp-row')).toContainText('Em processo');
+  // Desenvolvimento.
   await page.getByTestId('area-nav-carreira').getByRole('tab', { name: 'Desenvolvimento' }).click();
   await expect(page.getByTestId('area-nav-carreira').getByRole('tab', { name: 'Desenvolvimento' })).toBeInViewport();
   await page.getByTestId('dev-title').fill('Curso de pricing');
@@ -107,37 +92,13 @@ test('menu lateral leva a todas as áreas e a Carreira organiza trabalho, marca,
   await expect(page.getByTestId('spec-career-chat')).toContainText('Tarefa: Revisar a proposta comercial');
   const ctx = await page.evaluate(() => (window as any).__ctx.career_coach);
   expect(ctx.base_da_carreira.posicionamento).toContain('Transformo dado');
-  expect(ctx.conquistas.length).toBe(2);
-  expect(ctx.oportunidades[0].etapa).toBe('processo');
   expect(ctx.base_da_carreira.empresa_atual).toBe('Acme');
 });
 
-test('captura rápida do PC: anota com dia e horário em trabalho ou pessoal', async ({ page }) => {
+test('captura rápida saiu: o endereço antigo leva à Carreira e o menu não mostra mais', async ({ page }) => {
   await seed(page);
-  await page.evaluate(async () => {
-    const req = indexedDB.open('ritual');
-    const db: IDBDatabase = await new Promise((r) => { req.onsuccess = () => r(req.result); });
-    const tx = db.transaction(['records'], 'readwrite');
-    const st = tx.objectStore('records');
-    const base = { deleted: 0, dirty: 0, updatedAt: 5, createdAt: 5 };
-    st.put({ ...base, id: 'cat:trabalho', kind: 'category', name: 'Trabalho Acme', labels: { alta: 'Urgente', media: 'Importante', baixa: 'Quando der' }, subcategories: [], order: 0 });
-    st.put({ ...base, id: 'careerbase', kind: 'careerbase', workName: 'Acme', workCategoryId: 'cat:trabalho' });
-    await new Promise((r) => { tx.oncomplete = r; });
-  });
-  await page.setViewportSize({ width: 1100, height: 700 });
   await page.goto('./#/captura');
-  await expect(page.getByTestId('capture-screen')).toBeVisible();
-  await expect(page.getByTestId('qa-title')).toBeFocused();
-  await expect(page.getByTestId('capture-screen').getByTestId('nav-menu')).toBeVisible();
-  await page.getByTestId('qa-title').fill('Pauta do 1:1 da equipe');
-  await page.getByRole('button', { name: 'Amanhã' }).click();
-  await page.getByTestId('qa-time').fill('08:45');
-  await page.getByTestId('qa-add').click();
-  await expect(page.getByTestId('capture-screen')).toContainText('Pauta do 1:1 da equipe');
-  await expect(page.getByTestId('capture-screen')).toContainText('às 08:45');
-  await page.getByRole('button', { name: 'Pessoal' }).click();
-  await page.getByTestId('qa-title').fill('Marcar dentista');
-  await page.getByTestId('qa-title').press('Enter');
-  await expect(page.getByTestId('capture-screen')).toContainText('Marcar dentista');
-  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/captura-pc.png' });
+  await expect(page.getByTestId('area-carreira')).toBeVisible();
+  await page.getByTestId('nav-menu').click();
+  await expect(page.getByText('Captura rápida')).toHaveCount(0);
 });

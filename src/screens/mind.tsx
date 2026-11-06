@@ -199,7 +199,7 @@ export function CareCard({ data, force, onClose }: { data?: { days: MindDay[]; a
           ))}
         </>}
         {care.pequeno_passo && <p className="notice calm" style={{ marginTop: 12 }}><b>Um passo pequeno:</b> {care.pequeno_passo}</p>}
-        {!care.offline && <button className="link small" style={{ marginTop: 10 }} disabled={busy} onClick={() => void load(care)} data-testid="care-again"><RefreshCw size={13} style={{ verticalAlign: '-2px' }} /> {busy ? 'Buscando…' : 'Outra sugestão'}</button>}
+        {!care.offline && <button className="link small" style={{ marginTop: 20, display: 'inline-flex', alignItems: 'center', gap: 6 }} disabled={busy} onClick={() => void load(care)} data-testid="care-again"><RefreshCw size={14} /> {busy ? 'Buscando…' : 'Outra sugestão'}</button>}
         {care.offline && <p className="tiny muted" style={{ marginTop: 8 }}>Sem conexão com a IA agora: esta é uma respiração pronta.</p>}
       </>}
     </section>

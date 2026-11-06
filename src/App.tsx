@@ -1,5 +1,5 @@
 import { Drawer } from './screens/drawer';
-import { CareerWorkPage, CareerBrandPage, CareerWinsPage, CareerOppsPage, CareerGrowPage, CaptureScreen } from './screens/career';
+import { CareerWorkPage, CareerBrandPage, CareerGrowPage } from './screens/career';
 import { useEffect, useState, useRef } from 'react';
 import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useApp } from './state/store';
@@ -31,7 +31,6 @@ import { TrainingPlanPage, TrainingSessionsPage, FoodPlanPage, FoodsPage, MealsP
 import { Onboarding } from './screens/Onboarding';
 import { ProductReview } from './screens/ProductReview';
 import { RegisterSheet } from './screens/RegisterSheet';
-import { DevAssist } from './screens/devassist';
 import { RitualScreen } from './screens/ritual';
 import { WeekScreen } from './screens/week';
 import { CheckinScreen, IntakeScreen, MindPanelPage, MindScreen, MindSettingsPage, ReportScreen } from './screens/mind';
@@ -125,10 +124,10 @@ function Shell() {
         <Route path="/marca" element={<Navigate to="/carreira/marca" replace />} />
         <Route path="/carreira" element={<CareerWorkPage />} />
         <Route path="/carreira/marca" element={<CareerBrandPage />} />
-        <Route path="/carreira/conquistas" element={<CareerWinsPage />} />
-        <Route path="/carreira/oportunidades" element={<CareerOppsPage />} />
+        <Route path="/carreira/conquistas" element={<Navigate to="/carreira" replace />} />
+        <Route path="/carreira/oportunidades" element={<Navigate to="/carreira" replace />} />
         <Route path="/carreira/crescer" element={<CareerGrowPage />} />
-        <Route path="/captura" element={<CaptureScreen />} />
+        <Route path="/captura" element={<Navigate to="/carreira" replace />} />
         <Route path="/biblioteca/:section" element={<LibraryScreen />} />
         <Route path="/plano/:domain" element={<PlanScreen />} />
         <Route path="/revisao" element={<ProductReview />} />
@@ -137,7 +136,6 @@ function Shell() {
       {loc.pathname === '/' && <button className="fab fab-float" aria-label="Registrar" onClick={() => setReg(true)} data-testid="fab"><Plus size={28} strokeWidth={2.4} /></button>}
       <RegisterSheet open={reg} onClose={() => setReg(false)} />
       <Drawer open={menu} onClose={() => setMenu(false)} />
-      <DevAssist />
       <Toasts />
     </div>
   );

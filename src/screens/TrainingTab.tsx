@@ -167,7 +167,7 @@ export function TrainingTab() {
           if (skipped) {
             return (
               <div key={t.id} className="row between" style={{ marginTop: 10, gap: 8 }} data-testid="planned-skipped">
-                <span className="small"><s>{t.name}</s> · não hoje</span>
+                <span className="small"><s>{t.name}</s> · não realizado</span>
                 <button className="link" onClick={() => deleteRecord(`skip:${date}:training:${t.id}`, 'Planejado de volta')}>Desfazer</button>
               </div>
             );
@@ -191,7 +191,7 @@ export function TrainingTab() {
               <div className="row wrap" style={{ gap: 8, marginTop: 10 }}>
                 {!isMuscle(t.modalityId) && <button className="pill-act pa-blue" data-testid="train-done" onClick={() => workoutFromTemplate(t, date, true)}>Feito</button>}
                 <button className="pill-act pa-ghost" onClick={() => fileRef.current?.click()}>Importar o arquivo</button>
-                <button className="pill-act pa-ghost" onClick={() => skipPlanned(date, 'training', t.id, 'Treino marcado como não hoje')}>Hoje não</button>
+                <button className="pill-act pa-ghost" onClick={() => skipPlanned(date, 'training', t.id, 'Treino marcado como não realizado')}>Hoje não</button>
               </div>
             </div>
           );

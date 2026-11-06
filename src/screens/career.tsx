@@ -75,9 +75,7 @@ export function CareerWorkPage() {
   const next = pend.filter((t) => t.plannedDate && t.plannedDate > today).sort((a, b) => a.plannedDate!.localeCompare(b.plannedDate!));
   const loose = pend.filter((t) => !t.plannedDate);
   const doneWeek = work.filter((t) => t.status === 'concluida' && t.completedDate && t.completedDate >= ws).sort((a, b) => (b.completedDate ?? '').localeCompare(a.completedDate ?? ''));
-  const winsWeek = wins.filter((w) => w.date >= ws).length;
   const openTask = (t: Task) => { setOpen(t); setSheet(true); };
-  const toWin = async (t: Task) => { await create('win', { title: t.title, date: t.completedDate ?? today, where: 'trabalho' } as any); toast('Virou conquista. Vale anotar o impacto na aba Conquistas.'); };
   const Section = ({ title, list, plan }: { title: string; list: Task[]; plan?: boolean }) => list.length ? (
     <>
       <h2 className="section-title">{title} <span className="muted small num">{list.length}</span></h2>
@@ -89,19 +87,17 @@ export function CareerWorkPage() {
       <div className="cr-stats">
         <div className="cr-stat"><b className="num">{now.length}</b><span>para hoje</span></div>
         <div className="cr-stat"><b className="num">{doneWeek.length}</b><span>entregues na semana</span></div>
-        <div className="cr-stat"><b className="num">{winsWeek}</b><span>conquistas na semana</span></div>
       </div>
       <QuickAdd categoryId={base.workCategoryId} />
       <Section title="Hoje e atrasadas" list={now} />
       <Section title="Próximos dias" list={next} />
       <Section title="Sem dia" list={loose} plan />
-      {!pend.length && <p className="muted" style={{ margin: '18px 2px' }}>Nada pendente no {base.workName ?? WORK_FALLBACK.toLowerCase()}. Anote acima ou pelo PC na captura rápida.</p>}
+      {!pend.length && <p className="muted" style={{ margin: '18px 2px' }}>Nada pendente no {base.workName ?? WORK_FALLBACK.toLowerCase()}. Anote acima.</p>}
       {doneWeek.length > 0 && <>
         <button className="link cr-more" onClick={() => setShowDone(!showDone)} data-testid="work-done-toggle"><ChevronDown size={15} style={{ transform: showDone ? 'rotate(180deg)' : undefined }} /> Entregues na semana ({doneWeek.length})</button>
         {showDone && <div className="list">{doneWeek.map((t) => (
           <div key={t.id} className="row-item done">
             <span className="grow"><div className="t">{t.title}</div><div className="s">{t.completedDate && shortLabel(t.completedDate)}</div></span>
-            <button className="pill-act pa-honey" onClick={() => void toWin(t)}><Award size={14} /> Virou conquista</button>
           </div>
         ))}</div>}
       </>}

@@ -1,7 +1,7 @@
 // Menu lateral: todas as áreas e telas do app, agrupadas. A barra de baixo fica com as quatro mais usadas.
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Activity, BookOpen, Brain, Briefcase, CalendarDays, ChartNoAxesColumn, Droplet, Dumbbell, ListChecks, NotebookPen, Scale, Settings, Sparkles, StickyNote, Sun, Target, UserRound, Utensils, Wand2, X, Zap } from 'lucide-react';
+import { Activity, BookOpen, Brain, Briefcase, CalendarDays, ChartNoAxesColumn, Droplet, Dumbbell, ListChecks, NotebookPen, Scale, Settings, Sparkles, StickyNote, Sun, Target, UserRound, Utensils, Wand2, X } from 'lucide-react';
 import { useRecord } from '../db/hooks';
 
 type Item = { to: string; label: string; icon: JSX.Element; match?: string };
@@ -15,7 +15,6 @@ const GROUPS: { title: string; items: Item[] }[] = [
     { to: '/carreira', label: 'Carreira', icon: <Briefcase size={20} />, match: '/carreira' }
   ] },
   { title: 'Organizar', items: [
-    { to: '/captura', label: 'Captura rápida', icon: <Zap size={20} /> },
     { to: '/listas', label: 'Tarefas', icon: <ListChecks size={20} /> },
     { to: '/habitos', label: 'Hábitos e metas', icon: <Target size={20} /> },
     { to: '/calendario', label: 'Calendário', icon: <CalendarDays size={20} /> }

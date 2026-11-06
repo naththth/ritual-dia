@@ -31,11 +31,33 @@ const STATUS: { id: BookStatus; label: string }[] = [
   { id: 'lendo', label: 'Lendo' }, { id: 'quero_ler', label: 'Quero ler' }, { id: 'lido', label: 'Lidos' }, { id: 'abandonado', label: 'Parados' }
 ];
 
-function Cover({ b }: { b: Pick<Book, 'cover' | 'title'> & { isbn?: string } }) {
+/** Procura a capa no Google Books, pelo ISBN e depois por título e autoria. */
+async function findCover(b: { title: string; authors?: string[]; isbn?: string }): Promise<string | undefined> {
+  const qs = [b.isbn ? `isbn:${b.isbn}` : '', `intitle:${b.title.split(/[:(]/)[0].trim()}${b.authors?.[0] ? ` inauthor:${b.authors[0]}` : ''}`].filter(Boolean);
+  for (const q of qs) {
+    try {
+      const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=5&printType=books`);
+      if (!r.ok) continue;
+      const d = await r.json();
+      const hit = (d.items ?? []).map((it: any) => it.volumeInfo?.imageLinks?.thumbnail).find(Boolean);
+      if (hit) return String(hit).replace(/^http:/, 'https:');
+    } catch { /* sem rede: fica a inicial */ }
+  }
+  return undefined;
+}
+const coverTried = new Set<string>();
+
+function Cover({ b }: { b: Pick<Book, 'cover' | 'title'> & { isbn?: string; id?: string; authors?: string[] } }) {
   const [failed, setFailed] = useState(0);
-  // capa salva; se falhar, tenta a do Open Library pelo ISBN; se não houver, a inicial do título
-  const srcs = [b.cover, coverFromIsbn(b.isbn)].filter((x, i, a): x is string => !!x && a.indexOf(x) === i);
+  const [found, setFound] = useState<string>();
+  // capa salva; se falhar, a do Open Library pelo ISBN; se nenhuma abrir, busca no Google Books e guarda no livro
+  const srcs = [found, b.cover, coverFromIsbn(b.isbn)].filter((x, i, a): x is string => !!x && a.indexOf(x) === i);
   const src = srcs[failed];
+  useEffect(() => {
+    if (src || found || !b.id || coverTried.has(b.id)) return;
+    coverTried.add(b.id);
+    void findCover(b).then((c) => { if (c) { setFound(c); setFailed(0); void update<'book'>(b.id!, { cover: c }); } });
+  }, [src, found, b.id]);
   return src ? <img src={src} alt="" loading="lazy" onError={() => setFailed((n) => n + 1)} /> : <span className="nocover">{b.title.charAt(0)}</span>;
 }
 

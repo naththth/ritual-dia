@@ -377,7 +377,7 @@ test('treino trocado: fez outra modalidade no lugar do planejado', async ({ page
   await go(page, '/treino');
   await expect(page.getByTestId('swap-ask')).toContainText('musculação no lugar');
   await page.getByTestId('swap-yes').click();
-  await expect(page.getByTestId('planned-skipped')).toContainText('não hoje');
+  await expect(page.getByTestId('planned-skipped')).toContainText('não realizado');
   await expect(page.getByTestId('train-done')).toHaveCount(0);
   await page.screenshot({ path: 'test-results/shots/treino-trocado.png' });
 });

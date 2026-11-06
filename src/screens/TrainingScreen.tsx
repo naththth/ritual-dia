@@ -88,7 +88,7 @@ export function TrainingScreen() {
                     {done ? <span className="small" style={{ fontWeight: 700 }}>Feito</span> : skipped ? <span className="small muted">Não hoje</span> : (
                       <>
                         <button className="btn btn-ink btn-sm" onClick={() => workoutFromTemplate(t, date, true)}>Feito</button>
-                        <button className="btn btn-soft btn-sm" onClick={() => skipPlanned(date, 'training', t.id, 'Treino marcado como não hoje')}>Não hoje</button>
+                        <button className="btn btn-soft btn-sm" onClick={() => skipPlanned(date, 'training', t.id, 'Treino marcado como não realizado')}>Não hoje</button>
                       </>
                     )}
                   </div>

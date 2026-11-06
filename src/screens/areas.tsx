@@ -20,7 +20,7 @@ export const AREAS = {
   treino: { title: 'Treino', tabs: [{ to: '/treino', label: 'Semana' }, { to: '/treino/plano', label: 'Plano' }, { to: '/treino/sessoes', label: 'Sessões' }] },
   cuidados: { title: 'Cuidados', tabs: [{ to: '/cuidados', label: 'Hoje' }, { to: '/cuidados/rotina', label: 'Rotina' }, { to: '/cuidados/produtos', label: 'Produtos' }] },
   alimentacao: { title: 'Alimentação', tabs: [{ to: '/alimentacao', label: 'Hoje' }, { to: '/alimentacao/plano', label: 'Plano' }, { to: '/alimentacao/alimentos', label: 'Alimentos' }, { to: '/alimentacao/refeicoes', label: 'Refeições' }] },
-  carreira: { title: 'Carreira', tabs: [{ to: '/carreira', label: 'Trabalho' }, { to: '/carreira/marca', label: 'Marca' }, { to: '/carreira/conquistas', label: 'Conquistas' }, { to: '/carreira/oportunidades', label: 'Oportunidades' }, { to: '/carreira/crescer', label: 'Desenvolvimento' }] },
+  carreira: { title: 'Carreira', tabs: [{ to: '/carreira', label: 'Trabalho' }, { to: '/carreira/marca', label: 'Marca' }, { to: '/carreira/crescer', label: 'Desenvolvimento' }] },
   mente: { title: 'Mente', tabs: [{ to: '/mente', label: 'Hoje' }, { to: '/mente/tomo', label: 'Remédios' }, { to: '/mente/painel', label: 'Painel' }, { to: '/mente/ajustes', label: 'Ajustes' }] }
 } as const;
 export type AreaId = keyof typeof AREAS;
