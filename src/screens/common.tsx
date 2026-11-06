@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ChevronLeft, ChevronRight, Menu, Settings as Cog } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Menu, Plus, Settings as Cog } from 'lucide-react';
 import { useApp } from '../state/store';
 import { addDays, isoWeekday, longDate, shortLabel, todayKey, weekDays, WEEKDAY_LETTER, WEEKDAY_LONG, dayNum } from '../lib/dates';
 import { factDots, useFacts } from '../domain/facts';
@@ -26,11 +26,16 @@ export function MenuButton() {
   return <button className="icon-btn menu-btn" aria-label="Abrir menu" onClick={() => useApp.getState().setMenu(true)} data-testid="nav-menu"><Menu size={24} /></button>;
 }
 
+/** O + único: abre a folha Registrar, em qualquer tela. */
+export function AddButton() {
+  return <button className="top-add" aria-label="Registrar" onClick={() => useApp.getState().setReg(true)} data-testid="fab"><Plus size={22} strokeWidth={2.4} /></button>;
+}
+
 export function TopBar({ right }: { right?: ReactNode }) {
   const nav = useNavigate();
   return (
     <div className="topbar">
-      <span className="row" style={{ gap: 6 }}><MenuButton /><span className="wordmark">Ritual</span><SyncDot /></span>
+      <span className="row" style={{ gap: 6 }}><MenuButton /><AddButton /><span className="wordmark">Ritual</span><SyncDot /></span>
       <span className="row" style={{ gap: 0 }}>
         {right}
         <button className="icon-btn" aria-label="Ajustes" onClick={() => nav('/ajustes')}><Cog size={22} /></button>

@@ -349,7 +349,7 @@ function DevPicks() {
   return (
     <section className="block b-paper" data-testid="dev-picks">
       <div className="bh"><h2>Para esta semana</h2>{has && <button className="link small" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }} disabled={busy} onClick={() => void run(true)} data-testid="picks-again"><RefreshCw size={14} /> {busy ? 'Buscando…' : 'Outras'}</button>}</div>
-      {!has && busy && <p className="small muted" style={{ marginTop: 0 }}>A especialista está buscando uma notícia, um artigo e um livro para você…</p>}
+      {!has && busy && <p className="small muted" style={{ marginTop: 0 }}>A especialista está buscando na web uma notícia, um artigo e um livro para você. Leva cerca de um minuto; pode sair da tela que as sugestões ficam guardadas.</p>}
       {!has && !busy && <>
         <p className="small muted" style={{ marginTop: 0 }}>Toda semana a especialista traz uma notícia, um artigo e um livro ligados aos seus pilares e ao seu momento.</p>
         {aiAvailable() ? <button className="pill-act pa-rose" onClick={() => void run(false)} data-testid="picks-load"><Sparkles size={15} /> Buscar as sugestões</button> : <p className="small muted">Entre com Google para receber as sugestões.</p>}

@@ -25,6 +25,9 @@ interface AppState {
   /** Menu lateral aberto. */
   menu: boolean;
   setMenu: (v: boolean) => void;
+  /** Folha "Registrar" (o + do topo) aberta. */
+  reg: boolean;
+  setReg: (v: boolean) => void;
 }
 
 let seq = 1;
@@ -34,6 +37,8 @@ export const useApp = create<AppState>((set, get) => ({
   setDate: (date) => set({ date }),
   menu: false,
   setMenu: (menu) => set({ menu }),
+  reg: false,
+  setReg: (reg) => set({ reg }),
   toasts: [],
   toast: (text, undo, tone = 'default', opts = {}) => {
     const id = seq++;

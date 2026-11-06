@@ -3,7 +3,6 @@ import { CareerWorkPage, CareerBrandPage, CareerGrowPage } from './screens/caree
 import { useEffect, useState, useRef } from 'react';
 import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useApp } from './state/store';
-import { Plus } from 'lucide-react';
 import { ensureDefaults } from './domain/defaults';
 import { initSync } from './sync/sync';
 import { useSettings } from './db/hooks';
@@ -66,9 +65,10 @@ export function App() {
 function Shell() {
   const settings = useSettings();
   const loc = useLocation();
-  const [reg, setReg] = useState(false);
   const menu = useApp((st) => st.menu);
   const setMenu = useApp((st) => st.setMenu);
+  const reg = useApp((st) => st.reg);
+  const setReg = useApp((st) => st.setReg);
   // Deslizar a partir da borda esquerda abre o menu.
   useEffect(() => {
     let x0 = -1, y0 = 0;
@@ -133,7 +133,6 @@ function Shell() {
         <Route path="/revisao" element={<ProductReview />} />
         <Route path="*" element={<DayScreen />} />
       </Routes>
-      {loc.pathname === '/' && <button className="fab fab-float" aria-label="Registrar" onClick={() => setReg(true)} data-testid="fab"><Plus size={28} strokeWidth={2.4} /></button>}
       <RegisterSheet open={reg} onClose={() => setReg(false)} />
       <Drawer open={menu} onClose={() => setMenu(false)} />
       <Toasts />

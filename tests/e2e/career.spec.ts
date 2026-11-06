@@ -238,3 +238,20 @@ test('DBC: tarefas do Google Tasks aparecem e concluir marca lá também; sem co
   await page.reload();
   await expect(page.getByTestId('gtasks-connect')).toBeVisible();
 });
+
+test('o + fica no topo, ao lado do menu, em qualquer tela, e abre o Registrar', async ({ page }) => {
+  await seed(page);
+  for (const route of ['./#/', './#/carreira/marca', './#/treino']) {
+    await page.goto(route);
+    const plus = page.locator('.topbar').getByTestId('fab');
+    await expect(plus).toBeVisible();
+    // ao lado do menu, na mesma linha
+    const [m, p] = await Promise.all([page.getByTestId('nav-menu').boundingBox(), plus.boundingBox()]);
+    expect(Math.abs((m!.y + m!.height / 2) - (p!.y + p!.height / 2))).toBeLessThan(3);
+    expect(p!.x).toBeGreaterThan(m!.x);
+    if (process.env.SHOTS && route === './#/') await page.screenshot({ path: '/tmp/shots/top-plus.png', clip: { x: 0, y: 0, width: 393, height: 140 } });
+  }
+  await expect(page.locator('.fab-float')).toHaveCount(0);
+  await page.getByTestId('fab').click();
+  await expect(page.getByTestId('reg-coffee')).toBeVisible();
+});
