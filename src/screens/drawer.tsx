@@ -1,7 +1,7 @@
 // Menu lateral: todas as áreas e telas do app, agrupadas. A barra de baixo fica com as quatro mais usadas.
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Activity, BookOpen, Brain, Briefcase, CalendarDays, ChartNoAxesColumn, Droplet, Dumbbell, ListChecks, NotebookPen, Scale, Settings, Sparkles, StickyNote, Sun, Target, UserRound, Utensils, Wand2, X } from 'lucide-react';
+import { Activity, BookOpen, Brain, Briefcase, CalendarDays, ChartNoAxesColumn, Droplet, Dumbbell, ListChecks, Scale, Settings, Sparkles, StickyNote, Sun, Target, UserRound, Utensils, Wand2, X } from 'lucide-react';
 import { useRecord } from '../db/hooks';
 
 type Item = { to: string; label: string; icon: JSX.Element; match?: string };
@@ -28,7 +28,6 @@ const GROUPS: { title: string; items: Item[] }[] = [
     { to: '/perfil', label: 'Perfil e objetivos', icon: <UserRound size={20} /> }
   ] },
   { title: 'Registros', items: [
-    { to: '/diario', label: 'Diário', icon: <NotebookPen size={20} /> },
     { to: '/notas', label: 'Notas', icon: <StickyNote size={20} /> },
     { to: '/leitura', label: 'Leitura', icon: <BookOpen size={20} /> }
   ] }

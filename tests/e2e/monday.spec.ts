@@ -279,23 +279,26 @@ test('importar treino .FIT e ver potência, FC e zonas', async ({ page }) => {
   await page.screenshot({ path: 'test-results/shots/treino-fit.png', fullPage: true });
 });
 
-test('fechar o dia no diário e criar nota', async ({ page }) => {
+test('diário saiu do menu: o antigo aparece no Painel da Mente e as notas seguem em Notas', async ({ page }) => {
   await onboard(page);
-  // "Fechar o dia" agora abre o check-in da Mente; o diário continua em Mais.
   await expect(page.getByTestId('tl-journal')).toContainText('Fechar o dia');
+  // Uma entrada antiga do diário continua visível no Painel da Mente.
+  await page.evaluate(async () => {
+    const req = indexedDB.open('ritual');
+    const db: IDBDatabase = await new Promise((r) => { req.onsuccess = () => r(req.result); });
+    const tx = db.transaction(['records'], 'readwrite');
+    tx.objectStore('records').put({ id: 'journal:a', kind: 'journal', date: '2026-11-03', tags: ['Cansada'], text: 'Dia produtivo, pedal rendeu.', deleted: 0, dirty: 0, updatedAt: 5, createdAt: 5 });
+    await new Promise((r) => { tx.oncomplete = r; });
+  });
   await page.goto('./#/diario');
-  await page.getByRole('radio', { name: 'Energia 4' }).click();
-  await page.getByRole('radio', { name: 'Humor 5' }).click();
-  await page.getByRole('button', { name: 'Treino bom' }).click();
-  await page.getByLabel('Texto do diário').fill('Dia produtivo, pedal rendeu.');
-  await page.getByTestId('journal-save').click();
-  await expect(page.getByTestId('day-screen')).toBeVisible(); // salvar volta para o dia
-  await page.goto('./#/diario');
+  await expect(page.getByTestId('mind-panel-page')).toBeVisible();
+  await expect(page.getByTestId('old-journal')).toContainText('Dia produtivo, pedal rendeu.');
+  await page.getByTestId('nav-menu').click();
+  await expect(page.getByRole('link', { name: 'Diário' })).toHaveCount(0);
+  await page.goto('./#/notas');
   await page.getByRole('button', { name: 'Nova nota' }).click();
   await page.getByLabel('Texto da nota').fill('Ideia: comprar rolo de espuma');
   await page.getByTestId('note-save').click();
-  await expect(page.getByTestId('note-row')).toContainText('Ideia: comprar rolo de espuma');
-  await page.goto('./#/notas');
   await page.getByLabel('Buscar nas notas').fill('espuma');
   await expect(page.getByTestId('note-row')).toHaveCount(1);
 });

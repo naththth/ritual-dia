@@ -15,7 +15,7 @@ import { EvolutionScreen } from './screens/EvolutionScreen';
 import { TrainingTab } from './screens/TrainingTab';
 import { FoodTab } from './screens/FoodTab';
 import { MoreScreen } from './screens/MoreScreen';
-import { JournalScreen, NotesScreen } from './screens/JournalScreen';
+import { NotesScreen } from './screens/JournalScreen';
 import { ReadingScreen } from './screens/ReadingScreen';
 import { SkinScreen } from './screens/SkinScreen';
 import { FoodScreen } from './screens/FoodScreen';
@@ -113,7 +113,7 @@ function Shell() {
         <Route path="/mente/painel" element={<MindPanelPage />} />
         <Route path="/mente/ajustes" element={<MindSettingsPage />} />
         <Route path="/mais" element={<MoreScreen />} />
-        <Route path="/diario" element={<JournalScreen />} />
+        <Route path="/diario" element={<Navigate to="/mente/painel" replace />} />
         <Route path="/notas" element={<NotesScreen />} />
         <Route path="/leitura" element={<ReadingScreen />} />
         <Route path="/ajustes" element={<SettingsScreen />} />

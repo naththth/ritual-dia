@@ -451,6 +451,25 @@ export function MindScreen() {
   );
 }
 
+/** O Diário saiu do menu (o texto livre fica no check-in); o que foi escrito nele continua visível aqui. */
+function OldJournal() {
+  const list = useAll('journal');
+  const items = (list ?? []).filter((j) => j.text?.trim() || j.tags?.length).sort((a, b) => b.date.localeCompare(a.date));
+  if (!items.length) return null;
+  return (
+    <section className="block b-paper" style={{ marginTop: 14 }} data-testid="old-journal">
+      <div className="bh"><h2>Do diário</h2></div>
+      <p className="small muted" style={{ marginTop: 0 }}>O que você escreveu no Diário antes de ele virar parte do check-in.</p>
+      {items.map((j) => (
+        <div key={j.id} className="row-item" style={{ alignItems: 'flex-start' }}>
+          <span className="num small" style={{ width: 52, flex: '0 0 auto', paddingTop: 2 }}>{shortLabel(j.date)}</span>
+          <span className="grow">{j.text?.trim() || <span className="muted">Sem texto</span>}{j.tags?.length ? <><br /><span className="small muted">{j.tags.join(', ')}</span></> : null}</span>
+        </div>
+      ))}
+    </section>
+  );
+}
+
 export function MindPanelPage() {
   const data = useMind();
   const nav = useNavigate();
@@ -460,6 +479,7 @@ export function MindPanelPage() {
         {data && <Panel days={data.days} />}
         <button className="lib-item" style={{ marginBottom: 10 }} onClick={() => nav('/semana')}><span className="lib-icon"><Sparkles size={20} /></span><span className="grow"><b>Sua semana</b><br /><span className="small muted">Leitura da equipe, padrões e ajustes da próxima</span></span><ChevronRight size={18} /></button>
         <button className="lib-item" onClick={() => nav('/mente/relatorio')} data-testid="open-report"><span className="lib-icon"><FileText size={20} /></span><span className="grow"><b>Relatório para a consulta</b><br /><span className="small muted">30, 60 ou 90 dias, para imprimir ou salvar em PDF</span></span><ChevronRight size={18} /></button>
+        <OldJournal />
       </>
     </AreaPage>
   );
