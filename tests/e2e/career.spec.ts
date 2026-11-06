@@ -9,6 +9,15 @@ async function seed(page: Page) {
     (window as any).__RITUAL_TEST_AI = (task: string, ctx: any) => {
       (window as any).__ctx = { ...((window as any).__ctx ?? {}), [task]: ctx };
       if (task === 'career_coach') return { mensagem: 'Começa pela proposta: ela destrava as outras duas.', rascunho: 'Dado sem direção é ruído.', acoes: [{ tipo: 'nova_tarefa', texto: 'Revisar a proposta comercial', data: '2026-11-05', prioridade: 'alta' }] };
+      if (task === 'career_picks') {
+        const n = Number(sessionStorage.getItem('picks') ?? 0) + 1;
+        sessionStorage.setItem('picks', String(n));
+        return {
+          noticia: { titulo: `Notícia de teste ${n}`, fonte: 'Valor', data: '2026-11-03', url: 'https://example.com/noticia', resumo: 'Resumo com um número: 42%.', porque: 'Liga com o pilar de IA aplicada.', verificado: true },
+          artigo: { titulo: 'Artigo de fundo', fonte: 'HBR', url: 'https://www.google.com/search?q=artigo', resumo: 'Método em três passos.', porque: 'Serve à sua frente de prospecção.', verificado: false },
+          livro: { titulo: 'Livro de teste', autor: 'Autora Teste', ano: '2024', sinopse: 'Sinopse curta.', porque: 'Conecta dado e venda.' }
+        };
+      }
       return {};
     };
   });
@@ -169,4 +178,34 @@ test('zz-local: prints com os posts reais (não vai para o repositório)', async
   await page.getByTestId('post-row').click(); await page.waitForTimeout(600);
   await page.locator('.sheet').evaluate((el) => el.scrollTo(0, 99999)); await page.waitForTimeout(300);
   await page.screenshot({ path: '/tmp/shots/li-publicado.png' });
+});
+
+test('Desenvolvimento: a especialista traz notícia, artigo e livro da semana, e o livro vai para Quero ler', async ({ page }) => {
+  await seed(page);
+  await page.route('**/books/v1/volumes**', (r) => r.fulfill({ json: { items: [{ id: 'g1', volumeInfo: { title: 'Livro de teste', authors: ['Autora Teste'], pageCount: 240, imageLinks: { thumbnail: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=' } } }] } }));
+  await page.goto('./#/carreira/crescer');
+  // Sem pedir: na primeira visita da semana as sugestões chegam sozinhas.
+  await expect(page.getByTestId('pick-noticia')).toContainText('Notícia de teste 1');
+  await expect(page.getByTestId('pick-noticia')).toContainText('Ler');
+  await expect(page.getByTestId('pick-artigo')).toContainText('Buscar o texto');
+  await expect(page.getByTestId('pick-livro')).toContainText('Autora Teste');
+  const ctx = await page.evaluate(() => (window as any).__ctx.career_picks);
+  expect(ctx.hoje).toBe('2026-11-04');
+  expect(ctx.ja_sugerido).toEqual([]);
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/dev-picks.png', fullPage: true });
+  await page.getByTestId('pick-want').click();
+  await expect(page.getByTestId('pick-livro')).toContainText('Está na sua Leitura');
+  const book = await page.evaluate(async () => {
+    const req = indexedDB.open('ritual');
+    const db: IDBDatabase = await new Promise((r) => { req.onsuccess = () => r(req.result); });
+    const all: any[] = await new Promise((r) => { const q = db.transaction('records').objectStore('records').getAll(); q.onsuccess = () => r(q.result); });
+    return all.find((x) => x.kind === 'book');
+  });
+  expect(book).toMatchObject({ title: 'Livro de teste', status: 'quero_ler', googleId: 'g1', pages: 240 });
+  // Recarregar não busca de novo na mesma semana; "Outras" troca.
+  await page.reload();
+  await expect(page.getByTestId('pick-noticia')).toContainText('Notícia de teste 1');
+  await page.getByTestId('picks-again').click();
+  await expect(page.getByTestId('pick-noticia')).toContainText('Notícia de teste 2');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 });

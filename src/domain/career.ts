@@ -5,7 +5,7 @@ import { addDays, todayKey, weekStart, type DateKey } from '../lib/dates';
 import { askAI } from './ai';
 import { chatMemory, undoLog, type SpecMsg } from './specchat';
 import { loadMind } from './mindload';
-import type { CareerBase, Task } from '../db/types';
+import type { CareerBase, DevPick, PickBook, Task } from '../db/types';
 
 export const CAREER_ID = 'careerbase';
 export const WORK_FALLBACK = 'Trabalho';
@@ -94,4 +94,50 @@ export async function workWeek(today: DateKey = todayKey()) {
   const ws = weekStart(today);
   const wins = await byDateRange('win', ws, addDays(ws, 6));
   return { done: tasks.filter((t) => t.completedDate && t.completedDate >= ws).length, open: tasks.filter((t) => t.status === 'pendente').length, wins: wins.length };
+}
+
+
+/* ---------- Curadoria semanal do Desenvolvimento ---------- */
+export const pickId = (week: DateKey) => `devpick:${week}`;
+
+/** Confirma o livro no Google Books (capa, sinopse, páginas, ISBN); sem resultado, fica o que a especialista mandou. */
+async function confirmBook(b: PickBook): Promise<PickBook> {
+  try {
+    const q = `intitle:${b.titulo.split(/[:(]/)[0].trim()}${b.autor ? ` inauthor:${b.autor.split(/[,&]| e /)[0].trim()}` : ''}`;
+    const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=5&printType=books`);
+    if (!r.ok) return b;
+    const d = await r.json();
+    const hit = (d.items ?? []).find((it: any) => it.volumeInfo?.imageLinks?.thumbnail) ?? d.items?.[0];
+    const v = hit?.volumeInfo;
+    if (!v) return b;
+    return {
+      ...b, googleId: hit.id, authors: v.authors ?? (b.autor ? [b.autor] : []), pages: v.pageCount,
+      cover: v.imageLinks?.thumbnail?.replace(/^http:/, 'https:'),
+      isbn: (v.industryIdentifiers ?? []).find((x: any) => x.type === 'ISBN_13')?.identifier,
+      sinopse: b.sinopse || (v.description ? String(v.description).replace(/<[^>]+>/g, '').slice(0, 420) : undefined)
+    };
+  } catch { return b; }
+}
+
+/** Busca as sugestões da semana (uma por semana; 'force' troca as atuais). */
+export async function loadPicks(force = false, today: DateKey = todayKey()): Promise<DevPick> {
+  const week = weekStart(today);
+  const id = pickId(week);
+  const cur = await get<'devpick'>(id);
+  if (cur && !cur.deleted && !force) return cur;
+  const ctx = await careerContext(today);
+  const past = (await all('devpick')).filter((p) => !p.deleted).sort((a, b) => b.week.localeCompare(a.week)).slice(0, 8);
+  const books = await all('book');
+  const r = await askAI<any>('career_picks', {
+    hoje: today,
+    base_da_carreira: ctx.base_da_carreira,
+    desenvolvimento: ctx.desenvolvimento,
+    trabalho: ctx.trabalho,
+    livros_dela: books.filter((b) => !b.deleted).map((b) => b.title),
+    ja_sugerido: past.flatMap((p) => [p.noticia?.titulo, p.artigo?.titulo, p.livro?.titulo]).filter(Boolean)
+  });
+  const livro = r?.livro?.titulo ? await confirmBook(r.livro) : undefined;
+  const data = { week, noticia: r?.noticia?.titulo ? r.noticia : undefined, artigo: r?.artigo?.titulo ? r.artigo : undefined, livro };
+  if (cur) { await update<'devpick'>(id, { ...data, deleted: 0 } as any); return { ...cur, ...data }; }
+  return create('devpick', { id, ...data } as any);
 }

@@ -17,7 +17,7 @@ export type Kind =
   | 'modality' | 'wtemplate' | 'workout'
   | 'plan' | 'skip' | 'extra' | 'brief' | 'devreq'
   | 'wellness' | 'journal' | 'note' | 'book' | 'readlog' | 'review' | 'healthdoc' | 'cycle'
-  | 'intake' | 'intakelog' | 'mood' | 'caffeine' | 'medchange' | 'chatstore' | 'ritual' | 'post' | 'win' | 'opp' | 'devitem' | 'careerbase';
+  | 'intake' | 'intakelog' | 'mood' | 'caffeine' | 'medchange' | 'chatstore' | 'ritual' | 'post' | 'win' | 'opp' | 'devitem' | 'careerbase' | 'devpick';
 
 export type Priority = 'alta' | 'media' | 'baixa';
 export const PRIORITIES: Priority[] = ['alta', 'media', 'baixa'];
@@ -561,6 +561,10 @@ export interface Win extends Base { kind: 'win'; date: DateKey; title: string; i
 export interface Opp extends Base { kind: 'opp'; title: string; org?: string; type: 'vaga' | 'contato' | 'parceria' | 'convite'; stage: 'mapeada' | 'conversa' | 'processo' | 'proposta' | 'encerrada'; next?: string; nextDate?: DateKey; note?: string }
 /** Desenvolvimento: metas do ano, cursos, leituras, eventos e competências. */
 export interface DevItem extends Base { kind: 'devitem'; title: string; type: 'meta' | 'curso' | 'leitura' | 'evento' | 'competencia'; status: 'quero' | 'fazendo' | 'feito'; due?: DateKey; note?: string }
+/** Curadoria semanal do Desenvolvimento: uma notícia, um artigo e um livro, buscados na web pela especialista. */
+export interface PickLink { titulo: string; fonte?: string; data?: string; url: string; resumo?: string; porque?: string; verificado?: boolean }
+export interface PickBook { titulo: string; autor?: string; ano?: string; sinopse?: string; porque?: string; cover?: string; isbn?: string; pages?: number; googleId?: string; authors?: string[] }
+export interface DevPick extends Base { kind: 'devpick'; week: DateKey; noticia?: PickLink; artigo?: PickLink; livro?: PickBook }
 /** Pautas do LinkedIn (marca pessoal). */
 export interface PostMetrics {
   impressoes?: number | null; reacoes?: number | null; comentarios?: number | null; compartilhamentos?: number | null;
@@ -578,7 +582,7 @@ export interface Post extends Base {
 }
 
 export type AnyRecord =
-  | ChatStore | RitualDay | Post | CareerBase | Win | Opp | DevItem | Intake | IntakeLog | MoodCheckin | Caffeine | MedChange
+  | ChatStore | RitualDay | Post | CareerBase | DevPick | Win | Opp | DevItem | Intake | IntakeLog | MoodCheckin | Caffeine | MedChange
   | Settings | Category | Task | SuggestionLog | Habit | HabitLog | Goal | GoalEntry
   | Product | SkinLog | Photo | Food | MealTemplate | Meal | Water
   | Modality | WorkoutTemplate | Workout | Plan | Skip | DayBrief
@@ -592,7 +596,7 @@ export type KindMap = {
   modality: Modality; wtemplate: WorkoutTemplate; workout: Workout;
   plan: Plan; skip: Skip; extra: PlanExtra; brief: DayBrief; devreq: DevRequest;
   wellness: Wellness; journal: Journal; note: Note; book: Book; readlog: ReadLog; review: Review; healthdoc: HealthDoc; cycle: CycleDay;
-  intake: Intake; intakelog: IntakeLog; mood: MoodCheckin; caffeine: Caffeine; medchange: MedChange; chatstore: ChatStore; ritual: RitualDay; post: Post; careerbase: CareerBase; win: Win; opp: Opp; devitem: DevItem;
+  intake: Intake; intakelog: IntakeLog; mood: MoodCheckin; caffeine: Caffeine; medchange: MedChange; chatstore: ChatStore; ritual: RitualDay; post: Post; careerbase: CareerBase; win: Win; opp: Opp; devitem: DevItem; devpick: DevPick;
 };
 
 /** Perfil e objetivos. Tudo opcional: a IA usa o que houver e diz o que falta. */

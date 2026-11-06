@@ -1,18 +1,19 @@
 // Área Carreira: trabalho atual, marca pessoal, conquistas, oportunidades e desenvolvimento, com a especialista de carreira.
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Award, BellRing, Check, ChevronDown, Plus, Sparkles, Trash2, Zap } from 'lucide-react';
+import { Award, BellRing, BookOpen, Check, ChevronDown, ExternalLink, Newspaper, Plus, RefreshCw, Sparkles, Trash2, Zap, FileText } from 'lucide-react';
 import { useAll, useRecord, useSettings } from '../db/hooks';
 import { create, remove, update, upsert } from '../db/db';
 import { addDays, shortLabel, todayKey, weekStart, type DateKey } from '../lib/dates';
-import { CAREER_ID, DEV_TYPE, isWork, OPP_STAGE, OPP_TYPE, WORK_FALLBACK } from '../domain/career';
+import { CAREER_ID, DEV_TYPE, isWork, OPP_STAGE, OPP_TYPE, WORK_FALLBACK, loadPicks, pickId } from '../domain/career';
+import { aiAvailable } from '../domain/ai';
 import { AreaPage } from './areas';
 import { TaskRow, TaskSheet } from './tasks';
 import { BrandPosts } from './brand';
 import { MenuButton } from './common';
 import { Chip } from '../ui/ui';
 import { haptic, toast, useApp } from '../state/store';
-import type { CareerBase, DevItem, Opp, Task } from '../db/types';
+import type { CareerBase, DevItem, Opp, PickLink, Task } from '../db/types';
 
 const ask = (text: string) => useApp.getState().setAsk({ domain: 'career' as any, text });
 
@@ -266,6 +267,73 @@ export function CareerOppsPage() {
 /* ---------- Desenvolvimento ---------- */
 const DEV_NEXT: Record<DevItem['status'], DevItem['status']> = { quero: 'fazendo', fazendo: 'feito', feito: 'quero' };
 const DEV_STATUS: Record<DevItem['status'], string> = { quero: 'Quero', fazendo: 'Fazendo', feito: 'Feito' };
+/* ---------- Curadoria da semana: notícia, artigo e livro ---------- */
+function PickLinkCard({ kind, p }: { kind: 'noticia' | 'artigo'; p: PickLink }) {
+  return (
+    <a className="pick" href={p.url} target="_blank" rel="noopener noreferrer" data-testid={`pick-${kind}`}>
+      <span className="pick-kicker">{kind === 'noticia' ? <><Newspaper size={14} /> Notícia</> : <><FileText size={14} /> Artigo</>}</span>
+      <b className="pick-title">{p.titulo}</b>
+      <span className="small muted">{[p.fonte, p.data && /^\d{4}-\d{2}-\d{2}$/.test(p.data) ? shortLabel(p.data) : p.data].filter(Boolean).join(' - ')}</span>
+      {p.resumo && <span className="small">{p.resumo}</span>}
+      {p.porque && <span className="small pick-why">{p.porque}</span>}
+      <span className="pick-go">{p.verificado === false ? 'Buscar o texto' : 'Ler'} <ExternalLink size={14} /></span>
+    </a>
+  );
+}
+
+function DevPicks() {
+  const week = weekStart(todayKey());
+  const pick = useRecord<'devpick'>(pickId(week));
+  const books = useAll('book');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const tried = useRef(false);
+  const run = async (force: boolean) => {
+    setBusy(true); setErr('');
+    try { await loadPicks(force); } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+  };
+  // Primeira visita da semana: a especialista já traz as sugestões, sem precisar pedir.
+  useEffect(() => { if (pick === null && !tried.current && aiAvailable()) { tried.current = true; void run(false); } }, [pick]);
+  if (pick === undefined || !books) return null;
+  const has = pick && !pick.deleted && (pick.noticia || pick.artigo || pick.livro);
+  const lv = has ? pick!.livro : undefined;
+  const inList = lv && books.some((b) => !b.deleted && (b.googleId && b.googleId === lv.googleId || b.title.toLowerCase() === lv.titulo.toLowerCase()));
+  const want = async () => {
+    if (!lv) return;
+    await create('book', { title: lv.titulo, authors: lv.authors?.length ? lv.authors : lv.autor ? [lv.autor] : [], cover: lv.cover, pages: lv.pages, googleId: lv.googleId, isbn: lv.isbn, status: 'quero_ler', quotes: [] } as any);
+    haptic(); toast('Foi para Quero ler, na Leitura');
+  };
+  return (
+    <section className="block b-paper" data-testid="dev-picks">
+      <div className="bh"><h2>Para esta semana</h2>{has && <button className="link small" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }} disabled={busy} onClick={() => void run(true)} data-testid="picks-again"><RefreshCw size={14} /> {busy ? 'Buscando…' : 'Outras'}</button>}</div>
+      {!has && busy && <p className="small muted" style={{ marginTop: 0 }}>A especialista está buscando uma notícia, um artigo e um livro para você…</p>}
+      {!has && !busy && <>
+        <p className="small muted" style={{ marginTop: 0 }}>Toda semana a especialista traz uma notícia, um artigo e um livro ligados aos seus pilares e ao seu momento.</p>
+        {aiAvailable() ? <button className="pill-act pa-rose" onClick={() => void run(false)} data-testid="picks-load"><Sparkles size={15} /> Buscar as sugestões</button> : <p className="small muted">Entre com Google para receber as sugestões.</p>}
+      </>}
+      {err && <p className="small" style={{ color: 'var(--alert)' }}>{err}</p>}
+      {has && <div className="picks">
+        {pick!.noticia && <PickLinkCard kind="noticia" p={pick!.noticia} />}
+        {pick!.artigo && <PickLinkCard kind="artigo" p={pick!.artigo} />}
+        {lv && <div className="pick pick-book" data-testid="pick-livro">
+          <span className="pick-kicker"><BookOpen size={14} /> Livro</span>
+          <div className="row" style={{ gap: 12, alignItems: 'flex-start' }}>
+            {lv.cover ? <img className="pick-cover" src={lv.cover} alt="" /> : <span className="pick-cover nocover">{lv.titulo.charAt(0)}</span>}
+            <span className="grow" style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+              <b className="pick-title">{lv.titulo}</b>
+              <span className="small muted">{[lv.authors?.join(', ') || lv.autor, lv.ano].filter(Boolean).join(' - ')}</span>
+            </span>
+          </div>
+          {lv.sinopse && <span className="small">{lv.sinopse}</span>}
+          {lv.porque && <span className="small pick-why">{lv.porque}</span>}
+          {inList ? <span className="small muted" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Check size={14} /> Está na sua Leitura</span>
+            : <button className="pill-act pa-ghost" style={{ alignSelf: 'flex-start' }} onClick={() => void want()} data-testid="pick-want"><Plus size={15} /> Quero ler</button>}
+        </div>}
+      </div>}
+    </section>
+  );
+}
+
 export function CareerGrowPage() {
   const items = useAll('devitem');
   const [title, setTitle] = useState('');
@@ -274,7 +342,8 @@ export function CareerGrowPage() {
   const add = async () => { if (!title.trim()) return; await create('devitem', { title: title.trim(), type, status: 'quero' } as any); setTitle(''); haptic(); };
   return (
     <AreaPage area="carreira" testId="area-carreira-crescer">
-      <section className="block b-paper">
+      <DevPicks />
+      <section className="block b-paper" style={{ marginTop: 14 }}>
         <div className="chips">{Object.entries(DEV_TYPE).map(([k, v]) => <Chip key={k} on={type === k} onClick={() => setType(k as DevItem['type'])}>{v}</Chip>)}</div>
         <div className="row" style={{ gap: 8, marginTop: 8 }}>
           <input value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void add()} placeholder={type === 'meta' ? 'Ex.: liderar uma área de receita até 2027' : 'O quê'} style={{ flex: 1 }} data-testid="dev-title" />

@@ -64,8 +64,29 @@ const CAREER_TASK = `Ela conversa com você na área Carreira. contexto.fala_del
 Responda o que ela pediu. Para priorizar, use as tarefas com datas e prioridades e diga o que fazer primeiro e o que pode esperar. Para post, devolva o texto pronto em 'rascunho' (gancho forte na primeira linha, uma ideia por parágrafo, sem hashtags em excesso, no tom da base) e, em 'mensagem', o porquê da escolha do ângulo em 1 ou 2 frases. Para entrevista, avaliação ou conversa difícil, monte a estrutura em 'rascunho' usando as conquistas com números. Quando ela pedir para anotar, ou quando fizer claro sentido, use 'acoes': nova_tarefa (texto, data AAAA-MM-DD opcional, prioridade alta|media), nova_pauta (texto, nota), nova_conquista (texto, impacto), guardar_preferencia (texto curto, como ela diria).
 'mensagem': 2 a 6 frases, direta e estratégica. 'rascunho': string vazia quando não houver.
 Formato: {"mensagem":"","rascunho":"","acoes":[{"tipo":"nova_tarefa","texto":"","data":"","prioridade":"media"}]}. 'acoes' vazia quando não houver.`;
-const TASKS: Record<string, string> = { mind_coach: TASK, mind_care: CARE, week_cross: WEEK, ritual_am: RAM, ritual_pm: RPM, career_coach: CAREER_TASK };
-const PERSONA: Record<string, string> = { week_cross: TEAM, ritual_am: TEAM, ritual_pm: TEAM, career_coach: CAREER };
+const PICKS_TASK = `Curadoria da semana para o desenvolvimento dela (contexto.hoje é a data de hoje). Use a busca na web. Escolha exatamente 3 itens, ligados à base_da_carreira (pilares, objetivo, onde quer chegar) e ao momento dela (cargo atual, desenvolvimento, temas do trabalho), sem repetir nada de contexto.ja_sugerido nem livro de contexto.livros_dela.
+noticia: uma notícia publicada nos últimos 10 dias, de veículo sério (ex.: Valor, Exame, NeoFeed, Folha, Estadão, Reuters, Bloomberg, Financial Times, The Information, TechCrunch), sobre IA aplicada a negócios, inteligência de mercado, vendas B2B, go-to-market ou tecnologia B2B. Prefira fonte em português quando houver equivalente de qualidade.
+artigo: um texto de fundo, pode ser mais antigo, de fonte de referência (ex.: Harvard Business Review, MIT Sloan Management Review, McKinsey, Bain, BCG, Gartner, Forrester, a16z, Lenny's Newsletter, First Round Review), que aprofunde um tema dos pilares dela com método aplicável.
+livro: um livro real, com título e autoria exatos, que exista à venda; prefira os que têm edição em português e diga o título em português se houver. Nada de autoajuda genérica.
+Para notícia e artigo, 'url' é o endereço exato da página que você encontrou na busca; nunca monte nem adivinhe endereço. 'data' AAAA-MM-DD quando souber. 'resumo': 1 ou 2 frases do que o texto diz, com fato ou número. 'porque': 1 frase de por que isso serve a ela agora, ligado à base dela, sem elogio. Para o livro, 'sinopse' em 2 ou 3 frases e 'porque' em 1 frase.
+Formato: {"noticia":{"titulo":"","fonte":"","data":"","url":"","resumo":"","porque":""},"artigo":{"titulo":"","fonte":"","data":"","url":"","resumo":"","porque":""},"livro":{"titulo":"","autor":"","ano":"","sinopse":"","porque":""}}.`;
+const TASKS: Record<string, string> = { mind_coach: TASK, mind_care: CARE, week_cross: WEEK, ritual_am: RAM, ritual_pm: RPM, career_coach: CAREER_TASK, career_picks: PICKS_TASK };
+const PERSONA: Record<string, string> = { week_cross: TEAM, ritual_am: TEAM, ritual_pm: TEAM, career_coach: CAREER, career_picks: CAREER };
+
+/** Confere se o link abre; se não abrir, troca por uma busca pelo título e marca como não verificado. */
+async function checkLink(item: any) {
+  if (!item || typeof item !== 'object') return item;
+  const q = `https://www.google.com/search?q=${encodeURIComponent(`${item.titulo ?? ''} ${item.fonte ?? ''}`.trim())}`;
+  const url = String(item.url ?? '');
+  if (!/^https?:\/\//.test(url)) return { ...item, url: q, verificado: false };
+  try {
+    const r = await fetch(url, { method: 'GET', redirect: 'follow', signal: AbortSignal.timeout(7000), headers: { 'user-agent': 'Mozilla/5.0 (Linux; Android 14) Ritual' } });
+    await r.body?.cancel();
+    // Paywall e bloqueio de robô (401/403/429) ainda indicam página existente.
+    if (r.ok || [401, 403, 429].includes(r.status)) return { ...item, verificado: true };
+  } catch { /* fora do ar ou lento */ }
+  return { ...item, url: q, verificado: false };
+}
 
 type Img = { mime: string; data: string };
 
@@ -168,8 +189,14 @@ Deno.serve(async (req: Request) => {
     const ctx = JSON.stringify(context ?? {});
     if (ctx.length > 150000) return new Response(JSON.stringify({ error: 'Contexto grande demais' }), { status: 413, headers: J });
     const system = [BASE, PERSONA[task] ?? SPECIALIST, TASKS[task]].join('\n\n');
-    const text = await provider.call(system, `Contexto (JSON):\n${ctx}`, [], { level: 'low' });
-    return new Response(JSON.stringify({ result: extractJson(text), provider: provider.name }), { headers: J });
+    const picks = task === 'career_picks';
+    const text = await provider.call(system, `Contexto (JSON):\n${ctx}`, [], { level: 'low', search: picks });
+    let result = extractJson(text);
+    if (picks) {
+      const [noticia, artigo] = await Promise.all([checkLink(result.noticia), checkLink(result.artigo)]);
+      result = { ...result, noticia, artigo };
+    }
+    return new Response(JSON.stringify({ result, provider: provider.name }), { headers: J });
   } catch (e) {
     return new Response(JSON.stringify({ error: String((e as Error)?.message ?? e) }), { status: 502, headers: J });
   }
