@@ -25,6 +25,8 @@ interface SyncStore {
   session: Session | null;
   state: SyncState;
   lastSync?: number;
+  /** true quando a autorização do Google Tasks acabou de ser guardada; false se falhou. */
+  gtasksSaved?: boolean;
   error?: string;
   ready: boolean;
 }
@@ -151,6 +153,26 @@ export async function signInWithGoogle() {
   if (error) throw error;
 }
 
+const GTASKS_FLAG = 'gtasks-connect';
+/** Entra de novo com Google pedindo também acesso às tarefas (Google Tasks), com autorização duradoura. */
+export async function connectGoogleTasks() {
+  if (!supabase) throw new Error('Sincronização não configurada.');
+  try { localStorage.setItem(GTASKS_FLAG, String(Date.now())); } catch { /* */ }
+  const redirectTo = window.location.origin + window.location.pathname;
+  const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo, scopes: 'https://www.googleapis.com/auth/tasks', queryParams: { access_type: 'offline', prompt: 'consent' } } });
+  if (error) throw error;
+}
+/** Volta do login com tarefas: guarda a autorização no servidor (nunca no aparelho). */
+async function saveGoogleTasksToken(session: Session) {
+  let flag = '';
+  try { flag = localStorage.getItem(GTASKS_FLAG) ?? ''; } catch { /* */ }
+  const rt = (session as any).provider_refresh_token as string | undefined;
+  if (!flag || !rt || !supabase) return;
+  const { error } = await supabase.rpc('save_user_secret', { p_provider: 'google_tasks', p_secret: rt, p_meta: { scope: 'tasks' } });
+  try { localStorage.removeItem(GTASKS_FLAG); } catch { /* */ }
+  useSync.setState({ gtasksSaved: !error });
+}
+
 export async function signOut() {
   if (!supabase) return;
   await supabase.auth.signOut();
@@ -175,6 +197,7 @@ export async function initSync() {
     useSync.setState({ session, state: session ? 'pending' : 'local' });
     // fora do callback: chamar o Supabase dentro dele pode travar o login
     if (session && !had) setTimeout(() => void syncNow(), 0);
+    if (session) setTimeout(() => void saveGoogleTasksToken(session), 0);
   });
   onLocalWrite(() => scheduleSync());
   window.addEventListener('online', () => scheduleSync(200));

@@ -209,3 +209,32 @@ test('Desenvolvimento: a especialista traz notícia, artigo e livro da semana, e
   await expect(page.getByTestId('pick-noticia')).toContainText('Notícia de teste 2');
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 });
+
+test('DBC: tarefas do Google Tasks aparecem e concluir marca lá também; sem conexão, oferece conectar', async ({ page }) => {
+  await page.addInitScript(() => {
+    const state = { connected: sessionStorage.getItem('gt-off') ? false : true, done: [] as string[] };
+    (window as any).__gtDone = state.done;
+    (window as any).__RITUAL_TEST_GTASKS = (action: string, body: any) => {
+      if (!state.connected) return { status: 'not_connected' };
+      if (action === 'complete') { state.done.push(body.id); return { ok: true }; }
+      return { status: 'ok', tasks: [
+        { id: 't1', list: 'L1', listName: 'Minhas tarefas', title: 'Revisar a apresentação da diretoria', due: '2026-11-05' },
+        { id: 't2', list: 'L1', listName: 'Minhas tarefas', title: 'Pauta do 1:1 com a equipe', notes: 'Levar números de prospecção' }
+      ].filter((t) => !state.done.includes(t.id)) };
+    };
+  });
+  await seed(page);
+  await page.goto('./#/carreira');
+  await page.getByPlaceholder('Nome da empresa').fill('DBC');
+  await page.getByRole('button', { name: 'Salvar' }).click();
+  await expect(page.getByTestId('gtask-row')).toHaveCount(2);
+  await expect(page.getByTestId('gtasks')).toContainText('Minhas tarefas - qui, 05/11');
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/gtasks.png', fullPage: true });
+  await page.getByLabel('Concluir Revisar a apresentação da diretoria').click();
+  await expect(page.getByTestId('gtask-row')).toHaveCount(1);
+  expect(await page.evaluate(() => (window as any).__gtDone)).toEqual(['t1']);
+  // Sem conexão: aparece o convite para conectar.
+  await page.evaluate(() => sessionStorage.setItem('gt-off', '1'));
+  await page.reload();
+  await expect(page.getByTestId('gtasks-connect')).toBeVisible();
+});

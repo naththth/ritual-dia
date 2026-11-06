@@ -7,6 +7,8 @@ import { create, remove, update, upsert } from '../db/db';
 import { addDays, shortLabel, todayKey, weekStart, type DateKey } from '../lib/dates';
 import { CAREER_ID, DEV_TYPE, isWork, OPP_STAGE, OPP_TYPE, WORK_FALLBACK, loadPicks, pickId } from '../domain/career';
 import { aiAvailable } from '../domain/ai';
+import { completeGTask, listGTasks, type GTask, type GTasksResult } from '../domain/gtasks';
+import { connectGoogleTasks, useSync } from '../sync/sync';
 import { AreaPage } from './areas';
 import { TaskRow, TaskSheet } from './tasks';
 import { BrandPosts } from './brand';
@@ -58,6 +60,46 @@ export function QuickAdd({ categoryId, alt, autoFocus, onAdded }: { categoryId?:
 }
 
 /* ---------- Trabalho ---------- */
+/* ---------- Google Tasks: o que ela anota no PC da DBC aparece aqui ---------- */
+function GoogleTasks() {
+  const session = useSync((s) => s.session);
+  const saved = useSync((s) => s.gtasksSaved);
+  const [res, setRes] = useState<GTasksResult | 'loading' | { error: string }>('loading');
+  const [busy, setBusy] = useState(false);
+  const testing = typeof window !== 'undefined' && !!(window as any).__RITUAL_TEST_GTASKS;
+  const load = async () => { try { setRes(await listGTasks()); } catch (e) { setRes({ error: (e as Error).message }); } };
+  useEffect(() => { if (session || testing) void load(); }, [session, saved]);
+  useEffect(() => { if (saved === true) toast('Google Tasks conectado'); else if (saved === false) toast('Não consegui guardar a conexão com o Google Tasks. Tente de novo.'); }, [saved]);
+  if (!session && !testing) return null;
+  const connect = async () => { setBusy(true); try { await connectGoogleTasks(); } catch (e) { toast((e as Error).message); setBusy(false); } };
+  const done = async (t: GTask) => {
+    if (res === 'loading' || !('status' in res) || res.status !== 'ok') return;
+    setRes({ status: 'ok', tasks: res.tasks.filter((x) => x.id !== t.id) });
+    haptic();
+    try { await completeGTask(t); toast('Feita, também no Google Tasks'); } catch (e) { toast((e as Error).message); void load(); }
+  };
+  return (
+    <section className="block b-paper gt" data-testid="gtasks">
+      <div className="bh"><h2>Google Tasks</h2>{res !== 'loading' && 'status' in res && res.status === 'ok' && <button className="link small" onClick={() => void load()} data-testid="gtasks-reload">Atualizar</button>}</div>
+      {res === 'loading' && <p className="small muted" style={{ margin: 0 }}>Buscando suas tarefas…</p>}
+      {res !== 'loading' && 'error' in res && <p className="small" style={{ margin: 0, color: 'var(--alert)' }}>{res.error}</p>}
+      {res !== 'loading' && 'status' in res && res.status === 'not_connected' && <>
+        <p className="small muted" style={{ marginTop: 0 }}>Anote no Google Tasks pelo Gmail no PC da DBC e as tarefas aparecem aqui. Você entra de novo com o Google uma vez para autorizar.</p>
+        <button className="pill-act pa-ghost" disabled={busy} onClick={() => void connect()} data-testid="gtasks-connect">{busy ? 'Abrindo o Google…' : 'Conectar Google Tasks'}</button>
+      </>}
+      {res !== 'loading' && 'status' in res && res.status === 'not_configured' && <p className="small muted" style={{ margin: 0 }}>A conexão com o Google Tasks está quase pronta: falta concluir a configuração no servidor.</p>}
+      {res !== 'loading' && 'status' in res && res.status === 'ok' && (res.tasks.length === 0
+        ? <p className="small muted" style={{ margin: 0 }}>Nada pendente no Google Tasks.</p>
+        : <div className="list">{res.tasks.map((t) => (
+          <div key={t.id} className="row-item" data-testid="gtask-row">
+            <button className="gt-check" aria-label={`Concluir ${t.title}`} onClick={() => void done(t)}><Check size={14} /></button>
+            <span className="grow"><span className="t">{t.title}</span><span className="s">{[t.listName, t.due && shortLabel(t.due)].filter(Boolean).join(' - ')}</span>{t.notes && <span className="s gt-notes">{t.notes}</span>}</span>
+          </div>
+        ))}</div>)}
+    </section>
+  );
+}
+
 export function CareerWorkPage() {
   const base = useRecord<'careerbase'>(CAREER_ID);
   const tasks = useAll('task');
@@ -90,6 +132,7 @@ export function CareerWorkPage() {
         <div className="cr-stat"><b className="num">{doneWeek.length}</b><span>entregues na semana</span></div>
       </div>
       <QuickAdd categoryId={base.workCategoryId} />
+      <GoogleTasks />
       <Section title="Hoje e atrasadas" list={now} />
       <Section title="Próximos dias" list={next} />
       <Section title="Sem dia" list={loose} plan />
