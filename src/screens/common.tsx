@@ -26,16 +26,16 @@ export function MenuButton() {
   return <button className="icon-btn menu-btn" aria-label="Abrir menu" onClick={() => useApp.getState().setMenu(true)} data-testid="nav-menu"><Menu size={24} /></button>;
 }
 
-/** O + único: abre a folha Registrar, em qualquer tela. */
+/** O + único: flutua no canto inferior direito de todas as telas e abre a folha Registrar. */
 export function AddButton() {
-  return <button className="top-add" aria-label="Registrar" onClick={() => useApp.getState().setReg(true)} data-testid="fab"><Plus size={22} strokeWidth={2.4} /></button>;
+  return <button className="fab fab-float" aria-label="Registrar" onClick={() => useApp.getState().setReg(true)} data-testid="fab"><Plus size={28} strokeWidth={2.4} /></button>;
 }
 
 export function TopBar({ right }: { right?: ReactNode }) {
   const nav = useNavigate();
   return (
     <div className="topbar">
-      <span className="row" style={{ gap: 6 }}><MenuButton /><AddButton /><span className="wordmark">Ritual</span><SyncDot /></span>
+      <span className="row" style={{ gap: 6 }}><MenuButton /><span className="wordmark">Ritual</span><SyncDot /></span>
       <span className="row" style={{ gap: 0 }}>
         {right}
         <button className="icon-btn" aria-label="Ajustes" onClick={() => nav('/ajustes')}><Cog size={22} /></button>

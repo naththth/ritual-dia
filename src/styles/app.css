@@ -1532,6 +1532,12 @@ input[type=checkbox]:checked::after { content: ''; width: 6px; height: 11px; bor
 .gt-check:active { background: var(--ink); color: var(--paper); }
 .gt-notes { white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
-/* + do topo, ao lado do menu: abre o Registrar em qualquer tela */
-.top-add { flex: 0 0 auto; width: 38px; height: 38px; border-radius: 50%; background: var(--wine); color: var(--wine-ink); display: grid; place-items: center; margin-right: 4px; box-shadow: 0 3px 10px rgba(110, 31, 46, .28); transition: transform .15s ease; }
-.top-add:active { transform: scale(.92); }
+/* + flutuante no canto inferior direito, em todas as telas */
+.fab-float { transition: transform .15s ease; }
+.fab-float:active { transform: scale(.92); }
+/* o conteúdo do fim da tela não fica embaixo do + */
+.screen { padding-bottom: calc(var(--nav-h) + 104px + var(--safe-b)); }
+/* avisos sobem para não cobrir o + */
+.toasts { bottom: calc(var(--nav-h) + 96px + var(--safe-b)); }
+/* telas com barra de salvar ou campo de conversa embaixo: o + sai para não cobrir os botões */
+body:has(.save-bar) .fab-float, body:has(.chat-input) .fab-float { display: none; }

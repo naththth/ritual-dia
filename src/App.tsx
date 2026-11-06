@@ -3,6 +3,7 @@ import { CareerWorkPage, CareerBrandPage, CareerGrowPage } from './screens/caree
 import { useEffect, useState, useRef } from 'react';
 import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useApp } from './state/store';
+import { AddButton } from './screens/common';
 import { ensureDefaults } from './domain/defaults';
 import { initSync } from './sync/sync';
 import { useSettings } from './db/hooks';
@@ -133,6 +134,7 @@ function Shell() {
         <Route path="/revisao" element={<ProductReview />} />
         <Route path="*" element={<DayScreen />} />
       </Routes>
+      <AddButton />
       <RegisterSheet open={reg} onClose={() => setReg(false)} />
       <Drawer open={menu} onClose={() => setMenu(false)} />
       <Toasts />
