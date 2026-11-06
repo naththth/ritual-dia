@@ -13,7 +13,7 @@ Como o Claude faz ajustes no Ritual. A Nathalie pede o ajuste direto na conversa
   - `ritual-food` (verify_jwt true): busca de alimentos e fotos de produtos.
   - `ritual-gtasks` (verify_jwt true): Google Tasks na aba DBC.
   - `ritual-svc` (verify_jwt false, autenticação própria por `x-cron-secret`): cron, lembretes e intervals.icu.
-- Acesso no claude.ai: o repositório é público e clona sem credencial; o push usa um token fine-grained que ela cola na conversa (só este repositório, validade curta). Guarde em `~/.git-credentials` sem exibir e filtre `github_pat_` de toda saída.
+- Acesso no claude.ai: o repositório é público e clona sem credencial; o push usa um token fine-grained (só este repositório) guardado em `public.app_secrets`, chave `github_pat`, legível só pelo conector do Supabase. Leia por SQL, grave em `~/.git-credentials` sem exibir e filtre `github_pat_` de toda saída. Se o push falhar por credencial, o token venceu: peça a ela um novo, gravado direto no Supabase.
 
 ## Passo a passo
 
