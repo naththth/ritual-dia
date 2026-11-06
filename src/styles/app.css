@@ -1504,6 +1504,8 @@ input[type=checkbox]:checked::after { content: ''; width: 6px; height: 11px; bor
 .li-gallery img { flex: 0 0 100%; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; scroll-snap-align: center; }
 .li-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 15px; line-height: 1.55; margin: 14px 0 4px; }
 .li-metrics { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-.li-metric { display: flex; flex-direction: column; justify-content: space-between; gap: 2px; padding: 10px 12px; border-radius: 14px; background: var(--paper); min-height: 62px; }
+.li-metric { display: flex; flex-direction: column; justify-content: flex-start; gap: 2px; padding: 10px 12px; border-radius: 14px; background: var(--paper); min-height: 62px; }
 .li-metric b { font-size: 20px; line-height: 1.1; }
 .li-metric span { font-size: 12px; color: var(--ink-3); line-height: 1.25; }
+.li-metric .li-up { color: var(--ink-2); font-weight: 600; margin-top: 2px; }
+.li-metric .li-down { color: var(--alert); font-weight: 600; margin-top: 2px; }

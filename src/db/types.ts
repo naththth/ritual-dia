@@ -55,10 +55,18 @@ export interface Settings extends Base {
   /** Área Mente: PIN (hash), cafés que ela toma e avisos dispensados no dia. */
   mind?: MindSettings;
   /** Marca pessoal: ritmo de posts no LinkedIn. */
-  brand?: { perWeek?: number; days?: number[]; off?: boolean };
+  brand?: { perWeek?: number; days?: number[]; off?: boolean; profile?: LinkedinProfile };
 }
 
 export interface Drink { id: string; label: string; mg: number }
+/** Panorama do perfil no LinkedIn, copiado do painel de desempenho. Variações em % (negativo é queda). */
+export interface LinkedinProfile {
+  date: DateKey;
+  impressoes7d?: number; impressoes7dVar?: number;
+  seguidores?: number; seguidoresVar?: string;
+  visitas90d?: number; visitas90dVar?: number;
+  buscas?: number; buscasPeriodo?: string;
+}
 export interface MindSettings {
   pinHash?: string;
   drinks?: Drink[];

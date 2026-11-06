@@ -7,7 +7,7 @@ import { create, remove, update } from '../db/db';
 import { shortLabel, todayKey, WEEKDAY_SHORT } from '../lib/dates';
 import { brandToday } from '../domain/ritual';
 import { Chip, Sheet } from '../ui/ui';
-import type { Post, PostMetrics } from '../db/types';
+import type { LinkedinProfile, Post, PostMetrics } from '../db/types';
 
 const STATUS: { id: Post['status']; label: string }[] = [
   { id: 'ideia', label: 'Ideia' }, { id: 'rascunho', label: 'Rascunho' }, { id: 'agendado', label: 'Programado' }, { id: 'publicado', label: 'Publicado' }
@@ -19,6 +19,27 @@ const fmt = (n?: number | null) => (n == null ? undefined : n.toLocaleString('pt
 function reachLine(m?: PostMetrics) {
   if (!m) return '';
   return [fmt(m.impressoes) && `${fmt(m.impressoes)} impressões`, fmt(m.usuarios_alcancados) && `${fmt(m.usuarios_alcancados)} pessoas`].filter(Boolean).join(' - ');
+}
+
+/** Panorama do perfil: quatro números, com a variação que o LinkedIn mostra. */
+function ProfileSnapshot({ p }: { p: LinkedinProfile }) {
+  const v = (n?: number) => (n == null ? undefined : `${n > 0 ? '+' : ''}${n}%`);
+  const cells: [string, string | undefined, string | undefined, boolean?][] = [
+    ['Impressões em 7 dias', fmt(p.impressoes7d), v(p.impressoes7dVar), (p.impressoes7dVar ?? 0) < 0],
+    ['Seguidores', fmt(p.seguidores), p.seguidoresVar, p.seguidoresVar?.startsWith('-')],
+    ['Visitas ao perfil em 90 dias', fmt(p.visitas90d), v(p.visitas90dVar), (p.visitas90dVar ?? 0) < 0],
+    ['Aparições em busca', fmt(p.buscas), p.buscasPeriodo]
+  ];
+  return (
+    <div data-testid="li-profile">
+      <div className="li-metrics" style={{ marginTop: 12 }}>
+        {cells.filter(([, n]) => n != null).map(([k, n, d, down]) => (
+          <div key={k} className="li-metric"><b className="num">{n}</b><span>{k}</span>{d && <span className={down ? 'li-down' : 'li-up'}>{d}</span>}</div>
+        ))}
+      </div>
+      <p className="tiny muted" style={{ margin: '8px 0 0' }}>Números do LinkedIn em {shortLabel(p.date)}.</p>
+    </div>
+  );
 }
 
 const DEMO_LABEL: Record<string, string> = { nivel_de_experiencia: 'Senioridade', localidade: 'Localidade', setor: 'Setor', tamanho_da_empresa: 'Porte', empresa: 'Empresa' };
@@ -101,6 +122,7 @@ export function BrandPosts() {
     <div data-testid="brand-posts">
       <section className="block b-paper">
         <div className="row between"><b><Linkedin size={16} style={{ verticalAlign: '-3px' }} /> LinkedIn</b><span className="small num">{b.publishedWeek} de {b.perWeek || '–'} na semana</span></div>
+        {br.profile && <ProfileSnapshot p={br.profile} />}
         {next && <button className="li-next tap" onClick={() => setOpenId(next.id)} data-testid="post-next">
           <span className="small muted">Próximo post - {next.date ? shortLabel(next.date) : 'sem data'}</span>
           <b>{next.title}</b>

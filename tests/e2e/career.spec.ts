@@ -119,6 +119,9 @@ async function seedPosts(page: Page, recs?: any[]) {
     const db: IDBDatabase = await new Promise((r) => { req.onsuccess = () => r(req.result); });
     const tx = db.transaction(['records'], 'readwrite');
     for (const r of list) tx.objectStore('records').put({ ...r.data, id: r.id, kind: 'post', deleted: 0, dirty: 0, updatedAt: 5, createdAt: 5 });
+    const sg = tx.objectStore('records').get('settings');
+    await new Promise((r) => { sg.onsuccess = r; });
+    tx.objectStore('records').put({ ...sg.result, brand: { ...(sg.result.brand ?? {}), profile: { date: '2026-11-06', impressoes7d: 247, impressoes7dVar: 187, seguidores: 2550, seguidoresVar: '-1%', visitas90d: 90, visitas90dVar: -67, buscas: 29, buscasPeriodo: '27/10 a 02/11' } } });
     await new Promise((r) => { tx.oncomplete = r; });
   }, recs);
 }
@@ -127,7 +130,10 @@ test('LinkedIn: programados e publicados com miniatura, texto completo, carrosse
   await seed(page);
   await seedPosts(page);
   await page.goto('./#/carreira/marca');
+  await expect(page.getByTestId('li-profile')).toContainText('2.550');
+  await expect(page.getByTestId('li-profile')).toContainText('+187%');
   await expect(page.getByTestId('post-next')).toContainText('Pauta programada com uma arte');
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/li-perfil.png' });
   await expect(page.getByTestId('post-row')).toHaveCount(2);
   await expect(page.getByTestId('post-row').nth(1)).toContainText('carrossel de 3');
   await page.getByTestId('post-row').nth(1).click();
