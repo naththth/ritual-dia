@@ -102,3 +102,65 @@ test('captura rápida saiu: o endereço antigo leva à Carreira e o menu não mo
   await page.getByTestId('nav-menu').click();
   await expect(page.getByText('Captura rápida')).toHaveCount(0);
 });
+
+/** Posts do LinkedIn com dados fictícios: programados com imagem e carrossel, publicado com alcance. */
+async function seedPosts(page: Page, recs?: any[]) {
+  await page.evaluate(async (given) => {
+    // imagem mínima gerada no próprio navegador
+    const c = document.createElement('canvas'); c.width = 40; c.height = 50;
+    const g = c.getContext('2d')!; g.fillStyle = '#3b1f4f'; g.fillRect(0, 0, 40, 50);
+    const img = c.toDataURL('image/jpeg');
+    const list = given ?? [
+      { id: 'post:a', data: { title: 'Pauta programada com uma arte', status: 'agendado', date: '2026-11-11', pilar: 'Dados', text: 'Primeira linha do post.\n\nSegunda parte do texto completo.', images: [img] } },
+      { id: 'post:b', data: { title: 'Carrossel programado', status: 'agendado', date: '2026-11-25', pilar: 'Vendas', text: 'Texto do carrossel.', images: [img, img, img] } },
+      { id: 'post:c', data: { title: 'Post já publicado', status: 'publicado', date: '2026-11-04', pilar: 'Vendas', text: 'Texto publicado.', imageNote: 'Arte de imagem única.', metrics: { impressoes: 182, usuarios_alcancados: 113, impressoes_na_rede_pct: 66, demografia_principal: { localidade: { valor: 'São Paulo e Região', pct: 28 } } } } }
+    ];
+    const req = indexedDB.open('ritual');
+    const db: IDBDatabase = await new Promise((r) => { req.onsuccess = () => r(req.result); });
+    const tx = db.transaction(['records'], 'readwrite');
+    for (const r of list) tx.objectStore('records').put({ ...r.data, id: r.id, kind: 'post', deleted: 0, dirty: 0, updatedAt: 5, createdAt: 5 });
+    await new Promise((r) => { tx.oncomplete = r; });
+  }, recs);
+}
+
+test('LinkedIn: programados e publicados com miniatura, texto completo, carrossel e alcance', async ({ page }) => {
+  await seed(page);
+  await seedPosts(page);
+  await page.goto('./#/carreira/marca');
+  await expect(page.getByTestId('post-next')).toContainText('Pauta programada com uma arte');
+  await expect(page.getByTestId('post-row')).toHaveCount(2);
+  await expect(page.getByTestId('post-row').nth(1)).toContainText('carrossel de 3');
+  await page.getByTestId('post-row').nth(1).click();
+  await expect(page.getByTestId('post-sheet').locator('.li-gallery img')).toHaveCount(3);
+  await expect(page.getByTestId('post-sheet')).toContainText('1 de 3');
+  await page.getByTestId('post-sheet').getByLabel('Fechar').click();
+  await page.getByRole('button', { name: /^Publicados/ }).click();
+  await expect(page.getByTestId('post-row')).toContainText('182 impressões - 113 pessoas');
+  await page.getByTestId('post-row').click();
+  await expect(page.getByTestId('post-text')).toContainText('Texto publicado.');
+  await expect(page.getByTestId('post-metrics')).toContainText('São Paulo e Região');
+  // Sem horizontal: nada passa da largura do celular.
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+  await page.getByTestId('post-sheet').getByLabel('Fechar').click();
+  await page.getByRole('button', { name: /^Pautas/ }).click();
+  await page.getByTestId('post-new').fill('Ideia nova');
+  await page.getByLabel('Adicionar pauta').click();
+  await expect(page.getByTestId('post-row')).toContainText('Ideia nova');
+});
+
+test('zz-local: prints com os posts reais (não vai para o repositório)', async ({ page }) => {
+  test.skip(!process.env.REAL_POSTS, 'só com REAL_POSTS');
+  const fs = await import('node:fs');
+  await seed(page);
+  await seedPosts(page, JSON.parse(fs.readFileSync(process.env.REAL_POSTS!, 'utf8')));
+  await page.goto('./#/carreira/marca');
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: '/tmp/shots/li-lista.png', fullPage: true });
+  await page.getByTestId('post-row').nth(2).click(); await page.waitForTimeout(600);
+  await page.screenshot({ path: '/tmp/shots/li-carrossel.png' });
+  await page.getByTestId('post-sheet').getByLabel('Fechar').click();
+  await page.getByRole('button', { name: /^Publicados/ }).click();
+  await page.getByTestId('post-row').click(); await page.waitForTimeout(600);
+  await page.locator('.sheet').evaluate((el) => el.scrollTo(0, 99999)); await page.waitForTimeout(300);
+  await page.screenshot({ path: '/tmp/shots/li-publicado.png' });
+});

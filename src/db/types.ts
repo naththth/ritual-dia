@@ -554,7 +554,20 @@ export interface Opp extends Base { kind: 'opp'; title: string; org?: string; ty
 /** Desenvolvimento: metas do ano, cursos, leituras, eventos e competências. */
 export interface DevItem extends Base { kind: 'devitem'; title: string; type: 'meta' | 'curso' | 'leitura' | 'evento' | 'competencia'; status: 'quero' | 'fazendo' | 'feito'; due?: DateKey; note?: string }
 /** Pautas do LinkedIn (marca pessoal). */
-export interface Post extends Base { kind: 'post'; title: string; note?: string; status: 'ideia' | 'rascunho' | 'agendado' | 'publicado'; date?: DateKey }
+export interface PostMetrics {
+  impressoes?: number | null; reacoes?: number | null; comentarios?: number | null; compartilhamentos?: number | null;
+  usuarios_alcancados?: number | null; impressoes_na_rede_pct?: number | null; impressoes_fora_da_rede_pct?: number | null;
+  visualizacoes_do_perfil?: number | null; seguidores_obtidos?: number | null;
+  demografia_principal?: Record<string, { valor: string; pct: number }>;
+}
+export interface Post extends Base {
+  kind: 'post'; title: string; note?: string; status: 'ideia' | 'rascunho' | 'agendado' | 'publicado'; date?: DateKey;
+  /** Texto completo do post, como saiu ou vai sair. */
+  text?: string; pilar?: string;
+  /** Imagens do post (JPEG em data URL, leves); carrossel tem várias. */
+  images?: string[]; imageNote?: string;
+  metrics?: PostMetrics;
+}
 
 export type AnyRecord =
   | ChatStore | RitualDay | Post | CareerBase | Win | Opp | DevItem | Intake | IntakeLog | MoodCheckin | Caffeine | MedChange
