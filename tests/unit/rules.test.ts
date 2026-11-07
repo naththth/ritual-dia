@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { addDays, addMonths, fromKey, isoWeekday, monthGrid, toKey, todayKey, weekStart } from '../../src/lib/dates';
 import {
   activesTogether, completeTask, habitDoneDates, habitProgress, matchesSearch, moveTask, planFor, plannedSkin,
-  plannedTraining, planSaveTarget, suggestTasks, suggestionReason, tasksForDay, daySummary
+  plannedTraining, planSaveTarget, suggestTasks, suggestionReason, tasksForDay, daySummary, trainingDay, slotCounts, slotDone
 } from '../../src/domain/rules';
 import type { Habit, HabitLog, Plan, Product, SuggestionLog, Task, Workout } from '../../src/db/types';
 
@@ -164,5 +164,46 @@ describe('sugestão de tarefas', () => {
 describe('resumo do dia', () => {
   it('conta apenas áreas registradas', () => {
     expect(daySummary({ skinAm: true, skinPm: false, food: true, training: false, habits: false })).toEqual({ done: 2, total: 5 });
+  });
+});
+
+describe('treino trocado não é treino pulado', () => {
+  // Sábado 2026-11-07 (isoWeekday 6): musculação e pedal no plano.
+  const plan = { ...base, id: 'p', kind: 'plan', domain: 'training', validFrom: '2026-01-01', training: { 6: ['musc', 'pedal'] } } as unknown as Plan;
+  const tmpls = [{ id: 'musc', modalityId: 'mod:musculacao' }, { id: 'pedal', modalityId: 'mod:ciclismo' }, { id: 'lpo', modalityId: 'mod:lpo' }];
+  const d = '2026-11-07';
+  const skip = (ref: string) => ({ date: d, domain: 'training', ref });
+  const st = (r: ReturnType<typeof trainingDay>) => Object.fromEntries(r.map((x) => [x.id, x.status]));
+
+  it('aula de LPO no lugar da musculação: musculação trocada, fora da conta', () => {
+    const r = trainingDay(plan, d, [{ date: d, domain: 'training', ref: 'lpo' }], [skip('musc')], [], tmpls);
+    expect(st(r)).toEqual({ musc: 'trocado', pedal: 'pendente', lpo: 'pendente' });
+    expect(r.find((x) => x.id === 'musc')!.byTemplate).toBe('lpo');
+    expect(r.filter(slotCounts).map((x) => x.id)).toEqual(['pedal', 'lpo']);
+  });
+
+  it('pulou sem nada no lugar: continua riscado', () => {
+    expect(st(trainingDay(plan, d, [], [skip('musc')], [], tmpls))).toEqual({ musc: 'pulado', pedal: 'pendente' });
+  });
+
+  it('fez outro treino fora do plano: o pulado vira troca; o mesmo treino não cobre dois', () => {
+    const w = [{ id: 'w1', date: d, modalityId: 'mod:corrida' }];
+    const r = trainingDay(plan, d, [], [skip('musc'), skip('pedal')], w, tmpls);
+    expect(st(r)).toEqual({ musc: 'trocado', pedal: 'pulado' });
+    expect(r[0].byWorkout).toBe('w1');
+    // na semana: a troca conta uma vez, cumprida; o pedal pulado conta e não foi feito
+    expect(r.filter(slotCounts)).toHaveLength(2);
+    expect(r.filter(slotDone)).toHaveLength(1);
+  });
+
+  it('o treino feito vai para o planejado que valia, não para o pulado', () => {
+    const w = [{ id: 'w1', date: d, modalityId: 'mod:lpo' }];
+    const r = trainingDay(plan, d, [{ date: d, domain: 'training', ref: 'lpo' }], [skip('musc')], w, tmpls);
+    expect(st(r)).toEqual({ musc: 'trocado', pedal: 'pendente', lpo: 'feito' });
+  });
+
+  it('a troca pulada depois: some o original e fica riscada só a troca', () => {
+    const r = trainingDay(plan, d, [{ date: d, domain: 'training', ref: 'lpo' }], [skip('musc'), skip('lpo')], [], tmpls);
+    expect(st(r)).toEqual({ musc: 'trocado', pedal: 'pendente', lpo: 'pulado' });
   });
 });

@@ -380,7 +380,11 @@ test('treino trocado: fez outra modalidade no lugar do planejado', async ({ page
   await go(page, '/treino');
   await expect(page.getByTestId('swap-ask')).toContainText('musculação no lugar');
   await page.getByTestId('swap-yes').click();
-  await expect(page.getByTestId('planned-skipped')).toContainText('não realizado');
+  // Troca não é treino pulado: o planejado sai sem risco e com o que entrou no lugar
+  await expect(page.getByTestId('planned-replaced')).toContainText('trocado por musculação');
+  await expect(page.getByTestId('planned-skipped')).toHaveCount(0);
+  await expect(page.getByTestId('training-day').locator('s')).toHaveCount(0);
+  await expect(page.locator('.ms.t-teal')).toContainText('1/1');
   await expect(page.getByTestId('train-done')).toHaveCount(0);
   await page.screenshot({ path: 'test-results/shots/treino-trocado.png' });
 });

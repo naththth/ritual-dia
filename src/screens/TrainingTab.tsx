@@ -6,7 +6,7 @@ import { TopBar } from './common';
 import { AreaNav } from './areas';
 import { useAll, useByRange, useSettings } from '../db/hooks';
 import { useApp, toast } from '../state/store';
-import { planFor, plannedTraining } from '../domain/rules';
+import { planFor, slotCounts, trainingDay } from '../domain/rules';
 import { addDays, isoWeekday, shortLabel, todayKey, weekStart, WEEKDAY_LETTER, dayNum, type DateKey } from '../lib/dates';
 import { workoutFromTemplate, skipPlanned, deleteRecord, savePlan } from '../domain/actions';
 import { StepsView } from './ai-ui';
@@ -67,14 +67,17 @@ export function TrainingTab() {
   if (!workouts || !plans || !tmpls || !mods || !skips) return <div className="screen"><TopBar /></div>;
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(ws, i));
-  const plannedOf = (d: DateKey) => plannedTraining(planFor(plans, 'training', d), d, extras).map((id) => tmpls.find((t) => t.id === id)).filter((t): t is WorkoutTemplate => !!t);
+  const tplOf = (id: string) => tmpls.find((t) => t.id === id);
+  const slotsOf = (d: DateKey) => trainingDay(planFor(plans, 'training', d), d, extras, skips, workouts, tmpls);
+  // Planejado que vale: o que foi trocado por outro treino sai da conta e do dia.
+  const plannedOf = (d: DateKey) => slotsOf(d).filter((s) => s.status !== 'trocado').map((s) => tplOf(s.id)).filter((t): t is WorkoutTemplate => !!t);
   const doneOf = (d: DateKey) => workouts.filter((w) => w.date === d);
   const modName = (id: string) => mods.find((m) => m.id === id)?.name ?? 'Treino';
   const isMuscle = (id: string) => mods.find((m) => m.id === id)?.extra === 'muscle';
   // LPO também tem barra e carga: o card da aula feita ganha o lançamento de levantamentos.
   const isLpo = (id: string) => id === 'mod:lpo' || /\bLPO\b|levantamento ol[íi]mpico/i.test(modName(id));
 
-  const weekPlanned = days.reduce((a, d) => a + plannedOf(d).length, 0);
+  const weekPlanned = days.reduce((a, d) => a + slotsOf(d).filter(slotCounts).length, 0);
   const weekDone = workouts.length;
   const weekMin = workouts.reduce((a, w) => a + (w.duration ?? 0), 0);
   const weekTss = workouts.reduce((a, w) => a + (w.metrics?.tss ?? 0), 0);
@@ -106,9 +109,14 @@ export function TrainingTab() {
     } catch (e: any) { toast(e.message, undefined, 'error'); } finally { setBusy(false); }
   };
 
+  const daySlots = slotsOf(date);
   const dayPlanned = plannedOf(date);
   const dayDone = doneOf(date);
-  const daySkips = skips.filter((s) => s.date === date && s.domain === 'training').map((s) => s.ref);
+  const nameOfSub = (s: { byTemplate?: string; byWorkout?: string }) => {
+    if (s.byTemplate) return tplOf(s.byTemplate)?.name;
+    const w = dayDone.find((x) => x.id === s.byWorkout);
+    return w ? modName(w.modalityId).toLowerCase() : undefined;
+  };
 
   return (
     <div className="screen" data-testid="training-tab">
@@ -160,11 +168,19 @@ export function TrainingTab() {
         })}
 
         {/* 2) O planejado: completo só enquanto está pendente; trocado ou pulado vira uma linha. */}
-        {dayPlanned.map((t) => {
-          const done = dayDone.some((w) => w.templateId === t.id || w.modalityId === t.modalityId);
-          const skipped = daySkips.includes(t.id);
-          if (done) return null;
-          if (skipped) {
+        {daySlots.map((slot) => {
+          const t = tplOf(slot.id);
+          if (!t || slot.status === 'feito') return null;
+          if (slot.status === 'trocado') {
+            const by = nameOfSub(slot);
+            return (
+              <div key={t.id} className="row between" style={{ marginTop: 10, gap: 8 }} data-testid="planned-replaced">
+                <span className="small muted">{t.name} · trocado{by ? ` por ${by}` : ''}</span>
+                <button className="link" onClick={() => deleteRecord(`skip:${date}:training:${t.id}`, 'Planejado de volta')}>Desfazer</button>
+              </div>
+            );
+          }
+          if (slot.status === 'pulado') {
             return (
               <div key={t.id} className="row between" style={{ marginTop: 10, gap: 8 }} data-testid="planned-skipped">
                 <span className="small"><s>{t.name}</s> · não realizado</span>
@@ -172,7 +188,7 @@ export function TrainingTab() {
               </div>
             );
           }
-          const swapped = dayDone.find((w) => w.modalityId !== t.modalityId);
+          const swapped = dayDone.find((w) => !daySlots.some((x) => x.workoutId === w.id));
           return (
             <div key={t.id} style={{ marginTop: dayDone.length ? 14 : 0 }}>
               <span className="label" style={{ marginTop: 0 }}>Planejado</span>

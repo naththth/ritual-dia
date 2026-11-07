@@ -3,7 +3,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check as CheckIcon, Droplets, Dumbbell, Flame, Moon, NotebookPen, Pill, Sunrise, Sun, Utensils } from 'lucide-react';
 import { useAll, useByDate, useSettings } from '../db/hooks';
-import { planFor, plannedFood, plannedSkin, plannedTraining } from '../domain/rules';
+import { planFor, plannedFood, plannedSkin, plannedTraining, trainingDay } from '../domain/rules';
 import { nightAdjust } from '../domain/skinAdapt';
 import { mealFromTemplate, saveSkin, workoutFromTemplate, addWater } from '../domain/actions';
 import { fmt, totals } from '../domain/nutrition';
@@ -118,12 +118,14 @@ export function useTimeline(date: DateKey): TLItem[] | undefined {
     });
   }
 
-  const plannedT = plannedTraining(planFor(plans, 'training', date), date, extras).map((id) => wt.find((t) => t.id === id)).filter((t): t is NonNullable<typeof t> => !!t);
+  // Treino trocado por outro não aparece: só o que entrou no lugar. "Não hoje" fica para o que ela pulou de fato.
   const usedWorkouts = new Set<string>();
-  for (const t of plannedT) {
-    const w = workouts.find((x) => x.templateId === t.id) ?? workouts.find((x) => !usedWorkouts.has(x.id) && x.modalityId === t.modalityId);
+  for (const slot of trainingDay(planFor(plans, 'training', date), date, extras, skips, workouts, wt)) {
+    const t = wt.find((x) => x.id === slot.id);
+    if (!t || slot.status === 'trocado') continue;
+    const w = slot.workoutId ? workouts.find((x) => x.id === slot.workoutId) : undefined;
     if (w) usedWorkouts.add(w.id);
-    const skipped = skips.some((s) => s.domain === 'training' && s.ref === t.id);
+    const skipped = slot.status === 'pulado';
     const main = t.steps?.length ? [...t.steps].sort((a, b) => b.minutes - a.minutes)[0] : undefined;
     const w2 = main ? watts(main.pct, settings.ftp) : undefined;
     items.push({

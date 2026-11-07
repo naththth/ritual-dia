@@ -60,6 +60,53 @@ export function plannedTraining(plan: Plan | undefined, date: DateKey, extras?: 
   return add.length ? Array.from(new Set([...base, ...add])) : base;
 }
 
+/** Situação de cada treino planejado do dia. "trocado" = saiu do dia porque outro treino entrou no lugar: não aparece riscado e não conta na semana.
+ *  "pulado" só quando ela não fez nada no lugar. */
+export type TrainingStatus = 'pendente' | 'feito' | 'pulado' | 'trocado';
+export interface TrainingSlot { id: string; status: TrainingStatus; workoutId?: string; byTemplate?: string; byWorkout?: string }
+
+/** O que conta como troca: treino acrescentado só para aquele dia (combinado com a treinadora ou por ela) ou treino feito que não corresponde a nenhum planejado.
+ *  Cada um cobre um planejado pulado do plano da semana, na ordem do dia. Planejado pulado sem nada no lugar continua "pulado". */
+export function trainingDay(
+  plan: Plan | undefined, date: DateKey,
+  extras: { date: DateKey; domain?: string; ref: string; deleted?: 0 | 1 }[] | undefined,
+  skips: { date: DateKey; domain: string; ref: string; deleted?: 0 | 1 }[] | undefined,
+  workouts: { id: string; date: DateKey; templateId?: string; modalityId: string; deleted?: 0 | 1 }[] | undefined,
+  tmpls: { id: string; modalityId: string }[]
+): TrainingSlot[] {
+  const base = (plan?.training?.[isoWeekday(date)] ?? []).filter((id) => tmpls.some((t) => t.id === id));
+  const added = (extras ?? []).filter((e) => e.date === date && !e.deleted && (e.domain ?? 'training') === 'training').map((e) => e.ref)
+    .filter((id, i, a) => a.indexOf(id) === i && !base.includes(id) && tmpls.some((t) => t.id === id));
+  const ids = [...base, ...added];
+  const skipped = new Set((skips ?? []).filter((x) => x.date === date && !x.deleted && x.domain === 'training').map((x) => x.ref));
+  const dayW = (workouts ?? []).filter((w) => w.date === date && !w.deleted);
+  const used = new Set<string>();
+  const slots: TrainingSlot[] = ids.map((id) => ({ id, status: 'pendente' }));
+  // Feito: primeiro pelo treino ligado ao planejado, depois pela modalidade.
+  for (const s of slots) { const w = dayW.find((x) => !used.has(x.id) && x.templateId === s.id); if (w) { used.add(w.id); s.status = 'feito'; s.workoutId = w.id; } }
+  // Na modalidade, o que não foi pulado escolhe primeiro: o treino feito vai para o que estava valendo.
+  for (const s of [...slots.filter((x) => !skipped.has(x.id)), ...slots.filter((x) => skipped.has(x.id))]) {
+    if (s.status === 'feito') continue;
+    const mod = tmpls.find((t) => t.id === s.id)?.modalityId;
+    const w = dayW.find((x) => !used.has(x.id) && x.modalityId === mod);
+    if (w) { used.add(w.id); s.status = 'feito'; s.workoutId = w.id; }
+  }
+  for (const s of slots) if (s.status === 'pendente' && skipped.has(s.id)) s.status = 'pulado';
+  // Quem entrou no lugar: acrescentados do dia e treinos feitos fora do plano.
+  const subs: { tpl?: string; workout?: string }[] = [...added.map((tpl) => ({ tpl })), ...dayW.filter((w) => !used.has(w.id)).map((w) => ({ workout: w.id }))];
+  for (const s of slots) {
+    if (!subs.length) break;
+    if (s.status !== 'pulado' || !base.includes(s.id)) continue;
+    const by = subs.shift()!;
+    s.status = 'trocado'; s.byTemplate = by.tpl; s.byWorkout = by.workout;
+  }
+  return slots;
+}
+
+/** Conta na semana? Trocado por outro planejado sai da conta (o novo já conta); trocado por um treino feito fora do plano conta uma vez, como cumprido. */
+export const slotCounts = (s: TrainingSlot) => s.status !== 'trocado' || !!s.byWorkout;
+export const slotDone = (s: TrainingSlot) => s.status === 'feito' || (s.status === 'trocado' && !!s.byWorkout);
+
 /** Refeições planejadas do dia; a troca combinada com a nutricionista para aquela data vale no lugar do plano. */
 export function plannedFood(plan: Plan | undefined, date: DateKey, extras?: DayMods['extras']): Record<string, string | null> {
   const base = plan?.food?.[isoWeekday(date)] ?? {};

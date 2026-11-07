@@ -5,7 +5,7 @@ import { Seg, Empty } from '../ui/ui';
 import { useAll, useByRange } from '../db/hooks';
 import { useApp } from '../state/store';
 import { addDays, addMonths, monthEnd, monthStart, shortLabel, todayKey, weekStart, weekDays, WEEKDAY_LETTER, isoWeekday, monthTitle, type DateKey, diffDays } from '../lib/dates';
-import { habitDoneDates, planFor, plannedTraining } from '../domain/rules';
+import { habitDoneDates, planFor, slotCounts, slotDone, trainingDay } from '../domain/rules';
 import { SKIN_SIGNALS, SKIN_CONDITIONS } from '../domain/defaults';
 import { PhotoThumb } from './photos';
 import { useRecord } from '../db/hooks';
@@ -55,6 +55,9 @@ export function EvolutionScreen() {
   const mods = useAll('modality');
   const foods = useAll('food');
   const plans = useAll('plan');
+  const wtmpls = useAll('wtemplate');
+  const tskips = useByRange('skip', from, to);
+  const textras = useByRange('extra', from, to);
   const goals = useAll('goal');
   const gentries = useAll('gentry');
 
@@ -62,9 +65,14 @@ export function EvolutionScreen() {
   const label = mode === 'semana' ? `${shortLabel(from)} a ${shortLabel(to)}` : monthTitle(from);
 
   // Treino
+  // Do plano: o que vale no dia, com as trocas combinadas; troca conta uma vez, nunca o original e o substituto juntos.
   let plannedCount = 0;
-  for (let d = from; d <= lastDay; d = addDays(d, 1)) plannedCount += plannedTraining(planFor(plans ?? [], 'training', d), d).length;
-  const fromPlan = (workouts ?? []).filter((w) => w.fromPlan).length;
+  let fromPlan = 0;
+  for (let d = from; d <= lastDay; d = addDays(d, 1)) {
+    const slots = trainingDay(planFor(plans ?? [], 'training', d), d, textras, tskips, workouts, wtmpls ?? []).filter(slotCounts);
+    plannedCount += slots.length;
+    fromPlan += slots.filter(slotDone).length;
+  }
   const minutes = (workouts ?? []).reduce((a, w) => a + (w.duration ?? 0), 0);
   const byMod = new Map<string, number>();
   (workouts ?? []).forEach((w) => byMod.set(w.modalityId, (byMod.get(w.modalityId) ?? 0) + 1));
