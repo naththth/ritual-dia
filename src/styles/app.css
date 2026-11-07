@@ -82,6 +82,8 @@ input, select, textarea {
 input:focus, select:focus, textarea:focus { border-color: var(--ink-2); }
 textarea { min-height: 88px; resize: vertical; }
 :focus-visible { outline: 2.5px solid var(--wine); outline-offset: 2px; }
+/* Campos de texto: o foco aparece na própria borda, sem anel solto em volta (o anel com folga deixava uma faixa clara fora do contorno arredondado) */
+input:not([type=checkbox]):not([type=radio]):not([type=range]):focus-visible, select:focus-visible, textarea:focus-visible { outline: none; border-color: var(--ink-2); }
 .num { font-variant-numeric: tabular-nums; }
 
 /* ---------- Estrutura ---------- */
@@ -657,12 +659,12 @@ button.food-line { width: 100%; text-align: left; }
 .dgroup ol { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 3px; font-size: 14.5px; line-height: 1.4; }
 .dgroup.remove ol li { text-decoration: line-through; text-decoration-color: rgba(0,0,0,.35); }
 /* Campo de mensagem compacto */
-.chat-input { position: sticky; bottom: 0; background: var(--card); padding: 8px 0 2px; margin-top: 6px; border-top: 1px solid var(--line); display: flex; align-items: flex-end; gap: 8px; }
-.chat-input textarea { flex: 1; min-width: 0; min-height: 44px; max-height: 140px; resize: none; padding: 11px 14px; border-radius: 22px; line-height: 1.35; }
+/* Conversa de montar plano: mesmo compositor das outras conversas, ocupando a largura toda; "Montar" ganha linha própria embaixo */
+.chat-input { position: sticky; bottom: 0; z-index: 1; background: var(--paper); padding: 10px 0 2px; margin-top: 6px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+.chat-input .composer { flex: 0 0 auto; width: 100%; }
+.chat-input .composer textarea { max-height: 160px; }
+.chat-input .chat-build { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .mic-btn.mic-compact { width: 44px; height: 44px; padding: 0; justify-content: center; margin: 0; flex: 0 0 auto; }
-.chat-send { flex: 0 0 auto; height: 44px; padding: 0 16px; border-radius: 22px; background: var(--ink); color: var(--paper); display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
-.chat-send.icon { width: 44px; padding: 0; justify-content: center; }
-.chat-send:disabled { opacity: .35; }
 .bubble .nf ul { margin: 4px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
 /* Chips com texto longo quebram linha em vez de sair da tela (exceto nas fileiras que rolam de lado). */
 .chip { max-width: 100%; white-space: normal; text-align: left; line-height: 1.25; padding: 8px 16px; }

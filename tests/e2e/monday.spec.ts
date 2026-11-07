@@ -670,6 +670,14 @@ test('conversa com a especialista: perguntas, rascunho legível, ajuste e aplica
   await page.getByTestId('ai-build').click();
   await expect(page.getByTestId('chat-question')).toBeVisible();
   await page.getByRole('button', { name: /Uso apenas 1 vez/ }).click();
+  // O campo de mensagem ocupa a largura da conversa; "Montar" fica na linha de baixo
+  const campo = page.getByTestId('chat-input');
+  await campo.fill('Quero focar em musculação, pedal, LPO e talvez, já que não tem mais yoga, arriscar voltar a correr, o que acha?');
+  await campo.focus();
+  const w = (await campo.boundingBox())!.width;
+  expect(w).toBeGreaterThan(page.viewportSize()!.width * 0.6);
+  if (process.env.SHOTS) { await page.waitForTimeout(4000); await page.screenshot({ path: '/tmp/shots/chat-perguntas.png' }); }
+  await campo.fill('');
   await page.getByTestId('chat-build').click();
   await expect(page.getByTestId('chat-draft')).toContainText('Manhã, todos os dias');
   await expect(page.getByTestId('chat-draft')).toContainText('Protetor FPS 50');

@@ -300,12 +300,13 @@ export function PlanChat({ domain, open, onClose, onApplied }: { domain: Domain;
       </div>
       {!busy && (answering || msgs.length > 0) && (
         <div className="chat-input">
-          <textarea value={input} onChange={(e) => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = `${Math.min(140, e.target.scrollHeight)}px`; }} rows={1} aria-label="Mensagem para a especialista" data-testid="chat-input"
-            placeholder={answering ? 'Algo a acrescentar? (opcional)' : draft ? 'Comente ou peça um ajuste' : domain === 'food' ? 'Cole a sua dieta ou conte o que quer' : 'Escreva para a especialista'} />
-          <MicButton compact label="Falar" onText={(t) => setInput((x) => appendText(x, t))} />
-          {answering
-            ? <button className="chat-send" onClick={submitAnswers} aria-label="Montar" data-testid="chat-build"><Sparkles size={18} /><span>Montar</span></button>
-            : <button className="chat-send icon" onClick={send} disabled={!input.trim()} aria-label="Enviar" data-testid="chat-send"><Send size={18} /></button>}
+          <div className="composer">
+            <textarea value={input} onChange={(e) => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = `${Math.min(160, e.target.scrollHeight)}px`; }} rows={1} aria-label="Mensagem para a especialista" data-testid="chat-input"
+              placeholder={answering ? 'Algo a acrescentar? (opcional)' : draft ? 'Comente ou peça um ajuste' : domain === 'food' ? 'Cole a sua dieta ou conte o que quer' : 'Escreva para a especialista'} />
+            <MicButton compact label="Falar" onText={(t) => setInput((x) => appendText(x, t))} />
+            {!answering && <button className="composer-send" onClick={send} disabled={!input.trim()} aria-label="Enviar" data-testid="chat-send"><Send size={18} /></button>}
+          </div>
+          {answering && <button className="btn btn-ink btn-block chat-build" onClick={submitAnswers} data-testid="chat-build"><Sparkles size={17} /> Montar</button>}
         </div>
       )}
     </Sheet>
