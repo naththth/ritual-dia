@@ -64,7 +64,7 @@ export async function askNutri(text: string, history: SpecMsg[], images?: { mime
     dias_anteriores: Array.from({ length: 6 }, (_, i) => addDays(today, i - 6)).map((d) => ({ data: d, dia_semana: isoWeekday(d), refeicoes: dayPlan(d).filter((m) => m.comeu || m.pulada).map(({ refeicao, nome, comeu, pulada }) => ({ refeicao, nome, comeu, pulada })) })),
     proximos_dias: Array.from({ length: 7 }, (_, i) => addDays(today, i)).map((d) => ({
       data: d, dia_semana: isoWeekday(d), refeicoes: dayPlan(d),
-      treinos: plannedTraining(planFor(plans, 'training', d), d, extras).map((id) => tmpls.find((x) => x.id === id)).filter(Boolean).map((x) => ({ nome: x!.name, modalidade: modName(x!.modalityId), minutos: x!.duration, intensidade: x!.intensity, horario: x!.time }))
+      treinos: plannedTraining(planFor(plans, 'training', d), d, extras).filter((id) => !skips.some((s) => s.domain === 'training' && s.date === d && s.ref === id)).map((id) => tmpls.find((x) => x.id === id)).filter(Boolean).map((x) => ({ nome: x!.name, modalidade: modName(x!.modalityId), minutos: x!.duration, intensidade: x!.intensity, horario: x!.time }))
     })),
     treinos_feitos: workouts.sort((a, b) => (a.startTime ?? a.date).localeCompare(b.startTime ?? b.date)).map((w) => ({ data: w.date, horario: w.startTime ? new Date(w.startTime).toTimeString().slice(0, 5) : undefined, modalidade: modName(w.modalityId), minutos: w.duration, kcal: w.metrics?.kcal, tss: w.metrics?.tss })),
     refeicoes_favoritas: mtmpls.filter((x) => !x.archived).map((x) => ({ modelo_id: x.id, nome: x.name, refeicao: x.mealType, itens: itemsText(x.items), ...macros(totals(x.items, foods).n) })),

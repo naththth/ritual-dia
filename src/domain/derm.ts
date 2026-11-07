@@ -79,7 +79,7 @@ export async function askDerm(text: string, history: SpecMsg[], images?: { mime:
         data: d, dia_semana: isoWeekday(d),
         manha: codes(plannedSkin(p, d, 'am', list, false, dayMods)), noite: codes(plannedSkin(p, d, 'pm', list, false, dayMods)),
         ja_registrado: reg.length ? reg : undefined,
-        treinos: plannedTraining(planFor(plans, 'training', d), d, extras).map((id) => tmpls.find((t) => t.id === id)).filter(Boolean).map((t) => `${t!.name}${t!.time ? ` às ${t!.time}` : ''} (${modName(t!.modalityId)})`)
+        treinos: plannedTraining(planFor(plans, 'training', d), d, extras).filter((id) => !skips.some((s) => s.domain === 'training' && s.date === d && s.ref === id)).map((id) => tmpls.find((t) => t.id === id)).filter(Boolean).map((t) => `${t!.name}${t!.time ? ` às ${t!.time}` : ''} (${modName(t!.modalityId)})`)
       };
     }),
     registros_recentes: logs.sort((a, b) => a.date.localeCompare(b.date)).map((l) => ({ data: l.date, periodo: l.period, condicao: l.condition, sinais: Object.keys(l.signals ?? {}).length ? l.signals : undefined, usados: codes(l.productIds), pulou: l.skipped || undefined, recuperacao: l.recovery || undefined, obs: l.note })),

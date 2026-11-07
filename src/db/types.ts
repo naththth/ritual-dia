@@ -545,7 +545,7 @@ export interface RitualDay extends Base {
   focus?: string[]; // tarefas que ela escolheu para o dia
   trained?: 'sim' | 'nao' | 'outro';
   postIdea?: string;
-  ai?: { frase?: string; foco?: string; atencao?: string; fechamento?: string; para_amanha?: string; at?: number; offline?: boolean };
+  ai?: { frase?: string; foco?: string; atencao?: string; fechamento?: string; para_amanha?: string; at?: number; offline?: boolean; /** treinos que a leitura considerou (agendaSig) */ agenda?: string };
   seen: string[];
 }
 /** Base da carreira: quem ela é profissionalmente, a marca e o trabalho atual. Lida pela especialista de carreira. */

@@ -44,6 +44,7 @@ export function useRadar(date: DateKey): RadarItem[] | undefined {
   const plans = useAll('plan');
   const tmpls = useAll('wtemplate');
   const extras = useByDate('extra', date);
+  const skips = useByDate('skip', date);
   const skin = useByDate('skin', date);
   const weather = useWeather(date);
   const [now, setNow] = useState(() => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); });
@@ -53,7 +54,8 @@ export function useRadar(date: DateKey): RadarItem[] | undefined {
   const wToday = wellness.find((w) => w.date === date);
   const prev = wellness.filter((w) => w.date < date).map((w) => effectiveHrv(w)).filter((x): x is number => x != null);
   const load = history.length ? trainingLoad(history, addDays(date, -120), date).slice(-1)[0] : undefined;
-  const planned = plannedTraining(planFor(plans, 'training', date), date, extras).map((id) => tmpls.find((t) => t.id === id)).filter(Boolean);
+  // Treino marcado como "hoje não" (pulado ou trocado) não entra no radar.
+  const planned = plannedTraining(planFor(plans, 'training', date), date, extras).filter((id) => !(skips ?? []).some((s) => s.domain === 'training' && s.ref === id && !s.deleted)).map((id) => tmpls.find((t) => t.id === id)).filter(Boolean);
   const next = fuel.mealsLeft[0];
   const times = { ...DEFAULT_SKIN_TIMES, ...(settings.skinTimes ?? {}) };
   const mods = fuel.post ? (fuel.post.w.modalityId ?? '') : '';

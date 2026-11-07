@@ -17,6 +17,12 @@ export interface RitualAgenda {
   metas?: { kcal?: number; proteina?: number };
 }
 
+/** Assinatura dos treinos da agenda: se mudar, a leitura guardada ficou velha. */
+export const agendaSig = (a: RitualAgenda) => JSON.stringify([
+  (a.treinos ?? []).map((t: any) => [t.nome, !!t.feito, !!t.pulado]),
+  (a.treinos_amanha ?? []).map((t: any) => t.nome)
+]);
+
 export async function askRitual(date: DateKey, p: RP, agenda: RitualAgenda): Promise<RitualDay['ai']> {
   const r = await get<'ritual'>(ritualId(date, p));
   try {
@@ -44,7 +50,7 @@ export async function askRitual(date: DateKey, p: RP, agenda: RitualAgenda): Pro
       avisos_ativos: m.alerts.map((a) => ({ nivel: a.level, assunto: a.title }))
     };
     const out = await askAI<{ frase?: string; foco?: string; atencao?: string; fechamento?: string; para_amanha?: string }>(p === 'am' ? 'ritual_am' : 'ritual_pm', ctx);
-    const ai = { ...out, at: Date.now() };
+    const ai = { ...out, at: Date.now(), agenda: agendaSig(agenda) };
     await saveRitual(date, p, { ai });
     return ai;
   } catch (e) {

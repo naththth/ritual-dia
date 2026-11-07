@@ -141,6 +141,35 @@ test('ritual da noite resume o dia e o amanhã aparece de manhã', async ({ page
   await expect(page.getByTestId('rt-carry')).toContainText('parte difícil da proposta');
 });
 
+test('ritual da noite: treino de amanhã trocado com a treinadora não aparece', async ({ page }) => {
+  await seed(page, '2026-11-04T20:30:00-03:00');
+  await page.evaluate(async () => {
+    const req = indexedDB.open('ritual');
+    const db: IDBDatabase = await new Promise((r) => { req.onsuccess = () => r(req.result); });
+    const tx = db.transaction(['records'], 'readwrite');
+    const st = tx.objectStore('records');
+    const base = { deleted: 0, dirty: 0, updatedAt: 6, createdAt: 6 };
+    st.put({ ...base, id: 'wtemplate:muscb', kind: 'wtemplate', name: 'Musculação B', modalityId: 'mod:musculacao', duration: 35, intensity: 'moderada' });
+    st.put({ ...base, id: 'wtemplate:lpo1', kind: 'wtemplate', name: 'Aula de LPO', modalityId: 'mod:lpo', duration: 60, intensity: 'intensa', time: '08:15', oneOff: '2026-11-05', archived: true });
+    st.put({ ...base, id: 'plan:tr', kind: 'plan', domain: 'training', validFrom: '2026-10-01', training: { 3: ['wtemplate:vo2'], 4: ['wtemplate:muscb'] } });
+    st.put({ ...base, id: 'extra:2026-11-05:training:wtemplate:lpo1', kind: 'extra', date: '2026-11-05', domain: 'training', ref: 'wtemplate:lpo1', by: 'treinadora' });
+    st.put({ ...base, id: 'skip:2026-11-05:training:wtemplate:muscb', kind: 'skip', date: '2026-11-05', domain: 'training', ref: 'wtemplate:muscb' });
+    await new Promise((r) => { tx.oncomplete = r; });
+  });
+  await page.reload();
+  await page.getByTestId('ritual-hero-pm').click();
+  await page.getByTestId('rt-mood-0').click();
+  await page.getByLabel('Energia 2').click();
+  await page.getByTestId('rt-checkin-save').click();
+  await page.getByTestId('rt-summary').click();
+  await page.getByTestId('rt-reflect-save').click();
+  await expect(page.getByTestId('ritual-pm')).toContainText('Amanhã, quinta');
+  await expect(page.getByTestId('ritual-pm')).toContainText('Aula de LPO');
+  await expect(page.getByTestId('ritual-pm')).not.toContainText('Musculação B');
+  const ctx = await page.evaluate(() => (window as any).__ctx.ritual_pm);
+  expect(ctx.agenda.treinos_amanha.map((t: any) => t.nome)).toEqual(['Aula de LPO']);
+});
+
 test('leitura da semana: números, leitura da equipe e ajustes levados à especialista', async ({ page }) => {
   await seed(page, '2026-11-08T19:00:00-03:00');
   await expect(page.getByTestId('week-teaser')).toBeVisible();

@@ -6,7 +6,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Bath, Check, ChevronRight, Coffee, Dumbbell, Moon, Pill, RefreshCw, Sparkles, Sun, Sunrise, Target, Utensils, X } from 'lucide-react';
 import { useAll, useByDate, useRecord, useSettings } from '../db/hooks';
 import { addDays, todayKey, WEEKDAY_LONG, isoWeekday, type DateKey } from '../lib/dates';
-import { planFor, plannedFood, plannedTraining, suggestTasks, tasksForDay } from '../domain/rules';
+import { planFor, plannedFood, suggestTasks, tasksForDay, trainingDay } from '../domain/rules';
 import { planTask } from '../domain/actions';
 import { fmt } from '../domain/nutrition';
 import { dosesFor, toMin, CONTEXT_TAGS, SLIDERS, WAKE_OPTIONS, MOOD_LABEL, type Dose } from '../domain/mind';
@@ -14,7 +14,7 @@ import { loadMind } from '../domain/mindload';
 import { markDose, saveCheckin } from '../domain/mindload';
 import { bedFor, sleepPlan, wakeFor } from '../domain/sleep';
 import { brandToday, questionFor, ritualId, saveRitual } from '../domain/ritual';
-import { askRitual, type RitualAgenda } from '../domain/ritualai';
+import { agendaSig, askRitual, type RitualAgenda } from '../domain/ritualai';
 import { Chip } from '../ui/ui';
 import { haptic, toast } from '../state/store';
 import type { MoodCheckin, RitualDay, Task } from '../db/types';
@@ -41,22 +41,30 @@ export function useRitual(date: DateKey, p: P) {
   const skips = useByDate('skip', date);
   const extras = useByDate('extra', date);
   const extrasTomorrow = useByDate('extra', addDays(date, 1));
+  const skipsTomorrow = useByDate('skip', addDays(date, 1));
+  const workoutsTomorrow = useByDate('workout', addDays(date, 1));
   const workouts = useByDate('workout', date);
   const moods = useByDate('mood', date);
   const rec = useRecord<'ritual'>(ritualId(date, p));
   const prev = useRecord<'ritual'>(ritualId(addDays(date, -1), 'pm'));
   const well = useRecord<'wellness'>(`wellness:${date}`);
-  if (!settings || !plans || !tmpls || !mtmpls || !foods || !intakes || !tasks || !slogs || !posts || !logs || !meals || !skips || !extras || !extrasTomorrow || !workouts || !moods || rec === undefined || prev === undefined || well === undefined) return undefined;
+  if (!settings || !plans || !tmpls || !mtmpls || !foods || !intakes || !tasks || !slogs || !posts || !logs || !meals || !skips || !extras || !extrasTomorrow || !skipsTomorrow || !workoutsTomorrow || !workouts || !moods || rec === undefined || prev === undefined || well === undefined) return undefined;
   const half = (d: Dose) => (toMin(d.slot) ?? 0) < 12 * 60;
   const doses = dosesFor(intakes, logs, date).filter((d) => (p === 'am' ? half(d) : !half(d)));
   const cafeId = plannedFood(planFor(plans, 'food', date), date, extras).cafe;
   const cafe = cafeId ? mtmpls.find((t) => t.id === cafeId) : undefined;
   const cafeMeal = meals.find((m) => m.mealType === 'cafe' && m.items.length);
-  const training = plannedTraining(planFor(plans, 'training', date), date, extras).map((id) => tmpls.find((t) => t.id === id))
-    .filter((t): t is NonNullable<typeof t> => !!t && t.modalityId !== 'mod:descanso')
-    .map((t) => ({ ...t, skipped: skips.some((s) => s.domain === 'training' && s.ref === t.id), done: workouts.some((w) => w.templateId === t.id || w.modalityId === t.modalityId) }));
+  // Mesma regra da aba Treino: o que foi trocado por outro treino some; o pulado de fato fica marcado.
+  const training = trainingDay(planFor(plans, 'training', date), date, extras, skips, workouts, tmpls)
+    .filter((s) => s.status !== 'trocado')
+    .map((s) => ({ s, t: tmpls.find((t) => t.id === s.id) }))
+    .filter((x): x is { s: typeof x.s; t: NonNullable<typeof x.t> } => !!x.t && x.t.modalityId !== 'mod:descanso')
+    .map(({ s, t }) => ({ ...t, skipped: s.status === 'pulado', done: s.status === 'feito' }));
   const tomorrow = addDays(date, 1);
-  const tomorrowTraining = plannedTraining(planFor(plans, 'training', tomorrow), tomorrow, extrasTomorrow).map((id) => tmpls.find((t) => t.id === id)).filter((t): t is NonNullable<typeof t> => !!t && t.modalityId !== 'mod:descanso');
+  // Amanhã: só o que continua valendo (sem o que foi trocado ou já marcado como "hoje não").
+  const tomorrowTraining = trainingDay(planFor(plans, 'training', tomorrow), tomorrow, extrasTomorrow, skipsTomorrow, workoutsTomorrow, tmpls)
+    .filter((s) => s.status === 'pendente' || s.status === 'feito')
+    .map((s) => tmpls.find((t) => t.id === s.id)).filter((t): t is NonNullable<typeof t> => !!t && t.modalityId !== 'mod:descanso');
   const sp = sleepPlan(settings.reminders);
   const mood = moods.find((m) => m.period === p);
   const r = rec ?? undefined;
@@ -276,7 +284,11 @@ function useAI(date: DateKey, p: P, d: RitualData) {
   const [ai, setAi] = useState<RitualDay['ai']>(d.r?.ai);
   const run = async () => { setBusy(true); setAi(await askRitual(date, p, agendaFor(d, date))); setBusy(false); };
   // Pede de novo quando ela mudou alguma resposta depois da última leitura.
-  useEffect(() => { if (!d.r?.ai || (d.r.ai.at ?? 0) < d.r.updatedAt - 2000) void run(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Também quando os treinos de hoje ou de amanhã mudaram desde a leitura (troca combinada com a treinadora, "hoje não"), enquanto o dia ainda está valendo.
+  useEffect(() => {
+    const stale = !!d.r?.ai && !d.r.ai.offline && date >= addDays(todayKey(), -1) && d.r.ai.agenda !== agendaSig(agendaFor(d, date));
+    if (!d.r?.ai || (d.r.ai.at ?? 0) < d.r.updatedAt - 2000 || stale) void run();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return { ai, busy, run };
 }
 
