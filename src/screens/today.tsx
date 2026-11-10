@@ -2,14 +2,14 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check as CheckIcon, Droplets, Dumbbell, Flame, Moon, NotebookPen, Pill, Sunrise, Sun, Utensils } from 'lucide-react';
-import { useAll, useByDate, useSettings } from '../db/hooks';
+import { useAll, useByDate, useRecord, useSettings } from '../db/hooks';
 import { planFor, plannedFood, plannedSkin, plannedTraining, trainingDay } from '../domain/rules';
 import { nightAdjust } from '../domain/skinAdapt';
 import { mealFromTemplate, saveSkin, workoutFromTemplate, addWater } from '../domain/actions';
 import { fmt, totals } from '../domain/nutrition';
 import { watts } from '../domain/ai';
 import { addDays, todayKey, type DateKey } from '../lib/dates';
-import { sleepPlan, wakeFor, bedFor, hoursLabel } from '../domain/sleep';
+import { sleepPlan, wakeFor, bedFor, hoursLabel, wakeDetail } from '../domain/sleep';
 import type { MealItem } from '../db/types';
 import { WaterSheet } from './WaterSheet';
 import { dosesFor, slotsFor, toMin as tmin, fromMin } from '../domain/mind';
@@ -67,7 +67,8 @@ export function useTimeline(date: DateKey): TLItem[] | undefined {
   const intakes = useAll('intake');
   const intakeLogs = useByDate('intakelog', date);
   const moods = useByDate('mood', date);
-  if (!intakes || !intakeLogs || !moods || !journal || !settings || !plans || !products || !wt || !mt || !foods || !mods || !skin || !meals || !workouts || !skips || !extras) return undefined;
+  const well = useRecord<'wellness'>(`wellness:${date}`);
+  if (well === undefined || !intakes || !intakeLogs || !moods || !journal || !settings || !plans || !products || !wt || !mt || !foods || !mods || !skin || !meals || !workouts || !skips || !extras) return undefined;
   const items: TLItem[] = [];
   const sTimes = settings.skinTimes ?? DEFAULT_SKIN_TIMES;
   const mTimes = { ...DEFAULT_MEAL_TIMES, ...(settings.mealTimes ?? {}) };
@@ -166,7 +167,7 @@ export function useTimeline(date: DateKey): TLItem[] | undefined {
   if (sp) {
     const wake = wakeFor(sp, date);
     const bed = bedFor(sp, date);
-    items.push({ key: 'wake', time: wake, mod: 'sleep', icon: <Sunrise size={18} />, title: 'Acordar', detail: `Meta de ${hoursLabel(sp.hours)} de sono`, done: false, marker: true, open: '/ajustes' });
+    items.push({ key: 'wake', time: wake, mod: 'sleep', icon: <Sunrise size={18} />, title: 'Acordar', detail: wakeDetail(sp.hours, well ?? undefined), done: false, marker: true, open: '/ajustes' });
     const am = moods.find((m) => m.period === 'am');
     items.push({ key: 'checkin-am', time: fromMin((tmin(wake) ?? 360) + 10), mod: 'mind', icon: <Sun size={18} />, title: 'Como acordou', detail: am ? [am.wake, am.mood != null && `humor ${sgn(am.mood)}`].filter(Boolean).join(', ') || 'Registrado' : 'Sono e humor em 20 segundos', done: !!am, open: date === todayKey() ? '/ritual/am' : `/mente/checkin?p=am&d=${date}` });
     items.push({ key: 'bed', time: bed, mod: 'sleep', icon: <Moon size={18} />, title: 'Deitar', detail: sp.bedGoal ? `Meta em etapas${sp.bedFinal && sp.bedFinal !== sp.bedGoal ? `, até chegar às ${sp.bedFinal}` : ''}. Acordar às ${wakeFor(sp, addDays(date, 1))}` : `Luz apagada para dormir ${hoursLabel(sp.hours)} e acordar às ${wakeFor(sp, addDays(date, 1))}`, done: false, open: '/ajustes' });
@@ -183,17 +184,11 @@ function workoutLine(w: any, _mods: any[]) {
   return parts.length ? parts.join(', ') : 'Feito';
 }
 
-const FILTERS: { id: 'all' | Mod; label: string }[] = [{ id: 'all', label: 'Tudo' }, { id: 'skin', label: 'Pele' }, { id: 'food', label: 'Alimentação' }, { id: 'training', label: 'Treino' }];
-
 export function NowAndTimeline({ date, hideNow }: { date: DateKey; hideNow?: boolean }) {
   const items = useTimeline(date);
   const nav = useNavigate();
   const now = useNowMinutes();
-  const [filter, setFilter] = useState<'all' | Mod>('all');
   if (!items) return null;
-  const counted = items.filter((i) => !i.marker && !i.skipped && i.mod !== 'sleep');
-  const doneN = counted.filter((i) => i.done).length;
-  const shownItems = filter === 'all' ? items : items.filter((i) => i.mod === filter);
   const isToday = date === todayKey();
   const pending = items.filter((i) => !i.done && !i.skipped && !i.marker);
   const next = isToday && !hideNow
@@ -220,15 +215,9 @@ export function NowAndTimeline({ date, hideNow }: { date: DateKey; hideNow?: boo
         </section>
       )}
       <section aria-label="Linha do tempo" data-testid="timeline" style={{ marginTop: 18 }}>
-        <div className="row between" style={{ alignItems: 'baseline' }}>
-          <h2 className="section-title">{isToday ? 'Seu dia' : 'O dia'}</h2>
-          <span className="small num" style={{ fontWeight: 700 }} data-testid="day-progress">{doneN} de {counted.length} feitos</span>
-        </div>
-        <div className="day-bar" aria-hidden>{counted.map((i) => <i key={i.key} style={{ background: i.done ? MOD_STYLE[i.mod].ink : 'transparent', borderColor: MOD_STYLE[i.mod].ink }} />)}</div>
-        <div className="chips scroll tl-filter" role="tablist" aria-label="Filtrar o dia">
-          {FILTERS.map((f) => <button key={f.id} role="tab" aria-selected={filter === f.id} className={`chip ${filter === f.id ? 'on' : ''}`} onClick={() => setFilter(f.id)}>{f.label}</button>)}
-        </div>
-        {shownItems.map((i) => (
+        {/* Sem contador e sem filtros: cada área tem a própria tela no menu. */}
+        <h2 className="section-title" style={{ marginBottom: 12 }}>{isToday ? 'Seu dia' : 'O dia'}</h2>
+        {items.map((i) => (
           <div key={i.key} className={`tl2 ${i.done ? 'done' : ''} ${i.skipped ? 'skipped' : ''}`} data-testid={`tl-${i.key}`}>
             <span className="tl2-time num">{i.time ?? ''}</span>
             <span className="tl2-dot" style={i.mod === 'journal' ? { background: 'var(--wine)', color: 'var(--wine-ink)' } : { background: i.done ? MOD_STYLE[i.mod].ink : MOD_STYLE[i.mod].bg, color: i.done ? 'var(--paper)' : MOD_STYLE[i.mod].ink }}>
@@ -277,7 +266,7 @@ export function TodayStats({ date }: { date: DateKey }) {
       )}
       <div className="stat-tile water-tile" style={{ background: 'var(--card)', border: '1.5px solid var(--line)' }}>
         <button className="tap water-open" onClick={() => setWaterOpen(true)} aria-label={`Água: ${ml} mL. Abrir registros de água`} data-testid="water-open">
-          <Droplets size={16} /><span className="v num">{ml >= 1000 ? (ml / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' L' : ml + ' mL'}</span><span className="l">{settings?.waterGoalMl ? `de ${settings.waterGoalMl / 1000} L` : 'água'}</span>
+          <Droplets size={16} /><span className="v num">{ml >= 1000 ? (ml / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' L' : ml + ' mL'}</span><span className="l">{settings?.waterGoalMl ? `de ${(settings.waterGoalMl / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} L` : 'água'}</span>
         </button>
         <button className="water-plus" onClick={() => addWater(date, settings?.waterPresets?.[0] ?? 300)} aria-label={`Somar ${settings?.waterPresets?.[0] ?? 300} mL de água`} data-testid="water">+{settings?.waterPresets?.[0] ?? 300}</button>
       </div>

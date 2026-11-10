@@ -419,6 +419,8 @@ function RitualDone({ p, onClose, onEdit, d }: { p: P; onClose: () => void; onEd
 }
 
 /** No Hoje: o ritual da hora em destaque enquanto não termina, e os dois sempre à mão para retomar ou editar. */
+/** No Hoje, o ritual só aparece quando está aberto para preencher (manhã até o meio-dia, noite a partir das 18h).
+ *  Rever um ritual já feito fica no botão "+", para não ocupar o topo do dia. */
 export function RitualBar({ date }: { date: DateKey }) {
   const nav = useNavigate();
   const am = useRitual(date, 'am');
@@ -427,32 +429,18 @@ export function RitualBar({ date }: { date: DateKey }) {
   useEffect(() => { const t = setInterval(() => setH(new Date().getHours()), 60_000); return () => clearInterval(t); }, []);
   if (date !== todayKey() || !am || !pm) return null;
   const active: P | undefined = h >= 4 && h < 12 && !am.complete ? 'am' : (h >= 18 || h < 4) && !pm.complete ? 'pm' : undefined;
+  if (!active) return null;
   const r = active === 'am' ? am : pm;
   return (
-    <>
-      {active && (
-        <button className={`ritual-hero rh-${active}`} onClick={() => nav(`/ritual/${active}`)} data-testid={`ritual-hero-${active}`}>
-          <span className="rh-orb" aria-hidden />
-          <span className="grow">
-            <span className="rh-kicker">{r.count ? `Continuar · ${r.count} de ${r.steps.length}` : active === 'am' ? 'Começar o dia' : 'Fechar o dia'}</span>
-            <b className="rh-title">{active === 'am' ? 'Ritual da manhã' : 'Ritual da noite'}</b>
-            <span className="rh-sub">{active === 'am' ? 'Antes das 8:30: como acordou, o básico e o foco do dia.' : 'Como foi, o resumo e o que leva para amanhã.'}</span>
-            <span className="rh-dots" aria-hidden>{r.steps.map((s) => <i key={s} className={r.done[s] ? 'on' : ''} />)}</span>
-          </span>
-          <span className="rh-go"><ChevronRight size={22} /></span>
-        </button>
-      )}
-      <div className={`ritual-pills ${active ? 'one' : ''}`} data-testid="ritual-pills">
-        {(['am', 'pm'] as const).filter((k) => k !== active).map((k) => {
-          const x = k === 'am' ? am : pm;
-          return (
-            <button key={k} className={`ritual-pill rp-${k} ${x.complete ? 'done' : ''}`} onClick={() => nav(`/ritual/${k}`)} data-testid={`ritual-pill-${k}`}>
-              <span className="rp-ring" style={{ ['--p' as any]: `${(x.count / x.steps.length) * 360}deg` }}>{x.complete ? <Check size={14} strokeWidth={3} /> : k === 'am' ? <Sunrise size={14} /> : <Moon size={14} />}</span>
-              <span className="grow"><span className="rp-k">Ritual</span><b>{k === 'am' ? 'Manhã' : 'Noite'}</b><span className="small num rp-st">{x.complete ? 'Feito · rever' : `${x.count} de ${x.steps.length}`}</span></span>
-            </button>
-          );
-        })}
-      </div>
-    </>
+    <button className={`ritual-hero rh-${active}`} onClick={() => nav(`/ritual/${active}`)} data-testid={`ritual-hero-${active}`}>
+      <span className="grow">
+        <span className="rh-kicker">{r.count ? `Continuar · ${r.count} de ${r.steps.length}` : active === 'am' ? 'Começar o dia' : 'Fechar o dia'}</span>
+        <b className="rh-title">{active === 'am' ? 'Ritual da manhã' : 'Ritual da noite'}</b>
+        <span className="rh-sub">{active === 'am' ? 'Antes das 8:30: como acordou, o básico e o foco do dia.' : 'Como foi, o resumo e o que leva para amanhã.'}</span>
+        <span className="rh-dots" aria-hidden>{r.steps.map((s) => <i key={s} className={r.done[s] ? 'on' : ''} />)}</span>
+      </span>
+      {/* O brilho pulsa atrás da seta, que é onde o toque leva. */}
+      <span className="rh-go"><span className="rh-orb" aria-hidden /><ChevronRight size={22} /></span>
+    </button>
   );
 }

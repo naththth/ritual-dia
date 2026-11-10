@@ -1253,6 +1253,7 @@ input[type=checkbox]:checked::after { content: ''; width: 6px; height: 11px; bor
 @keyframes pop { 0% { transform: scale(.6); opacity: 0; } 70% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); } }
 @keyframes draw { from { stroke-dashoffset: 327; } to { stroke-dashoffset: 0; } }
 @keyframes spark { 0% { transform: rotate(var(--a)) translateY(0) scale(.4); opacity: 0; } 30% { opacity: 1; } 100% { transform: rotate(var(--a)) translateY(-78px) scale(1); opacity: 0; } }
+@keyframes orb-halo { 0%, 100% { transform: scale(.82); opacity: .75; } 50% { transform: scale(1.08); opacity: 1; } }
 @keyframes orb { 0%, 100% { transform: scale(.9) translate(0, 0); } 50% { transform: scale(1) translate(-6px, 4px); } }
 @keyframes shimmer { from { background-position: -200px 0; } to { background-position: 200px 0; } }
 @keyframes grow-x { from { transform: scaleX(0); } to { transform: scaleX(1); } }
@@ -1272,12 +1273,13 @@ input[type=checkbox]:checked::after { content: ''; width: 6px; height: 11px; bor
 .ritual-hero { position: relative; overflow: hidden; width: 100%; display: flex; align-items: center; gap: 14px; text-align: left; border-radius: var(--r-xl); padding: 20px 18px; margin: 0 0 14px; color: #fff; box-shadow: 0 10px 26px rgba(42, 26, 16, .18); }
 .rh-am { background: linear-gradient(135deg, #E9A23B 0%, #D9764A 55%, #C0582C 100%); }
 .rh-pm { background: linear-gradient(135deg, #2B2456 0%, #5A1E37 70%, #7A2E4F 100%); }
-.rh-orb { position: absolute; right: 8px; top: 6px; width: 110px; height: 110px; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,.55), rgba(255,255,255,0) 70%); animation: orb 6s ease-in-out infinite; pointer-events: none; }
+.rh-orb { position: absolute; left: 50%; top: 50%; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,.5), rgba(255,255,255,0) 68%); animation: orb-halo 4.5s ease-in-out infinite; pointer-events: none; z-index: 0; }
 .rh-pm .rh-orb { background: radial-gradient(circle, rgba(207,193,223,.6), rgba(207,193,223,0) 70%); }
 .rh-kicker { display: block; font-size: 12px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
 .rh-title { display: block; font-family: var(--f-display); font-size: 26px; line-height: 1.1; margin: 2px 0 4px; letter-spacing: -.01em; }
 .rh-sub { display: block; font-size: 14px; opacity: .92; line-height: 1.35; }
 .rh-go { width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,.22); display: grid; place-items: center; flex: 0 0 auto; position: relative; }
+.rh-go svg { position: relative; z-index: 1; }
 
 /* ---------- Ritual (tela) ---------- */
 .ritual { min-height: 100dvh; padding: calc(10px + var(--safe-t)) 18px calc(24px + var(--safe-b)); display: flex; flex-direction: column; color: var(--ink); }
@@ -1299,24 +1301,6 @@ input[type=checkbox]:checked::after { content: ''; width: 6px; height: 11px; bor
 .rh-dots { display: flex; gap: 5px; margin-top: 10px; }
 .rh-dots i { width: 22px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.3); transition: background .3s; }
 .rh-dots i.on { background: #fff; }
-.ritual-pills { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 0 14px; }
-.ritual-pill { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--r-lg, 16px); background: var(--card, #fff); border: 1px solid var(--line, rgba(42,26,16,.1)); text-align: left; color: inherit; min-width: 0; transition: transform .12s ease; }
-.ritual-pill:active { transform: scale(.97); }
-.ritual-pill b { font-size: 15px; display: block; }
-.rp-k { display: block; font-size: 10.5px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; opacity: .55; }
-.rp-st { display: block; }
-.ritual-pills.one { grid-template-columns: 1fr; }
-.ritual-pills.one .ritual-pill { padding: 8px 12px; }
-.ritual-pills.one .ritual-pill .grow { display: flex; align-items: baseline; gap: 8px; }
-.ritual-pills.one .rp-st { margin-left: auto; }
-.ritual-pill .grow { min-width: 0; line-height: 1.25; }
-.rp-ring { --p: 0deg; width: 34px; height: 34px; flex: 0 0 auto; border-radius: 50%; display: grid; place-items: center; position: relative; background: conic-gradient(var(--rp) var(--p), rgba(42,26,16,.1) 0); transition: --p .4s; }
-.rp-ring::before { content: ''; position: absolute; inset: 3px; border-radius: 50%; background: var(--card, #fff); }
-.rp-ring svg { position: relative; color: var(--rp); }
-.rp-am { --rp: #D9764A; }
-.rp-pm { --rp: #5A1E37; }
-.ritual-pill.done .rp-ring::before { background: var(--rp); }
-.ritual-pill.done .rp-ring svg { color: #fff; }
 .rt-stage { flex: 1; display: flex; flex-direction: column; }
 .rt-step { flex: 1; display: flex; flex-direction: column; }
 .rt-step.in-f { animation: slide-f .38s cubic-bezier(.2, .8, .2, 1) both; }
@@ -1543,3 +1527,16 @@ input[type=checkbox]:checked::after { content: ''; width: 6px; height: 11px; bor
 .toasts { bottom: calc(var(--nav-h) + 96px + var(--safe-b)); }
 /* telas com barra de salvar ou campo de conversa embaixo: o + sai para não cobrir os botões */
 body:has(.save-bar) .fab-float, body:has(.chat-input) .fab-float { display: none; }
+
+/* ---------- Sua semana: concluir a leitura ---------- */
+.wk-conclude { margin: 26px 0 96px; }
+.wk-done { display: flex; align-items: center; gap: 10px; margin: 26px 0 96px; padding: 12px 14px; border-radius: var(--r-l); background: var(--card); border: 1.5px solid var(--line); }
+.wk-done-ic { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--plum); color: var(--plum-ink); flex: 0 0 auto; }
+
+/* ---------- Leitura: importar fica discreto e tem página própria ---------- */
+.link-row { width: 100%; display: flex; align-items: center; gap: 10px; margin: 22px 0 96px; padding: 12px 4px; border-top: 1px dotted var(--line-2); color: var(--ink-2); font-weight: 650; font-size: 15px; text-align: left; background: none; }
+.gr-steps { list-style: none; counter-reset: gr; margin: 0 0 20px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.gr-steps li { counter-increment: gr; position: relative; padding: 12px 14px 12px 52px; border-radius: var(--r-l); background: var(--card); border: 1.5px solid var(--line); display: flex; flex-direction: column; gap: 3px; line-height: 1.35; }
+.gr-steps li::before { content: counter(gr); position: absolute; left: 14px; top: 12px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--rose); color: var(--rose-ink); font-weight: 800; font-size: 14px; }
+.gr-steps li b { font-size: 15.5px; }
+.gr-steps li span { font-size: 14px; color: var(--ink-2); }

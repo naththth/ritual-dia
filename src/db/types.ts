@@ -478,6 +478,8 @@ export interface Review extends Base {
   kind: 'review'; date: DateKey; scope: 'semana' | 'cruzada'; text: string; highlights: string[]; focus: string[];
   /** Leitura cruzada: título, o que pesou e os ajustes da próxima semana, cada um com a área que cuida dele. */
   title?: string; weighed?: string[]; next?: { area: 'treino' | 'alimentacao' | 'mente' | 'cuidados' | 'sono'; acao: string; por_que?: string }[];
+  /** Quando ela marcou a leitura como concluída (YYYY-MM-DD): o convite some do Hoje. */
+  doneAt?: DateKey;
 }
 
 /* ---------- Mente: o que ela toma, check-ins de humor, café e mudanças feitas pelo médico ---------- */

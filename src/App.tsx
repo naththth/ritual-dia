@@ -15,8 +15,7 @@ import { EvolutionScreen } from './screens/EvolutionScreen';
 import { TrainingTab } from './screens/TrainingTab';
 import { FoodTab } from './screens/FoodTab';
 import { MoreScreen } from './screens/MoreScreen';
-import { NotesScreen } from './screens/JournalScreen';
-import { ReadingScreen } from './screens/ReadingScreen';
+import { ReadingImportScreen, ReadingScreen } from './screens/ReadingScreen';
 import { SkinScreen } from './screens/SkinScreen';
 import { FoodScreen } from './screens/FoodScreen';
 import { TrainingScreen } from './screens/TrainingScreen';
@@ -115,8 +114,10 @@ function Shell() {
         <Route path="/mente/ajustes" element={<MindSettingsPage />} />
         <Route path="/mais" element={<MoreScreen />} />
         <Route path="/diario" element={<Navigate to="/mente/painel" replace />} />
-        <Route path="/notas" element={<NotesScreen />} />
+        {/* Notas saiu: o que é anotação vira tarefa (Tarefas ou, do trabalho, Google Tasks na DBC). */}
+        <Route path="/notas" element={<Navigate to="/listas" replace />} />
         <Route path="/leitura" element={<ReadingScreen />} />
+        <Route path="/leitura/importar" element={<ReadingImportScreen />} />
         <Route path="/ajustes" element={<SettingsScreen />} />
         <Route path="/perfil" element={<ProfileScreen />} />
         <Route path="/ciclo" element={<CycleScreen />} />

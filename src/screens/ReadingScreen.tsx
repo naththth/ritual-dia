@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { importGoodreads, coverFromIsbn } from '../domain/goodreads';
-import { Plus, Search, Trash2, Star } from 'lucide-react';
+import { importGoodreads, coverCandidates, coverFromAmazon } from '../domain/goodreads';
+import { useNavigate } from 'react-router-dom';
+import { ChevronRight, Download, FileUp, Plus, Search, Trash2, Star } from 'lucide-react';
 import { PageHead } from './common';
 import { useAll } from '../db/hooks';
 import { create, update, uid } from '../db/db';
@@ -31,34 +32,56 @@ const STATUS: { id: BookStatus; label: string }[] = [
   { id: 'lendo', label: 'Lendo' }, { id: 'quero_ler', label: 'Quero ler' }, { id: 'lido', label: 'Lidos' }, { id: 'abandonado', label: 'Parados' }
 ];
 
-/** Procura a capa no Google Books, pelo ISBN e depois por título e autoria. */
-async function findCover(b: { title: string; authors?: string[]; isbn?: string }): Promise<string | undefined> {
-  const qs = [b.isbn ? `isbn:${b.isbn}` : '', `intitle:${b.title.split(/[:(]/)[0].trim()}${b.authors?.[0] ? ` inauthor:${b.authors[0]}` : ''}`].filter(Boolean);
+/** Busca a capa quando nenhuma das diretas abre: Open Library por título e autoria (capa ou outro ISBN da obra)
+ *  e, por último, o Google Books, que costuma limitar as consultas sem chave. */
+async function findCover(b: { title: string; authors?: string[]; isbn?: string }): Promise<string[]> {
+  const title = b.title.split(/[:(]/)[0].trim();
+  const out: string[] = [];
+  try {
+    const u = `https://openlibrary.org/search.json?title=${encodeURIComponent(title)}${b.authors?.[0] ? `&author=${encodeURIComponent(b.authors[0].split(/ e |,/)[0])}` : ''}&fields=cover_i,isbn&limit=5`;
+    const r = await fetch(u);
+    if (r.ok) {
+      const d = await r.json();
+      for (const doc of d.docs ?? []) {
+        if (doc.cover_i) out.push(`https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`);
+        for (const i of (doc.isbn ?? []).slice(0, 3)) { const a = coverFromAmazon(i); if (a) out.push(a); }
+      }
+    }
+  } catch { /* sem rede */ }
+  const qs = [b.isbn ? `isbn:${b.isbn}` : '', `intitle:${title}${b.authors?.[0] ? ` inauthor:${b.authors[0]}` : ''}`].filter(Boolean);
   for (const q of qs) {
     try {
       const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=5&printType=books`);
       if (!r.ok) continue;
       const d = await r.json();
       const hit = (d.items ?? []).map((it: any) => it.volumeInfo?.imageLinks?.thumbnail).find(Boolean);
-      if (hit) return String(hit).replace(/^http:/, 'https:');
-    } catch { /* sem rede: fica a inicial */ }
+      if (hit) out.push(String(hit).replace(/^http:/, 'https:'));
+    } catch { /* sem rede */ }
   }
-  return undefined;
+  return out.filter((x, i, a) => a.indexOf(x) === i);
 }
 const coverTried = new Set<string>();
 
+/** Tenta as capas em ordem; imagem que não abre ou que vem vazia (1 px) passa para a próxima.
+ *  A primeira que abrir fica gravada no livro, para não procurar de novo. */
 function Cover({ b }: { b: Pick<Book, 'cover' | 'title'> & { isbn?: string; id?: string; authors?: string[] } }) {
-  const [failed, setFailed] = useState(0);
-  const [found, setFound] = useState<string>();
-  // capa salva; se falhar, a do Open Library pelo ISBN; se nenhuma abrir, busca no Google Books e guarda no livro
-  const srcs = [found, b.cover, coverFromIsbn(b.isbn)].filter((x, i, a): x is string => !!x && a.indexOf(x) === i);
-  const src = srcs[failed];
+  const [failed, setFailed] = useState<string[]>([]);
+  const [found, setFound] = useState<string[]>([]);
+  const srcs = coverCandidates(b, []).concat(found).filter((x, i, a) => a.indexOf(x) === i);
+  const src = srcs.find((x) => !failed.includes(x));
+  const fail = (x: string) => setFailed((f) => (f.includes(x) ? f : [...f, x]));
   useEffect(() => {
-    if (src || found || !b.id || coverTried.has(b.id)) return;
+    if (src || !b.id || coverTried.has(b.id)) return;
     coverTried.add(b.id);
-    void findCover(b).then((c) => { if (c) { setFound(c); setFailed(0); void update<'book'>(b.id!, { cover: c }); } });
-  }, [src, found, b.id]);
-  return src ? <img src={src} alt="" loading="lazy" onError={() => setFailed((n) => n + 1)} /> : <span className="nocover">{b.title.charAt(0)}</span>;
+    void findCover(b).then((c) => { if (c.length) setFound(c); });
+  }, [src, b.id]);
+  if (!src) return <span className="nocover">{b.title.charAt(0)}</span>;
+  return <img key={src} src={src} alt="" loading="lazy"
+    onError={() => fail(src)}
+    onLoad={(e) => {
+      if (e.currentTarget.naturalWidth < 20) { fail(src); return; }
+      if (b.id && src !== b.cover) void update<'book'>(b.id, { cover: src });
+    }} />;
 }
 
 export function ReadingScreen() {
@@ -70,7 +93,7 @@ export function ReadingScreen() {
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState<Book | null>(null);
   const ctrl = useRef<AbortController | null>(null);
-  const grRef = useRef<HTMLInputElement>(null);
+  const nav = useNavigate();
   useEffect(() => {
     if (q.trim().length < 3) { setResults(null); return; }
     const t = setTimeout(async () => {
@@ -131,16 +154,9 @@ export function ReadingScreen() {
       {list.map((b) => <BookRow key={b.id} b={b} onOpen={() => setOpen(b)} />)}
       {list.length === 0 && <Empty text={tab === 'lendo' ? 'Nenhum livro em andamento. Busque acima para começar.' : 'Nada nesta estante.'} />}
       <BookSheet book={open} onClose={() => setOpen(null)} />
-      <div style={{ marginTop: 18 }}>
-        <button className="btn btn-soft btn-sm" onClick={() => grRef.current?.click()} data-testid="gr-import">Importar biblioteca do Goodreads (.csv)</button>
-        <input ref={grRef} type="file" accept=".csv,text/csv" hidden data-testid="gr-input" onChange={async (e) => {
-          const f = e.target.files?.[0]; e.target.value = '';
-          if (!f) return;
-          try { const r = await importGoodreads(await f.text()); toast(`${r.added} livros importados${r.updated ? `, ${r.updated} atualizados` : ''}`); }
-          catch (err: any) { toast(err.message, undefined, 'error'); }
-        }} />
-        <p className="field-hint">No Goodreads: Minha estante → Importar/exportar → Exportar biblioteca. Importar de novo não duplica.</p>
-      </div>
+      <button className="link-row" onClick={() => nav('/leitura/importar')} data-testid="gr-import">
+        <Download size={16} /><span className="grow">Importar do Goodreads</span><ChevronRight size={16} />
+      </button>
     </div>
   );
 }
@@ -220,5 +236,40 @@ function BookSheet({ book, onClose }: { book: Book | null; onClose: () => void }
       <textarea value={review} onChange={(e) => setReview(e.target.value)} aria-label="Resenha" />
       {confirmEl}
     </Sheet>
+  );
+}
+
+/** Importar a estante do Goodreads: orientação passo a passo e o botão para escolher o arquivo. */
+export function ReadingImportScreen() {
+  const nav = useNavigate();
+  const ref = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState<{ added: number; updated: number } | null>(null);
+  const pick = async (f?: File) => {
+    if (!f) return;
+    setBusy(true);
+    try { const r = await importGoodreads(await f.text()); setDone(r); toast(`${r.added} livros importados${r.updated ? `, ${r.updated} atualizados` : ''}`); }
+    catch (err: any) { toast(err.message, undefined, 'error'); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div className="screen no-nav" data-testid="reading-import">
+      <PageHead title="Importar do Goodreads" withDate={false} />
+      <p className="small" style={{ margin: '0 0 14px' }}>Traz as estantes, as notas, as datas de leitura e o número de páginas. Importar de novo atualiza o que já existe, sem duplicar.</p>
+      <ol className="gr-steps">
+        <li><b>Abra o Goodreads no navegador</b><span>O app do Goodreads não exporta; use goodreads.com, de preferência no computador.</span></li>
+        <li><b>Minha estante, depois Importar/exportar</b><span>Fica na coluna da esquerda, em Ferramentas.</span></li>
+        <li><b>Exportar biblioteca</b><span>O site prepara um arquivo .csv; quando o link aparecer, baixe.</span></li>
+        <li><b>Escolha o arquivo aqui</b><span>Se baixou no computador, mande para o celular (Drive ou e-mail) e escolha abaixo.</span></li>
+      </ol>
+      <button className="rt-primary" disabled={busy} onClick={() => ref.current?.click()} data-testid="gr-pick"><FileUp size={18} /> {busy ? 'Importando…' : 'Escolher arquivo .csv'}</button>
+      <input ref={ref} type="file" accept=".csv,text/csv" hidden data-testid="gr-input" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; void pick(f); }} />
+      {done && (
+        <div className="wk-done" data-testid="gr-done">
+          <span className="grow small">{done.added} livros novos{done.updated ? ` e ${done.updated} atualizados` : ''}.</span>
+          <button className="link small" onClick={() => nav('/leitura', { replace: true })}>Ver estante</button>
+        </div>
+      )}
+    </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, Activity, CalendarDays, ChartNoAxesColumn, ListChecks, Settings, ChevronRight, StickyNote, BookOpen, UserRound, Droplet, Scale, Target, Linkedin } from 'lucide-react';
+import { Sparkles, Activity, CalendarDays, ChartNoAxesColumn, ListChecks, Settings, ChevronRight, BookOpen, UserRound, Droplet, Scale, Target, Linkedin } from 'lucide-react';
 import { TopBar } from './common';
 
 /* Agrupado pelo uso: o que ela consulta sobre si, o que organiza o dia a dia e o que é registro. Cada bloco tem a cor da paleta. */
@@ -27,7 +27,6 @@ const GROUPS = [
   {
     title: 'Registros',
     items: [
-      { to: '/notas', label: 'Notas', sub: 'Ideias com etiquetas', icon: <StickyNote size={20} />, tone: 't-honey' },
       { to: '/leitura', label: 'Leitura', sub: 'Estante e meta do ano', icon: <BookOpen size={20} />, tone: 't-rose' }
     ]
   }

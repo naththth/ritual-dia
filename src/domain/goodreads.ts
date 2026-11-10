@@ -26,6 +26,26 @@ const date = (s?: string) => (s && /^\d{4}\/\d{2}\/\d{2}$/.test(s.trim()) ? s.tr
 
 export const coverFromIsbn = (isbn?: string) => (isbn ? `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg?default=false` : undefined);
 
+/** ISBN-13 (978...) para ISBN-10. Os 979 não têm ISBN-10. */
+export function isbn10(isbn?: string): string | undefined {
+  const d = (isbn ?? '').replace(/[^0-9X]/gi, '').toUpperCase();
+  if (d.length === 10) return d;
+  if (d.length !== 13 || !d.startsWith('978')) return undefined;
+  const core = d.slice(3, 12);
+  const sum = [...core].reduce((a, c, i) => a + (10 - i) * Number(c), 0);
+  const r = (11 - (sum % 11)) % 11;
+  return core + (r === 10 ? 'X' : String(r));
+}
+
+/** Capa da Amazon pelo ISBN-10: cobre bem as edições brasileiras que faltam no Open Library.
+ *  Quando não tem, devolve uma imagem de 1 px (o app trata como falha). */
+export const coverFromAmazon = (isbn?: string) => { const i = isbn10(isbn); return i ? `https://images-na.ssl-images-amazon.com/images/P/${i}.01.L.jpg` : undefined; };
+
+/** Ordem de tentativa: a capa salva, Amazon e Open Library pelo ISBN. Sem repetir. */
+export function coverCandidates(b: { cover?: string; isbn?: string }, extra: (string | undefined)[] = []): string[] {
+  return [...extra, b.cover, coverFromAmazon(b.isbn), coverFromIsbn(b.isbn)].filter((x, i, a): x is string => !!x && a.indexOf(x) === i);
+}
+
 export async function importGoodreads(text: string): Promise<{ added: number; updated: number }> {
   const rows = parseCsv(text.replace(/^﻿/, ''));
   const head = rows[0].map((h) => h.trim());

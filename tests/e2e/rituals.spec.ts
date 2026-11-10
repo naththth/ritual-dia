@@ -56,7 +56,11 @@ test('ritual da manhã passo a passo e o conselho troca o treino forte', async (
   // Sai no meio: o ritual continua no Hoje e retoma de onde parou.
   await page.getByLabel('Fechar').click();
   await expect(page.getByTestId('ritual-hero-am')).toContainText('Continuar · 1 de 4');
-  await expect(page.getByTestId('ritual-pill-pm')).toContainText('0 de 4');
+  // Com o ritual aberto para preencher, ele vem antes dos números do dia.
+  expect((await page.getByTestId('ritual-hero-am').boundingBox())!.y).toBeLessThan((await page.getByTestId('today-stats').boundingBox())!.y);
+  // Fora de hora, o outro ritual não ocupa o Hoje: fica no +.
+  await expect(page.getByTestId('ritual-hero-pm')).toHaveCount(0);
+  await expect(page.getByTestId('ritual-pills')).toHaveCount(0);
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/hoje-ritual-meio.png', fullPage: true });
   await page.getByTestId('ritual-hero-am').click();
   await expect(page.getByTestId('ritual-am')).toContainText('Antes de sair');
@@ -101,7 +105,14 @@ test('ritual da manhã passo a passo e o conselho troca o treino forte', async (
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/ritual-fim.png' });
   await page.getByTestId('rt-close').click();
   await expect(page.getByTestId('ritual-hero-am')).toHaveCount(0);
-  await expect(page.getByTestId('ritual-pill-am')).toContainText('Feito');
+  // Feito, os números do dia voltam ao topo; rever o ritual é pelo +.
+  const statsBox = await page.getByTestId('today-stats').boundingBox();
+  const councilBox = await page.getByTestId('council').boundingBox();
+  expect(statsBox!.y).toBeLessThan(councilBox!.y);
+  await page.getByTestId('fab').click();
+  await page.getByTestId('reg-ritual-am').click();
+  await expect(page.getByTestId('ritual-am')).toBeVisible();
+  await page.getByLabel('Fechar').click();
   await expect(page.getByTestId('tl-checkin-am')).toContainText('cansada');
   // Aprova a troca do treino.
   await page.getByTestId('council-regen').getByTestId('council-approve').click();
@@ -181,4 +192,12 @@ test('leitura da semana: números, leitura da equipe e ajustes levados à especi
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/semana.png', fullPage: true });
   await page.getByText('Combinar com a treinadora').click();
   await expect(page.getByTestId('coach-input').or(page.locator('[data-testid="coach"] textarea'))).toHaveValue(/Trocar o pedal de quarta/);
+  // Concluir a leitura tira o convite do Hoje.
+  await page.goto('./#/semana');
+  await page.getByTestId('week-conclude').click();
+  await expect(page.getByTestId('week-done')).toBeVisible();
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/semana-concluida.png', fullPage: true });
+  await page.goto('./#/');
+  await expect(page.getByTestId('today-stats')).toBeVisible();
+  await expect(page.getByTestId('week-teaser')).toHaveCount(0);
 });

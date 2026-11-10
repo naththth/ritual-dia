@@ -279,7 +279,7 @@ test('importar treino .FIT e ver potência, FC e zonas', async ({ page }) => {
   await page.screenshot({ path: 'test-results/shots/treino-fit.png', fullPage: true });
 });
 
-test('diário saiu do menu: o antigo aparece no Painel da Mente e as notas seguem em Notas', async ({ page }) => {
+test('diário e notas saíram do menu: o diário antigo aparece no Painel da Mente e Notas leva a Tarefas', async ({ page }) => {
   await onboard(page);
   await expect(page.getByTestId('tl-journal')).toContainText('Fechar o dia');
   // Uma entrada antiga do diário continua visível no Painel da Mente.
@@ -295,12 +295,9 @@ test('diário saiu do menu: o antigo aparece no Painel da Mente e as notas segue
   await expect(page.getByTestId('old-journal')).toContainText('Dia produtivo, pedal rendeu.');
   await page.getByTestId('nav-menu').click();
   await expect(page.getByRole('link', { name: 'Diário' })).toHaveCount(0);
+  await expect(page.getByTestId('dr-notas')).toHaveCount(0);
   await page.goto('./#/notas');
-  await page.getByRole('button', { name: 'Nova nota' }).click();
-  await page.getByLabel('Texto da nota').fill('Ideia: comprar rolo de espuma');
-  await page.getByTestId('note-save').click();
-  await page.getByLabel('Buscar nas notas').fill('espuma');
-  await expect(page.getByTestId('note-row')).toHaveCount(1);
+  await expect(page).toHaveURL(/#\/listas/);
 });
 
 test('subir .FIT pelo botão + e ver a carga de treino', async ({ page }) => {
@@ -392,11 +389,18 @@ test('treino trocado: fez outra modalidade no lugar do planejado', async ({ page
 test('importar biblioteca do Goodreads', async ({ page }) => {
   await onboard(page);
   await page.goto('./#/leitura');
+  // Importar fica num link discreto que abre a página com o passo a passo.
+  await page.getByTestId('gr-import').click();
+  await expect(page.getByTestId('reading-import')).toContainText('Exportar biblioteca');
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/leitura-importar.png', fullPage: true });
   await page.getByTestId('gr-input').setInputFiles(path.resolve('tests/e2e/fixtures/goodreads-test.csv'));
-  await expect(page.getByTestId('book-row').first()).toBeVisible();
+  await expect(page.getByTestId('gr-done')).toContainText('livros novos');
+  await page.getByTestId('gr-input').setInputFiles(path.resolve('tests/e2e/fixtures/goodreads-test.csv'));
+  await expect(page.getByTestId('gr-done')).toContainText('atualizados');
+  await page.getByText('Ver estante').click();
   await expect(page.getByTestId('reading-screen')).toContainText('Livro Lendo Um');
-  await page.getByTestId('gr-input').setInputFiles(path.resolve('tests/e2e/fixtures/goodreads-test.csv'));
   await expect(page.getByTestId('book-row')).toHaveCount(2); // lendo: 2, sem duplicar
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/leitura.png', fullPage: true });
 });
 
 test('ciclo: marcar menstruação, ver fase nos Indicadores e previsão', async ({ page }) => {

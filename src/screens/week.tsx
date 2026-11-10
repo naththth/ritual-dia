@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useNavigate } from 'react-router-dom';
-import { ArrowDown, ArrowUp, Brain, ChevronLeft, ChevronRight, Dumbbell, Moon, Pill, RefreshCw, Sparkles, Utensils, Coffee, Scale, Sun } from 'lucide-react';
+import { ArrowDown, ArrowUp, Brain, Check, ChevronLeft, ChevronRight, Dumbbell, Moon, Pill, RefreshCw, Sparkles, Utensils, Coffee, Scale, Sun } from 'lucide-react';
 import { useRecord } from '../db/hooks';
+import { update } from '../db/db';
 import { addDays, isoWeekday, shortLabel, todayKey, weekStart, type DateKey } from '../lib/dates';
 import { aiAvailable } from '../domain/ai';
 import { aiWeekCross, weekData, weekToRead, type Pattern } from '../domain/week';
@@ -128,19 +129,39 @@ export function WeekScreen() {
         {data!.patterns.length ? data!.patterns.map((p, k) => <PatternCard key={p.id} p={p} k={k} />) : (
           <p className="small muted" data-testid="patterns-empty">Ainda não há dias suficientes para comparar. Os padrões aparecem com algumas semanas de check-ins, sono e café registrados, e ficam mais confiáveis com o tempo.</p>
         )}
+        {review && <ConcludeRead id={review.id} doneAt={review.doneAt} />}
       </>}
     </div>
   );
 }
 
-/** Convite no Hoje: domingo à noite e segunda, a leitura da semana. */
+/** Fim da leitura: concluída, o convite sai do Hoje. Dá para desfazer. */
+function ConcludeRead({ id, doneAt }: { id: string; doneAt?: DateKey }) {
+  const set = async (v?: DateKey) => {
+    await update<'review'>(id, { doneAt: v });
+    toast(v ? 'Leitura concluída. O convite saiu do Hoje.' : 'Leitura reaberta', v ? () => void update<'review'>(id, { doneAt: undefined }) : undefined);
+  };
+  return doneAt ? (
+    <div className="wk-done" data-testid="week-done">
+      <span className="wk-done-ic"><Check size={16} strokeWidth={3} /></span>
+      <span className="grow small">Leitura concluída em {shortLabel(doneAt)}.</span>
+      <button className="link small" onClick={() => void set(undefined)}>Reabrir</button>
+    </div>
+  ) : (
+    <button className="rt-primary wk-conclude" onClick={() => void set(todayKey())} data-testid="week-conclude">
+      <Check size={18} strokeWidth={3} /> Concluir leitura
+    </button>
+  );
+}
+
+/** Convite no Hoje: domingo à noite e segunda, a leitura da semana, até ela concluir a leitura. */
 export function WeekTeaser({ date }: { date: DateKey }) {
   const nav = useNavigate();
   const wd = isoWeekday(date);
   const h = new Date().getHours();
   const from = weekToRead(date);
   const review = useRecord<'review'>(`review:cross:${from}`);
-  if (date !== todayKey() || !((wd === 7 && h >= 17) || wd === 1)) return null;
+  if (date !== todayKey() || !((wd === 7 && h >= 17) || wd === 1) || review === undefined || review?.doneAt) return null;
   return (
     <button className="week-teaser anim-rise" onClick={() => nav('/semana')} data-testid="week-teaser">
       <span className="wt-bars" aria-hidden><i /><i /><i /><i /><i /></span>

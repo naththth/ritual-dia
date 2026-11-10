@@ -42,7 +42,7 @@ test('Mente: tomadas no Hoje, café com horário, sem PIN, check-in, painel e re
   await seed(page);
   // Hoje: um único +, que reúne tudo (inclusive café); a tomada aparece na linha do tempo.
   await expect(page.getByTestId('mind-today')).toHaveCount(0);
-  await expect(page.getByTestId('ritual-pills')).toBeVisible();
+  await expect(page.getByTestId('ritual-pills')).toHaveCount(0);
   await expect(page.locator('.water-plus')).toHaveCount(1);
   await page.getByTestId('fab').click();
   await page.getByTestId('reg-coffee').click();

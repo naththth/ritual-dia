@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Droplets, Dumbbell, Moon, Ruler, SquareCheck, Sunrise, Utensils, ListPlus, Upload, Coffee, Pill, Smile } from 'lucide-react';
+import { Droplets, Dumbbell, Moon, MoonStar, Ruler, SquareCheck, Sun, Sunrise, Utensils, ListPlus, Upload, Coffee, Pill, Smile } from 'lucide-react';
 import { CoffeeSheet } from './mind';
 import { importFitFiles } from '../domain/fitImport';
 import { useApp, toast } from '../state/store';
@@ -20,7 +20,10 @@ export function RegisterSheet({ open, onClose }: { open: boolean; onClose: () =>
   const [coffee, setCoffee] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const go = (path: string) => { onClose(); afterSheetClose(() => nav(path)); };
+  // Os rituais ficam aqui para rever ou preencher fora de hora; no Hoje só aparece o que está aberto agora.
   const items = [
+    { icon: <Sun size={22} />, label: 'Ritual da manhã', color: '#F3D7A6', on: () => go('/ritual/am'), testId: 'reg-ritual-am' },
+    { icon: <MoonStar size={22} />, label: 'Ritual da noite', color: '#DCD0E8', on: () => go('/ritual/pm'), testId: 'reg-ritual-pm' },
     { icon: <Sunrise size={22} />, label: 'Pele da manhã', color: 'var(--rose)', on: () => go('/pele?p=am') },
     { icon: <Moon size={22} />, label: 'Pele da noite', color: 'var(--rose)', on: () => go('/pele?p=pm') },
     { icon: <Utensils size={22} />, label: 'Refeição', color: 'var(--honey)', on: () => go('/alimentacao/refeicao') },
@@ -38,8 +41,9 @@ export function RegisterSheet({ open, onClose }: { open: boolean; onClose: () =>
     <>
       <Sheet open={open && !sub} onClose={onClose} title="Registrar" sub={`Em ${shortLabel(date)}`} testId="register-sheet">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          {/* Ícone no topo e nome logo abaixo: nomes de uma e de duas linhas começam na mesma altura. */}
           {items.map((it) => (
-            <button key={it.label} onClick={it.on} data-testid={(it as any).testId} className="tap" style={{ background: it.color, borderRadius: 18, padding: 14, minHeight: 84, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', fontWeight: 700 }}>
+            <button key={it.label} onClick={it.on} data-testid={(it as any).testId} className="tap" style={{ background: it.color, borderRadius: 18, padding: 14, minHeight: 84, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: 12, textAlign: 'left', fontWeight: 700 }}>
               {it.icon}<span>{it.label}</span>
             </button>
           ))}

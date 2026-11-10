@@ -38,3 +38,14 @@ export function scheduleFromSleep(s: SleepPlan, date: DateKey) {
     skinPm: fromMin(bed - 30)
   };
 }
+
+/** Acordar é o horário-meta dos Ajustes. O que vem do relógio (Garmin, pelo intervals.icu) é a duração do sono;
+ *  o horário em que ela acordou só existe quando é digitado ou lido de um print em Indicadores. */
+export function wakeDetail(goalH: number, w?: { sleepH?: number; sleepManualH?: number; sleepEnd?: string }) {
+  const h = w?.sleepManualH ?? w?.sleepH;
+  const goal = `meta de ${hoursLabel(goalH)}`;
+  if (!h) return `Horário-meta, ${goal} de sono`;
+  const m = Math.round(h * 60);
+  const slept = `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}`;
+  return w?.sleepEnd ? `Acordou às ${w.sleepEnd}, dormiu ${slept} (${goal})` : `Dormiu ${slept} pelo relógio, ${goal}`;
+}
