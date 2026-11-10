@@ -104,7 +104,7 @@ function CoachSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
     try {
       const r = await approveProposal(m.proposal);
       commit(msgs.map((x, k) => (k === i ? { ...x, proposal: { ...m.proposal!, status: 'aprovado', sent: r.sent }, done: [...(x.done ?? []), ...r.done], undo: [...(x.undo ?? []), ...r.undo], undone: false } : x)));
-      toast(r.sent === 'enviado' ? 'Treino no app e a caminho do MyWhoosh' : r.sent === 'falhou' ? 'Treino no app; o envio ao intervals falhou, tento de novo na próxima hora' : 'Treino no app');
+      toast(r.sent === 'enviado' ? 'Treino no app e a caminho do MyWhoosh' : r.sent === 'falhou' ? 'Treino no app; o envio ao intervals falhou, tento de novo na próxima hora' : 'Treino no app', undefined, r.sent === 'falhou' ? 'error' : 'default');
     } catch (e: any) { toast(`Não consegui aplicar: ${e.message}`, undefined, 'error'); }
     finally { setApproving(null); }
   };

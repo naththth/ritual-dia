@@ -150,7 +150,9 @@ test('editar e desfazer registro em data anterior', async ({ page }) => {
   await page.goto('./#/indicadores');
   await page.getByTestId('habit-Meditação').click();
   await expect(page.getByTestId('habit-Meditação')).toHaveAttribute('aria-pressed', 'true');
-  await page.getByRole('button', { name: 'Desfazer' }).click();
+  // Sem aviso por cima da tela: desfaz tocando de novo.
+  await expect(page.getByRole('button', { name: 'Desfazer' })).toHaveCount(0);
+  await page.getByTestId('habit-Meditação').click();
   await expect(page.getByTestId('habit-Meditação')).toHaveAttribute('aria-pressed', 'false');
   await page.goBack();
   // concluir tarefa em data passada pede confirmação da data

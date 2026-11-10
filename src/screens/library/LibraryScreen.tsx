@@ -475,7 +475,7 @@ function FillProductImages() {
       if (!fresh.length) for (const p of missing) await update<'product'>(p.id, { imageTried: undefined } as any);
       if (!fresh.length) { const { syncNow } = await import('../../sync/sync'); await syncNow(); }
       const r = await fillProductImages((done, left) => setBusy(`Buscando fotos… ${done} prontas, faltam ${left}`));
-      toast(r.done ? `${r.done} ${r.done === 1 ? 'foto encontrada' : 'fotos encontradas'}${r.failed ? `; ${r.failed} sem foto na internet` : ''}` : 'Não achei fotos novas. Você pode tirar a foto no produto.');
+      toast(r.done ? `${r.done} ${r.done === 1 ? 'foto encontrada' : 'fotos encontradas'}${r.failed ? `; ${r.failed} sem foto na internet` : ''}` : 'Não achei fotos novas. Você pode tirar a foto no produto.', undefined, 'default', { important: true });
     } catch (e: any) { toast(e.message, undefined, 'error'); } finally { setBusy(null); }
   };
   return (
@@ -501,7 +501,7 @@ function FillProductInfo() {
       setRun({ done: i + 1, total: missing.length });
     }
     setRun(null);
-    toast(`${ok} fichas preenchidas. Confira as de certeza baixa.`);
+    toast(`${ok} fichas preenchidas. Confira as de certeza baixa.`, undefined, 'default', { important: true });
   };
   return (
     <button className="lib-item" onClick={go} disabled={!!run} data-testid="fill-product-info">

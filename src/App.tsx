@@ -5,7 +5,7 @@ import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-d
 import { useApp } from './state/store';
 import { AddButton } from './screens/common';
 import { ensureDefaults } from './domain/defaults';
-import { initSync } from './sync/sync';
+import { initSync, useSync } from './sync/sync';
 import { useSettings } from './db/hooks';
 import { Toasts } from './ui/ui';
 import { DayScreen } from './screens/DayScreen';
@@ -49,10 +49,14 @@ export function App() {
       setBooted(true);
       initSync().catch((e) => console.error(e));
     })();
+    // Logada, confere se este aparelho continua inscrito para receber lembretes.
+    let last: string | undefined;
+    const unsub = useSync.subscribe((st) => { const id = st.session?.user.id; if (id && id !== last) { last = id; import('./sync/services').then((m) => m.healPush()); } });
     const update = registerSW({
       // Se a versão nova chegar enquanto o app ainda abre, troca na hora; depois de aberto, pergunta.
       onNeedRefresh() { if (!bootedRef.current) update(true); else toast('Versão nova do Ritual pronta', () => update(true), 'default', { label: 'Atualizar', sticky: true }); }
     });
+    return unsub;
   }, []);
   if (!booted) return <div className="app" style={{ display: 'grid', placeItems: 'center', minHeight: '100dvh' }}><span className="wordmark">Ritual</span></div>;
   return (

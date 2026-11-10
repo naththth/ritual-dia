@@ -109,7 +109,7 @@ export function HabitsBlock({ date }: { date: DateKey }) {
   if (!habits) return null;
   const tap = async (h: Habit) => {
     const st = habitDay(h, date, logs ?? [], workouts ?? []);
-    if (st.viaWorkout && !st.manual) { toast(`${h.title} já contou pelo treino deste dia.`); return; }
+    if (st.viaWorkout && !st.manual) { toast(`${h.title} já contou pelo treino deste dia.`, undefined, 'default', { important: true }); return; }
     await toggleHabit(h, date, st.manual);
   };
   return (

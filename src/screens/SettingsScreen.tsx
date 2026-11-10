@@ -44,7 +44,7 @@ export function SettingsScreen() {
     const a = document.createElement('a');
     a.href = url; a.download = file.name; a.click();
     setTimeout(() => URL.revokeObjectURL(url), 2000);
-    toast('Backup gerado');
+    toast('Backup gerado', undefined, 'default', { important: true });
   };
   const doRestore = async (f?: File) => {
     if (!f) return;
@@ -53,7 +53,7 @@ export function SettingsScreen() {
       const ok = await ask({ title: 'Restaurar este backup?', text: `${b.records.length} registros de ${new Date(b.exportedAt).toLocaleString('pt-BR')}. Para cada item, fica a versão mais recente; nada mais novo é sobrescrito.`, ok: 'Restaurar' });
       if (!ok) return;
       const r = await restoreBackup(b);
-      toast(`Restaurado: ${r.applied} registros aplicados${r.photos ? `, ${r.photos} fotos` : ''}`);
+      toast(`Restaurado: ${r.applied} registros aplicados${r.photos ? `, ${r.photos} fotos` : ''}`, undefined, 'default', { important: true });
     } catch (e: any) {
       toast(e?.message ?? 'Não foi possível ler o backup.', undefined, 'error');
     } finally { if (restoreInput.current) restoreInput.current.value = ''; }
@@ -63,7 +63,7 @@ export function SettingsScreen() {
     try {
       const p = parseImport(JSON.parse(await f.text()));
       const r = await applyImport(p, p.preview.tagSuggestions.map((t) => t.tag));
-      toast(`${r.created} itens importados; ${r.skipped} já existiam`);
+      toast(`${r.created} itens importados; ${r.skipped} já existiam`, undefined, 'default', { important: true });
     } catch (e: any) { toast(e?.message ?? 'Arquivo inválido', undefined, 'error'); }
     finally { if (importInput.current) importInput.current.value = ''; }
   };
@@ -192,7 +192,7 @@ export function SettingsScreen() {
             <span className="grow small">Instale o Ritual na tela inicial para abrir como app e usar sem internet.</span>
             <button className="btn btn-ink btn-sm" onClick={async () => {
               if (deferredPrompt) { deferredPrompt.prompt(); deferredPrompt = null; }
-              else toast('No Chrome, toque no menu ⋮ e depois em "Instalar app".');
+              else toast('No Chrome, toque no menu ⋮ e depois em "Instalar app".', undefined, 'default', { important: true });
             }}>Instalar</button>
           </div>
         )}
@@ -200,8 +200,8 @@ export function SettingsScreen() {
           const reg = await navigator.serviceWorker?.getRegistration();
           if (!reg) { location.reload(); return; }
           await reg.update().catch(() => undefined);
-          if (reg.waiting || reg.installing) { toast('Atualizando…'); reg.waiting?.postMessage({ type: 'SKIP_WAITING' }); setTimeout(() => location.reload(), 900); }
-          else toast('Você já está na versão mais recente.');
+          if (reg.waiting || reg.installing) { toast('Atualizando…', undefined, 'default', { important: true }); reg.waiting?.postMessage({ type: 'SKIP_WAITING' }); setTimeout(() => location.reload(), 900); }
+          else toast('Você já está na versão mais recente.', undefined, 'default', { important: true });
         }}>Procurar atualização</button>
         <p className="small" style={{ marginBottom: 0 }}>Armazenamento {persisted ? 'protegido contra limpeza automática' : 'comum (o navegador pode limpar se faltar espaço; mantenha a sincronização ou faça backups)'}.</p>
         <button className="btn btn-danger btn-sm" style={{ marginTop: 14 }} onClick={async () => {

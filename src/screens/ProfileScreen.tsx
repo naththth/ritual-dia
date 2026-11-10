@@ -314,7 +314,7 @@ function HealthSection({ health, onChange, open0 }: { health: NonNullable<Profil
     if (!files?.length) return;
     setBusy(true);
     try {
-      for (const f of Array.from(files)) { const d = await addHealthDoc(f); toast(`${f.name} guardado. A IA está lendo; pode continuar usando o app.`); setOpen(d.id); }
+      for (const f of Array.from(files)) { const d = await addHealthDoc(f); toast(`${f.name} guardado. A IA está lendo; pode continuar usando o app.`, undefined, 'default', { important: true }); setOpen(d.id); }
     } catch (e: any) { toast(e.message, undefined, 'error'); } finally { setBusy(false); if (fileRef.current) fileRef.current.value = ''; }
   };
   // Documentos enviados antes da leitura em segundo plano guardavam a falha no resumo.

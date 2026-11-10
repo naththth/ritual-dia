@@ -139,7 +139,7 @@ function OrganizeButton() {
   if (!aiAvailable()) return null;
   const run = async () => {
     setBusy(true);
-    try { const { organizeProducts } = await import('../domain/skinLayers'); const n = await organizeProducts(); toast(n ? `Ordem e modo de uso de ${n} produtos atualizados` : 'Nada mudou'); }
+    try { const { organizeProducts } = await import('../domain/skinLayers'); const n = await organizeProducts(); toast(n ? `Ordem e modo de uso de ${n} produtos atualizados` : 'Nada mudou', undefined, 'default', { important: true }); }
     catch (e: any) { toast(e.message, undefined, 'error'); } finally { setBusy(false); }
   };
   return <button className="btn btn-soft btn-block" style={{ margin: '0 0 10px' }} onClick={run} disabled={busy} data-testid="organize-layers"><ListOrdered size={18} />{busy ? 'Organizando… leva cerca de 1 minuto' : 'Reorganizar ordem de aplicação e modo de uso'}</button>;

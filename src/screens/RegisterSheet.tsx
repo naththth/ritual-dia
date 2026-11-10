@@ -75,7 +75,7 @@ function HabitQuick({ open, onClose }: { open: boolean; onClose: () => void }) {
       <div className="chips">
         {(habits ?? []).filter((h) => !h.archived).map((h) => {
           const st = habitDay(h, date, logs ?? [], workouts ?? []);
-          return <Chip key={h.id} color="olive" on={st.done} onClick={() => st.viaWorkout && !st.manual ? toast(`${h.title} já contou pelo treino.`) : toggleHabit(h, date, st.manual)}>{h.title}</Chip>;
+          return <Chip key={h.id} color="olive" on={st.done} onClick={() => st.viaWorkout && !st.manual ? toast(`${h.title} já contou pelo treino.`, undefined, 'default', { important: true }) : toggleHabit(h, date, st.manual)}>{h.title}</Chip>;
         })}
       </div>
     </Sheet>

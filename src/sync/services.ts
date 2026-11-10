@@ -36,6 +36,7 @@ export async function pushStatus(): Promise<'unsupported' | 'denied' | 'off' | '
 
 export async function enablePush() {
   if (!pushSupported()) throw new Error('Este navegador não aceita notificações. No Android, instale o app pela tela inicial.');
+  try { localStorage.removeItem('push-off'); } catch { /* */ }
   const perm = await Notification.requestPermission();
   if (perm !== 'granted') throw new Error('Permissão de notificação negada. Libere nas configurações do Android para o Ritual.');
   const reg = await navigator.serviceWorker.ready;
@@ -47,7 +48,22 @@ export async function enablePush() {
   await svc('push_test');
 }
 
+/** Ao abrir o app logado: garante que a inscrição deste aparelho está no servidor. Ela pode sumir de lá (o envio
+ *  apaga inscrições que o Chrome recusou) sem o aparelho saber, e aí nenhum lembrete chega. Não religa o que ela desligou. */
+export async function healPush() {
+  try {
+    if (!pushSupported() || Notification.permission !== 'granted' || !supabase || !useSync.getState().session) return;
+    if (localStorage.getItem('push-off') === '1') return;
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) { const { key } = await svc<{ key: string }>('vapid'); sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8(key) }); }
+    const j = sub.toJSON() as any;
+    await supabase.from('push_subs').upsert({ endpoint: sub.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, user_id: useSync.getState().session!.user.id });
+  } catch { /* sem rede ou sem permissão: tenta na próxima abertura */ }
+}
+
 export async function disablePush() {
+  try { localStorage.setItem('push-off', '1'); } catch { /* */ }
   const reg = await navigator.serviceWorker.getRegistration();
   const sub = await reg?.pushManager.getSubscription();
   if (sub) {

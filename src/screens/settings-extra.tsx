@@ -50,7 +50,7 @@ export function RemindersSection() {
           ) : (
             <button className="btn btn-ink btn-sm" disabled={busy} onClick={async () => {
               setBusy(true);
-              try { await enablePush(); setStatus('on'); toast('Pronto. Você deve receber uma notificação de teste.'); }
+              try { await enablePush(); setStatus('on'); toast('Pronto. Você deve receber uma notificação de teste.', undefined, 'default', { important: true }); }
               catch (e: any) { toast(e.message, undefined, 'error'); } finally { setBusy(false); }
             }} data-testid="push-enable"><Bell size={16} />Ativar notificações</button>
           )}
@@ -166,7 +166,7 @@ export function IntervalsSection() {
     try {
       const r = await syncIntervalsNow(30);
       await update<'settings'>('settings', { intervals: { ...(conn ?? {}), connected: true, lastSync: Date.now() } });
-      toast(`${r.pushed} treinos enviados ao MyWhoosh; ${r.activities} atividades e ${r.wellness} dias de sono e passos recebidos`);
+      toast(`${r.pushed} treinos enviados ao MyWhoosh; ${r.activities} atividades e ${r.wellness} dias de sono e passos recebidos`, undefined, 'default', { important: true });
     } catch (e: any) { toast(e.message, undefined, 'error'); } finally { setBusy(false); }
   };
   return (

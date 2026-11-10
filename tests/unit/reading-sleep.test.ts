@@ -85,3 +85,17 @@ describe('livro parado', () => {
     expect(stalledDays({ ...b, status: 'lido' as any }, [], '2026-11-09')).toBeUndefined();
   });
 });
+
+import { useApp } from '../../src/state/store';
+describe('avisos na tela', () => {
+  it('confirmações não aparecem; erros, versão nova e avisos essenciais sim', () => {
+    const st = useApp.getState();
+    st.toast('Plano salvo');
+    st.toast('Hábito feito', () => undefined);
+    expect(useApp.getState().toasts).toHaveLength(0);
+    st.toast('Falhou', undefined, 'error');
+    st.toast('Versão nova', () => undefined, 'default', { sticky: true, label: 'Atualizar' });
+    st.toast('Esse livro já está na sua estante.', undefined, 'default', { important: true });
+    expect(useApp.getState().toasts.map((t) => t.text)).toEqual(['Versão nova', 'Falhou', 'Esse livro já está na sua estante.']);
+  });
+});

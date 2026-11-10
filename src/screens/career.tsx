@@ -71,7 +71,7 @@ export function GoogleTasks({ compact }: { compact?: boolean } = {}) {
   const testing = typeof window !== 'undefined' && !!(window as any).__RITUAL_TEST_GTASKS;
   const load = async () => { try { setRes(await listGTasks()); } catch (e) { setRes({ error: (e as Error).message }); } };
   useEffect(() => { if (session || testing) void load(); }, [session, saved]);
-  useEffect(() => { if (saved === true) toast('Google Tasks conectado'); else if (saved === false) toast('Não consegui guardar a conexão com o Google Tasks. Tente de novo.'); }, [saved]);
+  useEffect(() => { if (saved === true) toast('Google Tasks conectado'); else if (saved === false) toast('Não consegui guardar a conexão com o Google Tasks. Tente de novo.', undefined, 'error'); }, [saved]);
   if (!session && !testing) return null;
   if (compact) {
     if (res === 'loading' || !('status' in res) || res.status !== 'ok') return null;
@@ -91,13 +91,13 @@ export function GoogleTasks({ compact }: { compact?: boolean } = {}) {
       </section>
     );
   }
-  const connect = async () => { setBusy(true); try { await connectGoogleTasks(); } catch (e) { toast((e as Error).message); setBusy(false); } };
+  const connect = async () => { setBusy(true); try { await connectGoogleTasks(); } catch (e) { toast((e as Error).message, undefined, 'error'); setBusy(false); } };
   const done = async (t: GTask) => doneTask(t);
   async function doneTask(t: GTask) {
     if (res === 'loading' || !('status' in res) || res.status !== 'ok') return;
     setRes({ status: 'ok', tasks: res.tasks.filter((x) => x.id !== t.id) });
     haptic();
-    try { await completeGTask(t); toast('Feita, também no Google Tasks'); } catch (e) { toast((e as Error).message); void load(); }
+    try { await completeGTask(t); toast('Feita, também no Google Tasks'); } catch (e) { toast((e as Error).message, undefined, 'error'); void load(); }
   }
   return (
     <section className="block b-paper gt" data-testid="gtasks">

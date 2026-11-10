@@ -110,7 +110,7 @@ export function ReadingScreen() {
   const goal = settings?.readingGoal;
   const add = async (g: GBook, status: BookStatus) => {
     const exists = books.find((b) => b.googleId === g.googleId);
-    if (exists) { toast('Esse livro já está na sua estante.'); return; }
+    if (exists) { toast('Esse livro já está na sua estante.', undefined, 'default', { important: true }); return; }
     await create('book', { title: g.title, authors: g.authors, cover: g.cover, pages: g.pages, googleId: g.googleId, isbn: g.isbn, status, quotes: [], startedAt: status === 'lendo' ? todayKey() : undefined, currentPage: status === 'lendo' ? 0 : undefined });
     toast(status === 'lendo' ? 'Livro em "Lendo"' : 'Livro em "Quero ler"');
     setQ(''); setResults(null); setTab(status);

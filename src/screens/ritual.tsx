@@ -210,7 +210,7 @@ function DoseTile({ date, doses, label }: { date: DateKey; doses: Dose[]; label:
   const all = doses.length > 0 && doses.every((x) => x.log);
   // Marca só o que falta. Desfazer é na Mente, onde está o registro de cada tomada.
   const toggle = async () => {
-    if (all) { toast('Já registrado na Mente', () => nav('/mente/tomo'), 'default', { label: 'Ajustar' }); return; }
+    if (all) { toast('Já registrado na Mente', () => nav('/mente/tomo'), 'default', { label: 'Ajustar', important: true }); return; }
     for (const x of doses.filter((y) => !y.log)) await markDose(x.item, date, x.slot, 'tomei');
   };
   return <Tile on={all} icon={<Pill size={20} />} title={label} sub={doses.map((x) => short(x.item.alias?.trim() || x.item.name)).join(', ')} onClick={() => void toggle()} testId="rt-basic-doses" />;
@@ -222,7 +222,7 @@ function BasicsStep({ date, d, onDone }: { date: DateKey; d: RitualData; onDone:
   // O ritual só anota que você comeu; o que foi o café é registrado na Alimentação, nunca presumido pelo plano.
   const cafeOn = !!d.cafeMeal || !!b.cafe;
   const toggleCafe = () => {
-    if (d.cafeMeal) { toast('Já registrado na Alimentação', () => nav('/alimentacao/refeicao?m=cafe'), 'default', { label: 'Ver' }); return; }
+    if (d.cafeMeal) { toast('Já registrado na Alimentação', () => nav('/alimentacao/refeicao?m=cafe'), 'default', { label: 'Ver', important: true }); return; }
     void saveRitual(date, 'am', { basics: { ...b, cafe: !b.cafe } });
   };
   return (

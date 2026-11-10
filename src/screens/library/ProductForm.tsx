@@ -55,7 +55,7 @@ export function ProductForm({ product, initial, onDone }: { product?: Product; i
         info: { ...(x.info ?? {}), ...Object.fromEntries(Object.entries(r.info).filter(([, v]) => v !== undefined)) }
       }));
       setReadNote(r.note);
-      toast(r.info.confidence === 'baixa' ? 'Ficha preenchida, mas com pouca certeza. Confira.' : 'Ficha preenchida. Confira antes de salvar.');
+      toast(r.info.confidence === 'baixa' ? 'Ficha preenchida, mas com pouca certeza. Confira.' : 'Ficha preenchida. Confira antes de salvar.', undefined, 'default', { important: r.info.confidence === 'baixa' });
     } catch (e: any) { toast(e.message, undefined, 'error'); } finally { setReading(false); }
   };
   const camPick = usePhotoPicker({ onFiles: (fs) => identify(fs), multiple: true });

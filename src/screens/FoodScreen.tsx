@@ -81,7 +81,7 @@ export function FoodScreen() {
   const useTemplate = (t: MealTemplate) => {
     const add = t.items.filter((i) => !items.some((x) => x.foodId === i.foodId));
     setItems((xs) => [...xs, ...add]);
-    toast(add.length ? `${add.length} ${add.length === 1 ? 'item foi' : 'itens foram'} para o prato. Toque em um para ajustar a quantidade.` : 'Esses itens já estão no prato.');
+    toast(add.length ? `${add.length} ${add.length === 1 ? 'item foi' : 'itens foram'} para o prato. Toque em um para ajustar a quantidade.` : 'Esses itens já estão no prato.', undefined, 'default', { important: !add.length });
   };
   const addNew = async (data: Partial<Food>) => {
     const existing = activeFoods.find((f) => f.sourceRef && f.sourceRef === data.sourceRef);
@@ -125,7 +125,7 @@ export function FoodScreen() {
     const ok = await ask({ title: `Copiar refeições de ${shortLabel(addDays(date, -1))}?`, text: 'Só entram as refeições que ainda não foram registradas hoje. Nada é substituído.', ok: 'Copiar' });
     if (!ok) return;
     const n = await copyMealsFrom(addDays(date, -1), date);
-    toast(n ? `${n} ${n === 1 ? 'refeição copiada' : 'refeições copiadas'}` : 'Nada para copiar');
+    toast(n ? `${n} ${n === 1 ? 'refeição copiada' : 'refeições copiadas'}` : 'Nada para copiar', undefined, 'default', { important: !n });
   };
   // Vindo do resumo do dia com ?edit=ID: abre direto a ficha daquele item.
   const editParam = params.get('edit');
