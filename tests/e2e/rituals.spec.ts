@@ -217,3 +217,32 @@ test('leitura da semana: números, leitura da equipe e ajustes levados à especi
   await expect(page.getByTestId('today-stats')).toBeVisible();
   await expect(page.getByTestId('week-teaser')).toHaveCount(0);
 });
+
+test('Acordei vem do toque no alarme; sem alarme, da primeira abertura do app', async ({ page }) => {
+  await seed(page);
+  await page.evaluate(async () => {
+    // Noite sem horários digitados e o alarme tocado às 06:52.
+    const req = indexedDB.open('ritual');
+    const db: IDBDatabase = await new Promise((r) => { req.onsuccess = () => r(req.result); });
+    const tx = db.transaction(['records'], 'readwrite');
+    tx.objectStore('records').put({ id: 'wellness:2026-11-04', kind: 'wellness', date: '2026-11-04', sleepH: 7.2, deleted: 0, dirty: 0, updatedAt: 9, createdAt: 9 });
+    await new Promise((r) => { tx.oncomplete = r; });
+    const s = indexedDB.open('ritual-signals', 1);
+    s.onupgradeneeded = () => s.result.createObjectStore('kv');
+    const sdb: IDBDatabase = await new Promise((r) => { s.onsuccess = () => r(s.result); });
+    const t2 = sdb.transaction('kv', 'readwrite'); t2.objectStore('kv').put('06:52', 'alarm:2026-11-04');
+    await new Promise((r) => { t2.oncomplete = r; });
+  });
+  await page.reload();
+  await page.getByTestId('ritual-hero-am').click();
+  await expect(page.getByLabel('Acordei às')).toHaveValue('06:52');
+  await expect(page.getByTestId('rt-wake-from')).toContainText('alarme');
+  // A primeira abertura (07:30, quando o app abriu) ficou guardada como reserva.
+  const open = await page.evaluate(async () => {
+    const s = indexedDB.open('ritual-signals', 1);
+    const sdb: IDBDatabase = await new Promise((r) => { s.onsuccess = () => r(s.result); });
+    const g = sdb.transaction('kv').objectStore('kv').get('open:2026-11-04');
+    return await new Promise((r) => { g.onsuccess = () => r(g.result); });
+  });
+  expect(open).toBe('07:30');
+});

@@ -99,3 +99,18 @@ describe('avisos na tela', () => {
     expect(useApp.getState().toasts.map((t) => t.text)).toEqual(['Versão nova', 'Falhou', 'Esse livro já está na sua estante.']);
   });
 });
+
+import { inMorning, pickWake } from '../../src/lib/wakeSignals';
+describe('horário de acordar pelos sinais do aparelho', () => {
+  it('alarme vence; abertura antes do alarme vale; sem nada, nada', () => {
+    expect(pickWake('07:02', '07:15')).toEqual({ time: '07:02', from: 'alarm' });
+    expect(pickWake('07:00', '06:40')).toEqual({ time: '06:40', from: 'open' });
+    expect(pickWake(undefined, '07:20')).toEqual({ time: '07:20', from: 'open' });
+    expect(pickWake()).toBeUndefined();
+  });
+  it('só conta de manhã', () => {
+    expect(inMorning(7 * 60)).toBe(true);
+    expect(inMorning(2 * 60 + 59)).toBe(false);
+    expect(inMorning(12 * 60)).toBe(false);
+  });
+});

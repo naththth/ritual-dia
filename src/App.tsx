@@ -49,6 +49,10 @@ export function App() {
       setBooted(true);
       initSync().catch((e) => console.error(e));
     })();
+    // Primeira vez que o Ritual aparece na tela de manhã: reserva para o "Acordei" do ritual da manhã.
+    const seen = () => { if (document.visibilityState === 'visible') void import('./lib/wakeSignals').then((m) => m.noteSignal('open')); };
+    seen();
+    document.addEventListener('visibilitychange', seen);
     // Logada, confere se este aparelho continua inscrito para receber lembretes.
     let last: string | undefined;
     const unsub = useSync.subscribe((st) => { const id = st.session?.user.id; if (id && id !== last) { last = id; import('./sync/services').then((m) => m.healPush()); } });
@@ -56,7 +60,7 @@ export function App() {
       // Se a versão nova chegar enquanto o app ainda abre, troca na hora; depois de aberto, pergunta.
       onNeedRefresh() { if (!bootedRef.current) update(true); else toast('Versão nova do Ritual pronta', () => update(true), 'default', { label: 'Atualizar', sticky: true }); }
     });
-    return unsub;
+    return () => { unsub(); document.removeEventListener('visibilitychange', seen); };
   }, []);
   if (!booted) return <div className="app" style={{ display: 'grid', placeItems: 'center', minHeight: '100dvh' }}><span className="wordmark">Ritual</span></div>;
   return (

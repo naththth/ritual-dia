@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 import { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
+import { noteSignal } from './lib/wakeSignals';
 
 declare const self: ServiceWorkerGlobalScope & { __WB_MANIFEST: any };
 
@@ -25,8 +26,13 @@ self.addEventListener('push', (event) => {
   } as NotificationOptions));
 });
 
+// Tocar ou dispensar o alarme de acordar é o sinal mais confiável de que ela acordou (o celular fica ao lado da cama).
+const noteAlarm = (n: Notification) => (n.tag === 'wake' ? noteSignal('alarm') : Promise.resolve());
+self.addEventListener('notificationclose', (event) => { event.waitUntil(noteAlarm(event.notification)); });
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  event.waitUntil(noteAlarm(event.notification));
   // Abre sempre na janela do app instalado (marcada com ?app=1), nunca numa aba do Chrome.
   const raw: string = event.notification.data?.url ?? self.registration.scope;
   const hash = raw.includes('#') ? raw.slice(raw.indexOf('#')) : '#/';

@@ -17,6 +17,7 @@ import { brandToday, questionFor, ritualId, saveRitual } from '../domain/ritual'
 import { agendaSig, askRitual, type RitualAgenda } from '../domain/ritualai';
 import { Chip, TimeInput } from '../ui/ui';
 import { haptic, toast } from '../state/store';
+import { wakeSignal } from '../lib/wakeSignals';
 import type { MoodCheckin, RitualDay, Task } from '../db/types';
 
 type P = 'am' | 'pm';
@@ -156,7 +157,13 @@ function CheckinStep({ p, date, d, onDone }: { p: P; date: DateKey; d: RitualDat
   const w = d.well;
   // Deitar e acordar: o relógio só manda a duração. Vem preenchido com o que já existe ou com a meta; ela confirma ou ajusta.
   const [bed, setBed] = useState(w?.sleepStart ?? (d.sp ? bedFor(d.sp, addDays(date, -1)) : '22:00'));
-  const [wake, setWake] = useState(w?.sleepEnd ?? (d.sp ? wakeFor(d.sp, date) : '06:00'));
+  const [wake, setWake] = useState(w?.sleepEnd ?? (d.sp ? wakeFor(d.sp, date) : '07:00'));
+  // Sem horário confirmado, o "Acordei" vem do toque no alarme ou da primeira abertura do app hoje; a meta é o último recurso.
+  const [wakeFrom, setWakeFrom] = useState<'alarm' | 'open' | undefined>();
+  useEffect(() => {
+    if (p !== 'am' || w?.sleepEnd) return;
+    void wakeSignal(date).then((sg) => { if (sg) { setWake(sg.time); setWakeFrom(sg.from); } });
+  }, [date, p]);
   const save = async () => {
     if (p === 'am' && bed && wake) await saveSleepTimes(date, bed, wake);
     await saveCheckin(date, p, { mood: st.mood, energy: st.energy, irritability: st.irritability, anxiety: st.anxiety, racing: st.racing, wake: st.wake, tags: st.tags ?? [], note: d.mood?.note });
@@ -173,8 +180,9 @@ function CheckinStep({ p, date, d, onDone }: { p: P; date: DateKey; d: RitualDat
           <span className="rt-label" style={{ marginTop: 0 }}>{w?.timesConfirmed ? 'Seu horário de sono' : 'Confirme ou ajuste o horário'}</span>
           <div className="rt-sleep-row">
             <label><span>Deitei</span><TimeInput value={bed} onChange={setBed} label="Deitei às" /></label>
-            <label><span>Acordei</span><TimeInput value={wake} onChange={setWake} label="Acordei às" /></label>
+            <label><span>Acordei</span><TimeInput value={wake} onChange={(v) => { setWake(v); setWakeFrom(undefined); }} label="Acordei às" /></label>
           </div>
+          {wakeFrom && <span className="rt-hint" style={{ textAlign: 'left' }} data-testid="rt-wake-from">{wakeFrom === 'alarm' ? 'Pela hora em que você mexeu no alarme.' : 'Pela primeira vez que abriu o Ritual hoje.'}</span>}
           {!w?.sleepH && bedToWakeH(bed, wake) ? <span className="rt-hint" style={{ textAlign: 'left' }}>Sem dado do relógio ainda: {bedToWakeH(bed, wake)!.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} h na cama.</span> : null}
         </div>
       )}
