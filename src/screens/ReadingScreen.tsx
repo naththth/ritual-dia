@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { importGoodreads, coverCandidates, coverFromAmazon } from '../domain/goodreads';
+import { importGoodreads, coverCandidates, coverFromAmazon, stalledDays } from '../domain/goodreads';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, Download, FileUp, Plus, Search, Trash2, Star } from 'lucide-react';
 import { PageHead } from './common';
@@ -162,6 +162,8 @@ export function ReadingScreen() {
 }
 
 function BookRow({ b, onOpen }: { b: Book; onOpen: () => void }) {
+  const logs = useAll('readlog');
+  const stalled = logs ? stalledDays(b, logs, todayKey()) : undefined;
   const pct = b.pages && b.currentPage ? Math.min(100, (b.currentPage / b.pages) * 100) : 0;
   const addPages = async (n: number) => {
     const to = Math.min(b.pages ?? Infinity, (b.currentPage ?? 0) + n);
@@ -181,6 +183,15 @@ function BookRow({ b, onOpen }: { b: Book; onOpen: () => void }) {
               <button className="pill-act pa-rose" onClick={() => addPages(25)}>+25 pág.</button>
               <button className="pill-act pa-ghost" onClick={onOpen}>Atualizar</button>
             </div>
+            {stalled != null && (
+              <div className="bk-stalled" data-testid="book-stalled">
+                <span className="small">{stalled > 120 ? 'Sem avanço há meses.' : `Sem avanço há ${Math.round(stalled / 7)} semanas.`} Segue na mesa de cabeceira?</span>
+                <div className="row wrap" style={{ gap: 6 }}>
+                  <button className="link small" onClick={() => void update<'book'>(b.id, { keptAt: todayKey() }).then(() => toast('Fica em Lendo'))}>Continuo lendo</button>
+                  <button className="link small" onClick={() => void update<'book'>(b.id, { status: 'abandonado' }).then(() => toast('Foi para Parados', () => void update<'book'>(b.id, { status: 'lendo' })))} data-testid="book-park">Mover para Parados</button>
+                </div>
+              </div>
+            )}
           </>
         )}
         {b.status === 'lido' && <div className="small">{b.rating ? '★'.repeat(b.rating) + '☆'.repeat(5 - b.rating) : 'Sem nota'}{b.finishedAt ? `, terminado em ${shortLabel(b.finishedAt)}` : ''}</div>}

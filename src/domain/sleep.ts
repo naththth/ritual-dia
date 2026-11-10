@@ -49,3 +49,11 @@ export function wakeDetail(goalH: number, w?: { sleepH?: number; sleepManualH?: 
   const slept = `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}`;
   return w?.sleepEnd ? `Acordou às ${w.sleepEnd}, dormiu ${slept} (${goal})` : `Dormiu ${slept} pelo relógio, ${goal}`;
 }
+
+/** Duração entre deitar e acordar (HH:MM), atravessando a meia-noite. Sem latência: é o tempo na cama. */
+export function bedToWakeH(bed?: string, wake?: string): number | undefined {
+  const a = toMin(bed), b = toMin(wake);
+  if (a == null || b == null) return undefined;
+  const d = (b - a + 24 * 60) % (24 * 60);
+  return d > 0 && d <= 16 * 60 ? Math.round((d / 60) * 100) / 100 : undefined;
+}

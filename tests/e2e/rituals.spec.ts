@@ -46,13 +46,26 @@ test('ritual da manhã passo a passo e o conselho troca o treino forte', async (
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/hoje-ritual.png', fullPage: true });
   await page.getByTestId('ritual-hero-am').click();
   await expect(page.getByTestId('ritual-am')).toContainText('Como você acordou?');
+  // No ritual, o + não cobre o botão de seguir.
+  await expect(page.getByTestId('fab')).toBeHidden();
   await expect(page.getByTestId('ritual-am')).toContainText('5,4 h de sono');
   await expect(page.getByTestId('rt-tab-treino')).toHaveCount(0);
+  // Deitar e acordar vêm do que já existe (aqui, digitado) e ficam gravados ao salvar.
+  await expect(page.getByLabel('Acordei às')).toHaveValue('06:05');
+  await page.getByLabel('Deitei às').fill('2310');
+  await page.getByLabel('Deitei às').blur();
   await page.getByTestId('rt-wake-cansada').click();
   await page.getByTestId('rt-mood--1').click();
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/ritual-checkin.png' });
   await page.getByTestId('rt-checkin-save').click();
   await expect(page.getByTestId('ritual-am')).toContainText('Antes de sair');
+  const well = await page.evaluate(async () => {
+    const req = indexedDB.open('ritual');
+    const db: IDBDatabase = await new Promise((r) => { req.onsuccess = () => r(req.result); });
+    const g = db.transaction('records').objectStore('records').get('wellness:2026-11-04');
+    return await new Promise<any>((r) => { g.onsuccess = () => r(g.result); });
+  });
+  expect([well.sleepStart, well.sleepEnd, well.sleepH, well.timesConfirmed]).toEqual(['23:10', '06:05', 5.4, true]);
   // Sai no meio: o ritual continua no Hoje e retoma de onde parou.
   await page.getByLabel('Fechar').click();
   await expect(page.getByTestId('ritual-hero-am')).toContainText('Continuar · 1 de 4');
@@ -190,6 +203,9 @@ test('leitura da semana: números, leitura da equipe e ajustes levados à especi
   const ctx = await page.evaluate(() => (window as any).__ctx.week_cross);
   expect(ctx.semana).toBe('2026-11-02 a 2026-11-08');
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/semana.png', fullPage: true });
+  await page.getByTestId('week-to-task').first().click();
+  await expect(page.getByTestId('week-task-added')).toHaveCount(1);
+  await expect(page.getByTestId('week-to-task')).toHaveCount(1);
   await page.getByText('Combinar com a treinadora').click();
   await expect(page.getByTestId('coach-input').or(page.locator('[data-testid="coach"] textarea'))).toHaveValue(/Trocar o pedal de quarta/);
   // Concluir a leitura tira o convite do Hoje.

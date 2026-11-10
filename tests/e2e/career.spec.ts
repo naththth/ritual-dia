@@ -224,6 +224,9 @@ test('DBC: tarefas do Google Tasks aparecem e concluir marca lá também; sem co
     };
   });
   await seed(page);
+  // No Hoje (04/11): só o que vence até hoje ou não tem data; a de 05/11 fica para a Carreira.
+  await expect(page.getByTestId('gtask-today-row')).toHaveCount(1);
+  await expect(page.getByTestId('gtasks-today')).toContainText('Pauta do 1:1 com a equipe');
   await page.goto('./#/carreira');
   await page.getByPlaceholder('Nome da empresa').fill('DBC');
   await page.getByRole('button', { name: 'Salvar' }).click();

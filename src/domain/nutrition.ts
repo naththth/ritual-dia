@@ -296,3 +296,22 @@ export function defaultItem(food: Food): MealItem {
   const u = unitsFor(food).find((x) => x.key !== 'g' && x.grams);
   return u ? itemFromUnit(food.id, u, 1) : { foodId: food.id, portion: '100 g', grams: 100 };
 }
+
+/** Nome curto do alimento para listas: tira o que vem depois da vírgula ou do parêntese ("Pão, de queijo, assado" → "Pão de queijo"). */
+export function shortFoodName(name: string): string {
+  const parts = name.split(',').map((x) => x.trim()).filter(Boolean);
+  // TACO escreve "Pão, de queijo, assado": junta o primeiro com o segundo quando o segundo começa com preposição.
+  const base = parts.length > 1 && /^(de|do|da|com|em)\b/i.test(parts[1]) ? `${parts[0]} ${parts[1]}` : parts[0] ?? name;
+  return base.replace(/\s*\(.*?\)\s*/g, ' ').trim();
+}
+
+/** Resumo de refeição para a linha do tempo: os dois itens que mais pesam em calorias e o total. */
+export function mealSummary(items: MealItem[], foods: Food[]): string {
+  const byId = new Map(foods.map((f) => [f.id, f]));
+  const ranked = items.map((i) => ({ f: byId.get(i.foodId), k: itemNutr(byId.get(i.foodId), i)?.kcal ?? 0 })).sort((a, b) => b.k - a.k);
+  const names = ranked.map((x) => (x.f ? shortFoodName(x.f.name) : '?')).filter((x, i, a) => a.indexOf(x) === i);
+  const head = names.slice(0, 2).join(' e ');
+  const more = names.length > 2 ? ` e mais ${names.length - 2}` : '';
+  const kc = totals(items, foods).n.kcal;
+  return `${names.length > 2 ? names.slice(0, 2).join(', ') : head}${more}${kc > 0 ? ` · ${fmt(kc)} kcal` : ''}`;
+}

@@ -1526,7 +1526,8 @@ input[type=checkbox]:checked::after { content: ''; width: 6px; height: 11px; bor
 /* avisos sobem para não cobrir o + */
 .toasts { bottom: calc(var(--nav-h) + 96px + var(--safe-b)); }
 /* telas com barra de salvar ou campo de conversa embaixo: o + sai para não cobrir os botões */
-body:has(.save-bar) .fab-float, body:has(.chat-input) .fab-float { display: none; }
+/* Onde há botão fixo embaixo (barra de salvar, conversa, ritual guiado), o + sai para não cobrir o botão. */
+body:has(.save-bar) .fab-float, body:has(.chat-input) .fab-float, body:has(.ritual) .fab-float { display: none; }
 
 /* ---------- Sua semana: concluir a leitura ---------- */
 .wk-conclude { margin: 26px 0 96px; }
@@ -1540,3 +1541,19 @@ body:has(.save-bar) .fab-float, body:has(.chat-input) .fab-float { display: none
 .gr-steps li::before { content: counter(gr); position: absolute; left: 14px; top: 12px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--rose); color: var(--rose-ink); font-weight: 800; font-size: 14px; }
 .gr-steps li b { font-size: 15.5px; }
 .gr-steps li span { font-size: 14px; color: var(--ink-2); }
+
+/* ---------- Ritual da manhã: deitar e acordar ---------- */
+.rt-sleep { margin: 4px 0 6px; }
+.rt-sleep-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.rt-sleep-row label { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: var(--r-m, 18px); background: rgba(255,255,255,.7); }
+.rt-sleep-row label span { font-size: 12.5px; font-weight: 750; letter-spacing: .04em; text-transform: uppercase; opacity: .7; }
+.rt-sleep-row input { background: transparent; border: 0; padding: 0; min-height: 32px; font-size: 22px; font-weight: 750; font-variant-numeric: tabular-nums; }
+.wk-added { display: inline-flex; align-items: center; gap: 5px; min-height: 34px; padding: 0 12px; border-radius: 999px; background: var(--olive); color: var(--olive-ink); font-weight: 700; }
+
+/* ---------- O que muda hoje: especialistas e radar num bloco só ---------- */
+.focus { background: var(--card); border-radius: var(--r-l); padding: 14px 16px 10px; margin: 0 0 14px; box-shadow: 0 1px 0 rgba(42, 26, 16, .06); }
+.focus .council-item { border-top: 1px solid var(--line); }
+.focus-group:empty { display: none; }
+.focus-more { display: block; margin: 4px 0 2px; }
+.bk-stalled { margin-top: 10px; padding: 10px 12px; border-radius: 14px; background: var(--paper-2); display: flex; flex-direction: column; gap: 4px; }
+.bk-stalled .link { min-height: 32px; }

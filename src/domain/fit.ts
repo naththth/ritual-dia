@@ -146,3 +146,12 @@ export function intensityFrom(m: WorkoutMetrics): 'leve' | 'moderada' | 'intensa
   if (m.if != null) return m.if < 0.7 ? 'leve' : m.if < 0.85 ? 'moderada' : 'intensa';
   return 'moderada';
 }
+
+/** Ritmo a partir de duração e distância: corrida e caminhada em min/km, natação em min/100 m. */
+export function paceLabel(modalityId: string | undefined, minutes?: number, km?: number): string | undefined {
+  if (!minutes || !km || km <= 0) return undefined;
+  const mmss = (min: number) => { const t = Math.round(min * 60); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
+  if (modalityId === 'mod:natacao') return `${mmss(minutes / (km * 10))}/100 m`;
+  if (modalityId === 'mod:corrida' || modalityId === 'mod:caminhada') return `${mmss(minutes / km)}/km`;
+  return undefined;
+}

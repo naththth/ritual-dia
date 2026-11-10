@@ -61,7 +61,9 @@ export function QuickAdd({ categoryId, alt, autoFocus, onAdded }: { categoryId?:
 
 /* ---------- Trabalho ---------- */
 /* ---------- Google Tasks: o que ela anota no PC da DBC aparece aqui ---------- */
-function GoogleTasks() {
+/** compact: versão do Hoje. Só aparece conectado e com algo vencendo até hoje (ou sem data); mostra até 4 e leva à Carreira. */
+export function GoogleTasks({ compact }: { compact?: boolean } = {}) {
+  const nav = useNavigate();
   const session = useSync((s) => s.session);
   const saved = useSync((s) => s.gtasksSaved);
   const [res, setRes] = useState<GTasksResult | 'loading' | { error: string }>('loading');
@@ -71,13 +73,32 @@ function GoogleTasks() {
   useEffect(() => { if (session || testing) void load(); }, [session, saved]);
   useEffect(() => { if (saved === true) toast('Google Tasks conectado'); else if (saved === false) toast('Não consegui guardar a conexão com o Google Tasks. Tente de novo.'); }, [saved]);
   if (!session && !testing) return null;
+  if (compact) {
+    if (res === 'loading' || !('status' in res) || res.status !== 'ok') return null;
+    const today = todayKey();
+    const due = res.tasks.filter((t) => !t.due || t.due <= today).sort((a, b) => (a.due ? 0 : 1) - (b.due ? 0 : 1) || (a.due ?? '').localeCompare(b.due ?? ''));
+    if (!due.length) return null;
+    return (
+      <section className="block b-paper gt" data-testid="gtasks-today" aria-label="Google Tasks de hoje">
+        <div className="bh"><h2>Do trabalho</h2><button className="link small" onClick={() => nav('/carreira')}>Ver todas</button></div>
+        <div className="list">{due.slice(0, 4).map((t) => (
+          <div key={t.id} className="row-item" data-testid="gtask-today-row">
+            <button className="gt-check" aria-label={`Concluir ${t.title}`} onClick={() => void doneTask(t)}><Check size={14} /></button>
+            <span className="grow"><span className="t">{t.title}</span><span className="s">{t.due ? (t.due < today ? `Venceu ${shortLabel(t.due)}` : 'Hoje') : t.listName ?? 'Sem data'}</span></span>
+          </div>
+        ))}</div>
+        {due.length > 4 && <p className="small muted" style={{ margin: '8px 0 0' }}>E mais {due.length - 4} na Carreira.</p>}
+      </section>
+    );
+  }
   const connect = async () => { setBusy(true); try { await connectGoogleTasks(); } catch (e) { toast((e as Error).message); setBusy(false); } };
-  const done = async (t: GTask) => {
+  const done = async (t: GTask) => doneTask(t);
+  async function doneTask(t: GTask) {
     if (res === 'loading' || !('status' in res) || res.status !== 'ok') return;
     setRes({ status: 'ok', tasks: res.tasks.filter((x) => x.id !== t.id) });
     haptic();
     try { await completeGTask(t); toast('Feita, também no Google Tasks'); } catch (e) { toast((e as Error).message); void load(); }
-  };
+  }
   return (
     <section className="block b-paper gt" data-testid="gtasks">
       <div className="bh"><h2>Google Tasks</h2>{res !== 'loading' && 'status' in res && res.status === 'ok' && <button className="link small" onClick={() => void load()} data-testid="gtasks-reload">Atualizar</button>}</div>

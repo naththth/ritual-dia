@@ -1,7 +1,7 @@
 // Radar do dia no Hoje: junta comida, água, treino, recuperação, pele e clima e mostra só o que pede atenção agora.
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Activity, ChevronDown, Droplets, Dumbbell, Moon, Radar as RadarIcon, Sparkles, Sun, Utensils } from 'lucide-react';
+import { Droplets, Dumbbell, Moon, Sparkles, Sun, Utensils } from 'lucide-react';
 import { useAll, useByDate, useByRange, useSettings } from '../db/hooks';
 import { addDays, todayKey, type DateKey } from '../lib/dates';
 import { planFor, plannedTraining } from '../domain/rules';
@@ -73,30 +73,17 @@ export function useRadar(date: DateKey): RadarItem[] | undefined {
   });
 }
 
-export function RadarCard({ date }: { date: DateKey }) {
-  const items = useRadar(date);
+export function RadarItemView({ r }: { r: RadarItem }) {
   const nav = useNavigate();
-  const [all, setAll] = useState(false);
-  if (!items) return null;
-  const shown = all ? items : items.slice(0, 3);
   return (
-    <section className="radar" data-testid="radar" aria-label="Radar do dia">
-      <div className="row between" style={{ alignItems: 'center' }}>
-        <span className="brief-k" style={{ color: 'var(--ink)' }}><RadarIcon size={15} />Radar do dia</span>
-        <button className="link small" style={{ minHeight: 32 }} onClick={() => nav('/indicadores')}><Activity size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />Indicadores</button>
+    <div className={`rd-item rd-${r.tone}`} data-testid={`radar-${r.id}`}>
+      <span className="rd-ic">{ICON[r.tone]}</span>
+      <div className="grow">
+        <b>{r.title}</b>
+        <p>{r.text}</p>
+        {r.why && <span className="rd-why">{r.why}</span>}
+        {r.action && <button className="pill-act pa-ghost rd-act" onClick={() => nav(r.action!.to)}>{r.action.label}</button>}
       </div>
-      {items.length === 0 ? <p className="small muted" style={{ margin: '6px 0 0' }}>Nada pedindo atenção agora. Comida, água, treino e recuperação estão no ritmo.</p> : shown.map((r) => (
-        <div key={r.id} className={`rd-item rd-${r.tone}`} data-testid={`radar-${r.id}`}>
-          <span className="rd-ic">{ICON[r.tone]}</span>
-          <div className="grow">
-            <b>{r.title}</b>
-            <p>{r.text}</p>
-            {r.why && <span className="rd-why">{r.why}</span>}
-            {r.action && <button className="pill-act pa-ghost rd-act" onClick={() => nav(r.action!.to)}>{r.action.label}</button>}
-          </div>
-        </div>
-      ))}
-      {items.length > 3 && <button className="link small" onClick={() => setAll(!all)}>{all ? 'Mostrar menos' : `Mais ${items.length - 3}`}<ChevronDown size={14} style={{ transform: all ? 'rotate(180deg)' : undefined, verticalAlign: '-2px', marginLeft: 2 }} /></button>}
-    </section>
+    </div>
   );
 }

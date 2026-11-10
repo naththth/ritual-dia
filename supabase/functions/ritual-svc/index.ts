@@ -75,6 +75,24 @@ async function dueReminders(userId: string, now: ReturnType<typeof nowParts>): P
       out.push({ key: 'wake', at: toMin(wake)!, alarm: true, title: `Bom dia. São ${wake}.`, body: tr.length ? `Hoje: ${tr.join(', ')}. O ritual da manhã está pronto.` : 'O ritual da manhã está pronto.', url: '#/ritual/am' });
     }
     if (sp.bed) out.push({ key: 'bed', at: bedMin - 15, title: `Deitar às ${bed}`, body: sp.bedGoal ? `Faltam 15 min. Tela longe e luz baixa: deitar no horário é o que mais protege o humor e o sono.` : `Faltam 15 min. Tela longe e luz baixa para dormir ${hrs} e acordar às ${wakeFor(addDays(now.date, 1))}.`, url: '#/' });
+    // Treino da noite que terminou perto da hora de deitar: um aviso só, logo depois do treino, com o caminho mais curto até a cama.
+    if (sp.bed && now.min >= 17 * 60) {
+      const { data: ws } = await admin.from('records').select('data').eq('user_id', userId).eq('kind', 'workout').eq('deleted', false).eq('data->>date', now.date);
+      const ends = (ws ?? []).map((x: any) => x.data).filter((w: any) => w?.startTime && w?.duration)
+        .map((w: any) => nowParts(new Date(new Date(w.startTime).getTime() + w.duration * 60_000)).min);
+      const end = ends.length ? Math.max(...ends) : undefined;
+      // Só quando sobra menos de 2 h até deitar. O treino chega pela sincronização de hora em hora, então o aviso sai
+      // na primeira rodada depois que ele aparece (e uma vez por dia), desde que ainda faltem 10 min para deitar.
+      if (end != null && end <= bedMin && bedMin - end <= 120 && now.min >= end + 5 && now.min < bedMin - 10) {
+        const hm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+        const left = bedMin - now.min;
+        out.push({ key: 'bed-after-training', at: now.min, title: `Treino feito. Deitar às ${bed}`,
+          body: left <= 60
+            ? `Faltam ${left} min até deitar. Banho morno, jantar leve e a rotina da noite só com limpeza e hidratante.`
+            : `O treino terminou às ${hm(end)}. Dá tempo de jantar com calma: banho morno, jantar leve e rotina da noite enxuta para deitar às ${bed}.`,
+          url: '#/' });
+      }
+    }
   }
   if (r.morning) out.push({ key: 'morning', at: toMin(r.morning)!, title: 'Ritual da manhã', body: 'Como acordou, o básico e o foco do dia. Uns 2 minutos.', url: '#/ritual/am' });
   if (r.evening && !today.some((x) => x.kind === 'mood' && x.period === 'pm')) out.push({ key: 'evening', at: toMin(r.evening)!, title: 'Ritual da noite', body: 'Como foi, o resumo e o que leva para amanhã. Uns 2 minutos.', url: '#/ritual/pm' });

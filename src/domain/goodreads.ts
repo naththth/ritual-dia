@@ -1,6 +1,7 @@
 // Importa a biblioteca exportada do Goodreads (CSV): estantes, notas, datas, páginas e capa pelo ISBN.
 import { db, upsert } from '../db/db';
-import type { Book, BookStatus } from '../db/types';
+import type { Book, BookStatus, ReadLog } from '../db/types';
+import { addDays, type DateKey } from '../lib/dates';
 
 /** CSV com aspas e vírgulas dentro de campos. */
 export function parseCsv(text: string): string[][] {
@@ -76,4 +77,13 @@ export async function importGoodreads(text: string): Promise<{ added: number; up
     if (prev && !prev.deleted) updated++; else added++;
   }
   return { added, updated };
+}
+
+/** Livro em "Lendo" sem página registrada há 3 semanas (contando do início, do último registro ou de quando ela disse
+ *  que continua). Devolve há quantos dias, para o aviso; senão, undefined. */
+export function stalledDays(b: Pick<Book, 'id' | 'status' | 'startedAt' | 'keptAt'>, logs: Pick<ReadLog, 'bookId' | 'date'>[], today: DateKey): number | undefined {
+  if (b.status !== 'lendo') return undefined;
+  const last = [b.startedAt, b.keptAt, ...logs.filter((l) => l.bookId === b.id).map((l) => l.date)].filter((x): x is string => !!x).sort().pop();
+  if (!last || last > addDays(today, -21)) return undefined;
+  return Math.round((Date.parse(today + 'T12:00:00Z') - Date.parse(last + 'T12:00:00Z')) / 86400000);
 }

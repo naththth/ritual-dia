@@ -60,6 +60,12 @@ export async function saveCheckin(date: DateKey, period: 'am' | 'pm', data: Part
   await upsert('mood', moodId(date, period), { date, period, tags: [], ...data });
 }
 
+/** Horários de deitar e acordar confirmados no ritual da manhã. Ficam no registro do sono do dia, ao lado do que o
+ *  relógio manda (a sincronização com o intervals.icu não apaga). A duração continua sendo a do relógio. */
+export async function saveSleepTimes(date: DateKey, sleepStart: string, sleepEnd: string) {
+  await upsert('wellness', `wellness:${date}`, { date, sleepStart, sleepEnd, timesConfirmed: true });
+}
+
 export async function addCaffeine(date: DateKey, label: string, mg: number, time?: string) {
   return create('caffeine', { date, label, mg, time: time ?? (date === todayKey() ? hm() : '09:00') });
 }

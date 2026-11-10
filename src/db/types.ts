@@ -456,6 +456,8 @@ export interface Wellness extends Base {
   sleepFlag?: 'confirmado' | 'incompleto';
   /** Horas estimadas por ela quando dormiu sem relógio ou o registro saiu incompleto. Prevalece sobre o do relógio. */
   sleepManualH?: number;
+  /** Deitar e acordar confirmados por ela no ritual da manhã (o relógio só manda a duração). */
+  timesConfirmed?: boolean;
 }
 export interface Journal extends Base {
   kind: 'journal'; date: DateKey;
@@ -472,6 +474,8 @@ export interface Book extends Base {
   kind: 'book'; title: string; authors: string[]; cover?: string; pages?: number; googleId?: string; isbn?: string;
   status: BookStatus; startedAt?: DateKey; finishedAt?: DateKey; rating?: number; currentPage?: number;
   quotes: { id: string; text: string; page?: number }[]; review?: string;
+  /** Quando ela respondeu "continuo lendo" ao aviso de livro parado: o aviso volta só depois de 3 semanas. */
+  keptAt?: DateKey;
 }
 export interface ReadLog extends Base { kind: 'readlog'; date: DateKey; bookId: string; pages: number; toPage?: number }
 export interface Review extends Base {

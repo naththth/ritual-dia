@@ -6,11 +6,11 @@ import { useAll, useByDate, useRecord, useSettings } from '../db/hooks';
 import { planFor, plannedFood, plannedSkin, plannedTraining, trainingDay } from '../domain/rules';
 import { nightAdjust } from '../domain/skinAdapt';
 import { mealFromTemplate, saveSkin, workoutFromTemplate, addWater } from '../domain/actions';
-import { fmt, totals } from '../domain/nutrition';
+import { fmt, mealSummary, totals } from '../domain/nutrition';
 import { watts } from '../domain/ai';
 import { addDays, todayKey, type DateKey } from '../lib/dates';
 import { sleepPlan, wakeFor, bedFor, hoursLabel, wakeDetail } from '../domain/sleep';
-import type { MealItem } from '../db/types';
+import { paceLabel } from '../domain/fit';
 import { WaterSheet } from './WaterSheet';
 import { dosesFor, slotsFor, toMin as tmin, fromMin } from '../domain/mind';
 import { markDose } from '../domain/mindload';
@@ -108,11 +108,9 @@ export function useTimeline(date: DateKey): TLItem[] | undefined {
     const tpl = plannedMeals[m.id] ? mt.find((t) => t.id === plannedMeals[m.id]) : undefined;
     const skipped = skips.some((s) => s.domain === 'food' && s.ref === m.id);
     if (!meal && !tpl && !['cafe', 'almoco', 'jantar'].includes(m.id)) continue;
-    const kc = (its: MealItem[]) => { const t = totals(its, foods); return t.n.kcal > 0 ? `, ${fmt(t.n.kcal)} kcal` : ''; };
-    const names = (its: MealItem[]) => its.map((i) => `${foods.find((f) => f.id === i.foodId)?.name ?? '?'} ${i.portion}`).join(', ');
     items.push({
       key: `meal-${m.id}`, time: mTimes[m.id], mod: 'food', icon: <Utensils size={18} />, title: m.label,
-      detail: meal ? names(meal.items) + kc(meal.items) : tpl && !skipped ? names(tpl.items) + kc(tpl.items) : skipped ? 'Não hoje' : 'Não registrado',
+      detail: meal ? mealSummary(meal.items, foods) : tpl && !skipped ? mealSummary(tpl.items, foods) : skipped ? 'Não hoje' : 'Não registrado',
       done: !!meal, skipped,
       action: !meal && tpl && !skipped ? { label: 'Comi isso', run: () => mealFromTemplate(tpl, date, m.id, true), testId: `act-meal-${m.id}` } : !meal ? { label: 'Registrar', run: () => undefined } : undefined,
       open: `/alimentacao/refeicao?m=${m.id}`
@@ -180,7 +178,8 @@ export function useTimeline(date: DateKey): TLItem[] | undefined {
 
 function workoutLine(w: any, _mods: any[]) {
   const m = w.metrics;
-  const parts = [w.duration && `${w.duration} min`, m?.distanceKm && `${m.distanceKm} km`, m?.np ? `${m.np} W NP` : m?.avgPower && `${m.avgPower} W`, m?.avgHr && `FC ${m.avgHr}`, m?.kcal && `${m.kcal} kcal`].filter(Boolean);
+  const pace = paceLabel(w.modalityId, w.duration, m?.distanceKm);
+  const parts = [w.duration && `${w.duration} min`, m?.distanceKm && `${String(m.distanceKm).replace('.', ',')} km`, pace, m?.np ? `${m.np} W NP` : m?.avgPower && `${m.avgPower} W`, m?.avgHr && `FC ${m.avgHr}`, m?.kcal && `${m.kcal} kcal`].filter(Boolean);
   return parts.length ? parts.join(', ') : 'Feito';
 }
 

@@ -8,16 +8,16 @@ import { TaskPicker, TaskRow, TaskSheet, prioLabel } from './tasks';
 import {
   habitDay, habitProgress, suggestTasks, suggestionReason, tasksForDay
 } from '../domain/rules';
-import { addDays, monthEnd, monthStart, weekStart, type DateKey } from '../lib/dates';
+import { addDays, monthEnd, monthStart, todayKey, weekStart, type DateKey } from '../lib/dates';
 import { logSuggestion, planTask, toggleHabit } from '../domain/actions';
 import type { Habit, Task } from '../db/types';
 import { toast } from '../state/store';
 import { BriefTasks, DayBriefBlock } from './ai-ui';
 import { NowAndTimeline, TodayStats } from './today';
-import { RadarCard } from './radar-ui';
 import { RitualBar } from './ritual';
-import { CouncilCard } from './council';
+import { TodayFocus } from './focus';
 import { WeekTeaser } from './week';
+import { GoogleTasks } from './career';
 
 export function DayScreen() {
   const date = useApp((s) => s.date);
@@ -26,16 +26,17 @@ export function DayScreen() {
     <div className="screen" data-testid="day-screen">
       <TopBar />
       <DateHeader />
-      {/* Ordem pelo uso: rituais e números do dia, o que as especialistas combinaram e o radar; depois o dia
+      {/* Ordem pelo uso: rituais e números do dia, o que muda hoje (especialistas e radar num bloco só); depois o dia
           (linha do tempo), a leitura do dia e as tarefas. Sono, ciclo e hábitos ficam em Indicadores; Mente, no menu. */}
       <RitualBar date={date} />
       <TodayStats date={date} />
       <WeekTeaser date={date} />
-      <CouncilCard date={date} />
-      <RadarCard date={date} />
+      <TodayFocus date={date} />
       <NowAndTimeline date={date} hideNow />
       <DayBriefBlock date={date} />
       <TodayTasks date={date} tasks={tasks} />
+      {/* O que ela anotou no Google Tasks pelo PC da DBC e vence até hoje. */}
+      {date === todayKey() && <GoogleTasks compact />}
       <BriefTasks date={date} />
       <Suggestion date={date} tasks={tasks} />
     </div>

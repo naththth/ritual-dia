@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useNavigate } from 'react-router-dom';
 import { ArrowDown, ArrowUp, Brain, Check, ChevronLeft, ChevronRight, Dumbbell, Moon, Pill, RefreshCw, Sparkles, Utensils, Coffee, Scale, Sun } from 'lucide-react';
-import { useRecord } from '../db/hooks';
-import { update } from '../db/db';
+import { useAll, useRecord } from '../db/hooks';
+import { create, update } from '../db/db';
 import { addDays, isoWeekday, shortLabel, todayKey, weekStart, type DateKey } from '../lib/dates';
 import { aiAvailable } from '../domain/ai';
 import { aiWeekCross, weekData, weekToRead, type Pattern } from '../domain/week';
@@ -58,6 +58,14 @@ export function WeekScreen() {
   const data = useLiveQuery(() => weekData(from), [from]);
   const review = useRecord<'review'>(`review:cross:${from}`);
   const [busy, setBusy] = useState(false);
+  const tasks = useAll('task');
+  // Ajuste da próxima semana vira tarefa na segunda seguinte, com o porquê na descrição. Não duplica.
+  const toTask = async (n: { acao: string; por_que?: string }, k: number) => {
+    const sourceId = `week:${from}:${k}`;
+    if (tasks?.some((t) => t.sourceId === sourceId && !t.deleted)) return;
+    await create('task', { title: n.acao, description: n.por_que, categoryId: 'cat:compromissos', priority: 'media', status: 'pendente', tags: ['semana'], subtasks: [], history: [{ at: Date.now(), text: 'Criada na leitura da semana' }], plannedDate: addDays(from, 7), sourceId } as any);
+    toast(`Na sua lista para ${shortLabel(addDays(from, 7))}`);
+  };
   const closed = addDays(from, 6) <= todayKey() || isoWeekday(todayKey()) === 7 && from === weekStart(todayKey());
   const gen = async () => {
     setBusy(true);
@@ -117,7 +125,12 @@ export function WeekScreen() {
                   <div className="grow">
                     <b>{n.acao}</b>
                     {n.por_que && <p className="small" style={{ margin: '2px 0 8px' }}>{n.por_que}</p>}
-                    <button className="pill-act pa-ghost" style={{ minHeight: 34 }} onClick={() => askSpecialist(nav, dom, `Para a próxima semana: ${n.acao}`)}>Combinar com {WHO[dom]}</button>
+                    <div className="row wrap" style={{ gap: 6 }}>
+                      {tasks?.some((t) => t.sourceId === `week:${from}:${k}` && !t.deleted)
+                        ? <span className="wk-added small" data-testid="week-task-added"><Check size={14} strokeWidth={3} /> Na sua lista</span>
+                        : <button className="pill-act pa-lilac" style={{ minHeight: 34 }} onClick={() => void toTask(n, k)} data-testid="week-to-task">Virar tarefa</button>}
+                      <button className="pill-act pa-ghost" style={{ minHeight: 34 }} onClick={() => askSpecialist(nav, dom, `Para a próxima semana: ${n.acao}`)}>Combinar com {WHO[dom]}</button>
+                    </div>
                   </div>
                 </div>
               );

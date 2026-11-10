@@ -11,11 +11,11 @@ import { planTask } from '../domain/actions';
 import { fmt } from '../domain/nutrition';
 import { dosesFor, toMin, CONTEXT_TAGS, SLIDERS, WAKE_OPTIONS, MOOD_LABEL, type Dose } from '../domain/mind';
 import { loadMind } from '../domain/mindload';
-import { markDose, saveCheckin } from '../domain/mindload';
-import { bedFor, sleepPlan, wakeFor } from '../domain/sleep';
+import { markDose, saveCheckin, saveSleepTimes } from '../domain/mindload';
+import { bedFor, bedToWakeH, sleepPlan, wakeFor } from '../domain/sleep';
 import { brandToday, questionFor, ritualId, saveRitual } from '../domain/ritual';
 import { agendaSig, askRitual, type RitualAgenda } from '../domain/ritualai';
-import { Chip } from '../ui/ui';
+import { Chip, TimeInput } from '../ui/ui';
 import { haptic, toast } from '../state/store';
 import type { MoodCheckin, RitualDay, Task } from '../db/types';
 
@@ -154,7 +154,11 @@ function CheckinStep({ p, date, d, onDone }: { p: P; date: DateKey; d: RitualDat
   const [st, setSt] = useState<Partial<MoodCheckin>>(d.mood ?? { tags: [] });
   const set = (x: Partial<MoodCheckin>) => setSt((y) => ({ ...y, ...x }));
   const w = d.well;
+  // Deitar e acordar: o relógio só manda a duração. Vem preenchido com o que já existe ou com a meta; ela confirma ou ajusta.
+  const [bed, setBed] = useState(w?.sleepStart ?? (d.sp ? bedFor(d.sp, addDays(date, -1)) : '22:00'));
+  const [wake, setWake] = useState(w?.sleepEnd ?? (d.sp ? wakeFor(d.sp, date) : '06:00'));
   const save = async () => {
+    if (p === 'am' && bed && wake) await saveSleepTimes(date, bed, wake);
     await saveCheckin(date, p, { mood: st.mood, energy: st.energy, irritability: st.irritability, anxiety: st.anxiety, racing: st.racing, wake: st.wake, tags: st.tags ?? [], note: d.mood?.note });
     onDone();
   };
@@ -164,6 +168,16 @@ function CheckinStep({ p, date, d, onDone }: { p: P; date: DateKey; d: RitualDat
       <h1 className="rt-title">{p === 'am' ? 'Bom dia. Como você acordou?' : 'Como foi o dia?'}</h1>
       {p === 'am' && w?.sleepH ? <p className="rt-sub">O relógio marcou {w.sleepH.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} h de sono{w.sleepStart ? `, de ${w.sleepStart} a ${w.sleepEnd}` : ''}.</p> : null}
       {carry && <div className="rt-carry" data-testid="rt-carry"><span className="rt-carry-k">Do seu fechamento de ontem</span>{carry}</div>}
+      {p === 'am' && (
+        <div className="rt-sleep" data-testid="rt-sleep">
+          <span className="rt-label" style={{ marginTop: 0 }}>{w?.timesConfirmed ? 'Seu horário de sono' : 'Confirme ou ajuste o horário'}</span>
+          <div className="rt-sleep-row">
+            <label><span>Deitei</span><TimeInput value={bed} onChange={setBed} label="Deitei às" /></label>
+            <label><span>Acordei</span><TimeInput value={wake} onChange={setWake} label="Acordei às" /></label>
+          </div>
+          {!w?.sleepH && bedToWakeH(bed, wake) ? <span className="rt-hint" style={{ textAlign: 'left' }}>Sem dado do relógio ainda: {bedToWakeH(bed, wake)!.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} h na cama.</span> : null}
+        </div>
+      )}
       {p === 'am' && <div className="chips rt-chips">{WAKE_OPTIONS.map((o) => <Chip key={o.id} on={st.wake === o.id} onClick={() => set({ wake: st.wake === o.id ? undefined : o.id })} testId={`rt-wake-${o.id}`}>{o.label}</Chip>)}</div>}
       <span className="rt-label">Humor {p === 'am' ? 'agora' : 'do dia'}</span>
       <div className="mood-scale rt-mood">{[-3, -2, -1, 0, 1, 2, 3].map((n) => <button key={n} className={`ms-btn ${st.mood === n ? 'on' : ''}`} onClick={() => { haptic(8); set({ mood: st.mood === n ? undefined : n }); }} data-testid={`rt-mood-${n}`}>{signed(n)}</button>)}</div>

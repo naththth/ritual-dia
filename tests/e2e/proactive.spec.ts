@@ -41,9 +41,12 @@ test('app propositivo: radar, ideal da refeição, leitura do treino e indicador
   await page.reload();
 
   // Hoje: radar avisa pós-treino, proteína atrasada e noite curta
+  // Especialistas e radar num bloco só, dois itens à mostra; o resto em "Mais".
   const radar = page.getByTestId('radar');
-  await expect(radar).toContainText('Janela pós-treino aberta');
+  await expect(page.getByTestId('today-focus')).toBeVisible();
+  expect(await page.locator('[data-testid=today-focus] .rd-item, [data-testid=today-focus] .council-item').count()).toBeLessThanOrEqual(2);
   await page.getByRole('button', { name: /^Mais \d/ }).click().catch(() => undefined);
+  await expect(radar).toContainText('Janela pós-treino aberta');
   await expect(radar).toContainText('Proteína atrasada');
   await expect(radar).toContainText('Noite curta: 5h30');
 
