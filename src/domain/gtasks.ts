@@ -23,4 +23,15 @@ export async function listGTasks(): Promise<GTasksResult> {
 
 export async function completeGTask(t: GTask) {
   await call({ action: 'complete', list: t.list, id: t.id });
+  changed();
 }
+
+/** Muda data e/ou situação de uma tarefa (a Carreira usa pela conversa; o desfazer usa para voltar como estava). */
+export async function updateGTask(list: string, id: string, patch: { due?: string | null; status?: 'completed' | 'needsAction' }) {
+  await call({ action: 'update', list, id, ...patch });
+  changed();
+}
+
+/** Avisa a tela de trabalho para recarregar a lista depois de uma mudança feita fora dela. */
+export const GTASKS_CHANGED = 'ritual-gtasks-changed';
+function changed() { if (typeof window !== 'undefined') window.dispatchEvent(new Event(GTASKS_CHANGED)); }

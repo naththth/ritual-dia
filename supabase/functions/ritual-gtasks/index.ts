@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
-// Google Tasks do Ritual: lê as tarefas da conta Google dela e marca como feitas.
+// Google Tasks do Ritual: lê as tarefas da conta Google dela, marca como feitas e muda a data (a especialista de Carreira usa pela conversa).
 // O refresh token fica em user_secrets (provider google_tasks), gravado pelo app logo depois do login com a permissão de tarefas.
 // GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET são os mesmos do login Google do Supabase, guardados como segredos da função.
 
@@ -57,6 +57,22 @@ Deno.serve(async (req: Request) => {
       const list = String(body.list ?? ''), id = String(body.id ?? '');
       if (!/^[\w-]+$/.test(list) || !/^[\w-]+$/.test(id)) return json({ error: 'Tarefa inválida' }, 400);
       const r = await g(`/lists/${list}/tasks/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'completed' }) });
+      if (!r.ok) return json({ error: `Google Tasks ${r.status}` }, 502);
+      return json({ ok: true });
+    }
+    if (body.action === 'update') {
+      // Data (AAAA-MM-DD ou null para tirar) e situação; serve também para desfazer o que a Carreira mudou.
+      const list = String(body.list ?? ''), id = String(body.id ?? '');
+      if (!/^[\w-]+$/.test(list) || !/^[\w-]+$/.test(id)) return json({ error: 'Tarefa inválida' }, 400);
+      const patch: Record<string, unknown> = {};
+      if ('due' in body) {
+        if (body.due === null) patch.due = null;
+        else if (/^\d{4}-\d{2}-\d{2}$/.test(String(body.due))) patch.due = `${body.due}T00:00:00.000Z`;
+        else return json({ error: 'Data inválida' }, 400);
+      }
+      if (body.status === 'completed' || body.status === 'needsAction') { patch.status = body.status; if (body.status === 'needsAction') patch.completed = null; }
+      if (!Object.keys(patch).length) return json({ error: 'Nada para mudar' }, 400);
+      const r = await g(`/lists/${list}/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
       if (!r.ok) return json({ error: `Google Tasks ${r.status}` }, 502);
       return json({ ok: true });
     }

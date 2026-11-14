@@ -7,7 +7,7 @@ import { create, remove, update, upsert } from '../db/db';
 import { addDays, shortLabel, todayKey, weekStart, type DateKey } from '../lib/dates';
 import { CAREER_ID, DEV_TYPE, isWork, OPP_STAGE, OPP_TYPE, WORK_FALLBACK, loadPicks, pickId } from '../domain/career';
 import { aiAvailable } from '../domain/ai';
-import { completeGTask, listGTasks, type GTask, type GTasksResult } from '../domain/gtasks';
+import { completeGTask, listGTasks, GTASKS_CHANGED, type GTask, type GTasksResult } from '../domain/gtasks';
 import { connectGoogleTasks, useSync } from '../sync/sync';
 import { AreaPage } from './areas';
 import { TaskRow, TaskSheet } from './tasks';
@@ -71,6 +71,8 @@ export function GoogleTasks({ compact }: { compact?: boolean } = {}) {
   const testing = typeof window !== 'undefined' && !!(window as any).__RITUAL_TEST_GTASKS;
   const load = async () => { try { setRes(await listGTasks()); } catch (e) { setRes({ error: (e as Error).message }); } };
   useEffect(() => { if (session || testing) void load(); }, [session, saved]);
+  // A Carreira (ou o desfazer dela) mudou algo no Google Tasks: recarrega a lista.
+  useEffect(() => { const f = () => { if (session || testing) void load(); }; window.addEventListener(GTASKS_CHANGED, f); return () => window.removeEventListener(GTASKS_CHANGED, f); }, [session]);
   useEffect(() => { if (saved === true) toast('Google Tasks conectado'); else if (saved === false) toast('Não consegui guardar a conexão com o Google Tasks. Tente de novo.', undefined, 'error'); }, [saved]);
   if (!session && !testing) return null;
   if (compact) {

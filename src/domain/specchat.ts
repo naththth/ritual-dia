@@ -3,6 +3,17 @@
 import { db, getMeta, setMeta, restore } from '../db/db';
 import type { AnyRecord } from '../db/types';
 import type { RoutineChange } from './skinSteps';
+import { updateGTask } from './gtasks';
+
+/** Mudanças fora do app (Google Tasks) entram no desfazer com id 'ext:gtask:<lista>:<tarefa>' e o estado de antes. */
+async function undoOne(u: { id: string; before?: AnyRecord }) {
+  if (u.id.startsWith('ext:gtask:')) {
+    const b = u.before as unknown as { list: string; id: string; status: 'completed' | 'needsAction'; due: string | null };
+    await updateGTask(b.list, b.id, { status: b.status, due: b.due });
+    return;
+  }
+  await restore(u.before, u.id);
+}
 
 export type ChatDomain = 'skin' | 'food' | 'mind' | 'career';
 
@@ -105,10 +116,10 @@ export function undoLog() {
 /** Ação da especialista que quebrou no meio: volta o que ela já tinha mexido (desde a marca) e devolve um aviso em português, sem mensagem técnica. */
 export async function rollbackAction(undo: { id: string; before?: AnyRecord }[], mark: number, e: unknown): Promise<string> {
   console.error('ação da especialista falhou', e);
-  for (const u of undo.splice(mark).reverse()) { try { await restore(u.before, u.id); } catch { /* segue voltando o resto */ } }
+  for (const u of undo.splice(mark).reverse()) { try { await undoOne(u); } catch { /* segue voltando o resto */ } }
   return 'Uma das mudanças falhou no meio; voltei o que ela tinha mexido e deixei como estava.';
 }
 
 export async function undoSpec(m: SpecMsg) {
-  for (const u of [...(m.undo ?? [])].reverse()) await restore(u.before, u.id);
+  for (const u of [...(m.undo ?? [])].reverse()) await undoOne(u);
 }

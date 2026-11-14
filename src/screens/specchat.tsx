@@ -62,7 +62,7 @@ const CONF: Record<ChatDomain, { title: string; sub: string; aria: string; place
   career: {
     title: 'Carreira', who: 'a especialista de carreira', aria: 'Falar com a especialista de carreira',
     sub: 'Trabalho, marca, conquistas e oportunidades, olhando tudo junto',
-    placeholder: 'Conte o que está na sua cabeça…', busy: 'Olhando trabalho, marca e oportunidades…',
+    placeholder: 'Conte para a mentora…', busy: 'Olhando trabalho, marca e oportunidades…',
     intro: 'Eu olho o seu trabalho, a sua marca, as conquistas que você registra, as oportunidades e o que você quer desenvolver, junto com como andam sono e energia. Ajudo a priorizar a semana, transformar pauta em post no seu tom, preparar conversa difícil, entrevista ou avaliação, anoto tarefa, pauta ou conquista quando você pedir e concluo ou mudo de dia as tarefas que você me disser.',
     examples: [
       'Me ajuda a priorizar a semana de trabalho',
