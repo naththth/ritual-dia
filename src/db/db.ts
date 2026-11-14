@@ -104,6 +104,13 @@ export async function get<K extends Kind>(id: string): Promise<KindMap[K] | unde
   return r && !r.deleted ? (r as KindMap[K]) : undefined;
 }
 
+/** Como get, mas só devolve se o registro for do tipo esperado. Use com IDs vindos da IA: um ID de planejado no lugar de um treino não pode virar exclusão do planejado. */
+export async function getKind<K extends Kind>(kind: K, id: unknown): Promise<KindMap[K] | undefined> {
+  if (typeof id !== 'string' || !id) return undefined;
+  const r = await get<K>(id);
+  return r && r.kind === kind ? r : undefined;
+}
+
 export async function all<K extends Kind>(kind: K): Promise<KindMap[K][]> {
   const rows = await db.records.where('kind').equals(kind).toArray();
   return rows.filter((r) => !r.deleted) as KindMap[K][];

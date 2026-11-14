@@ -7,8 +7,8 @@ import { AreaNav } from './areas';
 import { useAll, useByRange, useSettings } from '../db/hooks';
 import { useApp, toast } from '../state/store';
 import { planFor, slotCounts, trainingDay } from '../domain/rules';
-import { addDays, isoWeekday, shortLabel, todayKey, weekStart, WEEKDAY_LETTER, dayNum, type DateKey } from '../lib/dates';
-import { workoutFromTemplate, skipPlanned, deleteRecord, savePlan } from '../domain/actions';
+import { addDays, isoWeekday, shortLabel, todayKey, weekStart, WEEKDAY_LETTER, WEEKDAY_SHORT, dayNum, type DateKey } from '../lib/dates';
+import { workoutFromTemplate, skipPlanned, deleteRecord, savePlan, undoMove } from '../domain/actions';
 import { StepsView } from './ai-ui';
 import { POWER_ZONES } from '../domain/fit';
 import { importFitFiles } from '../domain/fitImport';
@@ -175,8 +175,8 @@ export function TrainingTab() {
             const by = nameOfSub(slot);
             return (
               <div key={t.id} className="row between" style={{ marginTop: 10, gap: 8 }} data-testid="planned-replaced">
-                <span className="small muted">{t.name} · trocado{by ? ` por ${by}` : ''}</span>
-                <button className="link" onClick={() => deleteRecord(`skip:${date}:training:${t.id}`, 'Planejado de volta')}>Desfazer</button>
+                <span className="small muted">{t.name} · {slot.movedTo ? `foi para ${WEEKDAY_SHORT[isoWeekday(slot.movedTo)]} ${slot.movedTo.slice(8, 10)}/${slot.movedTo.slice(5, 7)}` : `trocado${by ? ` por ${by}` : ''}`}</span>
+                <button className="link" onClick={() => slot.movedTo ? undoMove(date, t.id, slot.movedTo) : deleteRecord(`skip:${date}:training:${t.id}`, 'Planejado de volta')}>Desfazer</button>
               </div>
             );
           }

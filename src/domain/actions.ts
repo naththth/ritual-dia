@@ -71,6 +71,15 @@ export async function deleteRecord(id: string, text: string) {
   toast(text, () => restore(before, id));
 }
 
+/** Desfaz uma mudança de dia: o treino volta para o dia de origem e sai do dia para onde tinha ido. */
+export async function undoMove(date: DateKey, ref: string, movedTo: DateKey) {
+  const ids = [`skip:${date}:training:${ref}`, `extra:${movedTo}:training:${ref}`];
+  const before = await Promise.all(ids.map((id) => snapshot(id)));
+  for (const id of ids) await remove(id);
+  haptic();
+  toast('Treino de volta ao dia', async () => { for (let i = 0; i < ids.length; i++) await restore(before[i], ids[i]); });
+}
+
 /* ---------- Pulos de plano ---------- */
 export async function skipPlanned(date: DateKey, domain: PlanDomain, ref: string, text = 'Marcado como não hoje') {
   const id = `skip:${date}:${domain}:${ref}`;

@@ -102,6 +102,13 @@ export function undoLog() {
   return { undo, snap };
 }
 
+/** Ação da especialista que quebrou no meio: volta o que ela já tinha mexido (desde a marca) e devolve um aviso em português, sem mensagem técnica. */
+export async function rollbackAction(undo: { id: string; before?: AnyRecord }[], mark: number, e: unknown): Promise<string> {
+  console.error('ação da especialista falhou', e);
+  for (const u of undo.splice(mark).reverse()) { try { await restore(u.before, u.id); } catch { /* segue voltando o resto */ } }
+  return 'Uma das mudanças falhou no meio; voltei o que ela tinha mexido e deixei como estava.';
+}
+
 export async function undoSpec(m: SpecMsg) {
   for (const u of [...(m.undo ?? [])].reverse()) await restore(u.before, u.id);
 }

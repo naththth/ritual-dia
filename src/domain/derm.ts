@@ -1,13 +1,13 @@
 // A dermatologista na área de Cuidados: ela conta como a pele está, o que comprou, o que mudou,
 // e a especialista ajusta a rotina do dia ou da semana. Mudança de rotina só vale depois do aprovo.
-import { all, byDateRange, create, get, remove, update, upsert, uid } from '../db/db';
+import { all, byDateRange, create, get, getKind, remove, update, upsert, uid } from '../db/db';
 import { addDays, isoWeekday, todayKey, type DateKey } from '../lib/dates';
 import { planFor, planSaveTarget, plannedSkin, plannedTraining } from './rules';
 import { wellnessForAI } from './wellness';
 import { askAI } from './ai';
 import { areaOf, GROUPS } from './defaults';
 import { applyWeekChanges, emptySkinPlan, OWNED, productStep, type RoutineChange } from './skinSteps';
-import { chatMemory, undoLog, type SkinProposal, type SpecMsg } from './specchat';
+import { chatMemory, rollbackAction, undoLog, type SkinProposal, type SpecMsg } from './specchat';
 import type { Product, ProductGroup, ProductStatus } from '../db/types';
 import { layerOf } from './skinSteps';
 import { applyLayer, layersForAI, organizeSoon } from './skinLayers';
@@ -104,6 +104,7 @@ export async function askDerm(text: string, history: SpecMsg[], images?: { mime:
   // Cadastro primeiro: a proposta da mesma resposta pode usar o produto novo.
   acoes.sort((a, b) => (a?.tipo === 'cadastrar_produto' ? -1 : 0) - (b?.tipo === 'cadastrar_produto' ? -1 : 0));
   for (const a of acoes) {
+    const mark = undo.length;
     try {
       if (a?.tipo === 'guardar_preferencia') {
         const t = String(a.texto ?? '').trim();
@@ -130,7 +131,7 @@ export async function askDerm(text: string, history: SpecMsg[], images?: { mime:
         done.push(`Cadastrei ${[p.brand, p.name].filter(Boolean).join(' ')} nos seus produtos.`);
       } else if (a?.tipo === 'atualizar_produto') {
         const id = resolve(a.produto);
-        const p = id ? await get<'product'>(id) : undefined;
+        const p = await getKind('product', id);
         if (!p) { failed.push('Não achei o produto citado.'); continue; }
         const patch: Partial<Product> = {};
         const what: string[] = [];
@@ -144,7 +145,7 @@ export async function askDerm(text: string, history: SpecMsg[], images?: { mime:
         const moved: string[] = [];
         for (const x of Array.isArray(a.produtos) ? a.produtos : []) {
           const id = resolve(x?.produto);
-          const p = id ? await get<'product'>(id) : undefined;
+          const p = await getKind('product', id);
           if (!p) continue;
           await snap(p.id);
           if (await applyLayer(p, x)) moved.push(p.name);
@@ -172,7 +173,7 @@ export async function askDerm(text: string, history: SpecMsg[], images?: { mime:
         if (!changes.length) { failed.push('A proposta de rotina veio sem mudanças que eu consiga aplicar.'); continue; }
         proposal = { kind: 'skin', scope, title: String(a.titulo ?? '').trim() || (scope === 'dia' ? 'Rotina do dia' : 'Rotina da semana'), changes, note: String(a.nota ?? '').trim() || undefined };
       }
-    } catch (e: any) { failed.push(String(e?.message ?? e)); }
+    } catch (e) { failed.push(await rollbackAction(undo, mark, e)); }
   }
   if (created.size) organizeSoon([...created.values()].map((p) => p.id));
   const msgText = String(r?.mensagem ?? '').trim().replace(/\bp(\d+)\b/g, (m0, n) => byCode.get(`p${n}`)?.name ?? m0);

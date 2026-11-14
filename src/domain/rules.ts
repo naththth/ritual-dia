@@ -63,14 +63,14 @@ export function plannedTraining(plan: Plan | undefined, date: DateKey, extras?: 
 /** Situação de cada treino planejado do dia. "trocado" = saiu do dia porque outro treino entrou no lugar: não aparece riscado e não conta na semana.
  *  "pulado" só quando ela não fez nada no lugar. */
 export type TrainingStatus = 'pendente' | 'feito' | 'pulado' | 'trocado';
-export interface TrainingSlot { id: string; status: TrainingStatus; workoutId?: string; byTemplate?: string; byWorkout?: string }
+export interface TrainingSlot { id: string; status: TrainingStatus; workoutId?: string; byTemplate?: string; byWorkout?: string; movedTo?: DateKey }
 
 /** O que conta como troca: treino acrescentado só para aquele dia (combinado com a treinadora ou por ela) ou treino feito que não corresponde a nenhum planejado.
  *  Cada um cobre um planejado pulado do plano da semana, na ordem do dia. Planejado pulado sem nada no lugar continua "pulado". */
 export function trainingDay(
   plan: Plan | undefined, date: DateKey,
   extras: { date: DateKey; domain?: string; ref: string; deleted?: 0 | 1 }[] | undefined,
-  skips: { date: DateKey; domain: string; ref: string; deleted?: 0 | 1 }[] | undefined,
+  skips: { date: DateKey; domain: string; ref: string; deleted?: 0 | 1; movedTo?: DateKey }[] | undefined,
   workouts: { id: string; date: DateKey; templateId?: string; modalityId: string; deleted?: 0 | 1 }[] | undefined,
   tmpls: { id: string; modalityId: string }[]
 ): TrainingSlot[] {
@@ -91,6 +91,9 @@ export function trainingDay(
     const w = dayW.find((x) => !used.has(x.id) && x.modalityId === mod);
     if (w) { used.add(w.id); s.status = 'feito'; s.workoutId = w.id; }
   }
+  // Mudou de dia: sai deste sem contar como falta (conta no dia para onde foi).
+  const moved = new Map((skips ?? []).filter((x) => x.date === date && !x.deleted && x.domain === 'training' && x.movedTo).map((x) => [x.ref, x.movedTo!]));
+  for (const s of slots) if (s.status === 'pendente' && moved.has(s.id)) { s.status = 'trocado'; s.movedTo = moved.get(s.id); }
   for (const s of slots) if (s.status === 'pendente' && skipped.has(s.id)) s.status = 'pulado';
   // Quem entrou no lugar: acrescentados do dia e treinos feitos fora do plano.
   const subs: { tpl?: string; workout?: string }[] = [...added.map((tpl) => ({ tpl })), ...dayW.filter((w) => !used.has(w.id)).map((w) => ({ workout: w.id }))];

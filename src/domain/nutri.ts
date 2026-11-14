@@ -6,7 +6,7 @@ import { planFor, plannedFood, plannedTraining } from './rules';
 import { portionText, totals } from './nutrition';
 import { wellnessForAI } from './wellness';
 import { askAI } from './ai';
-import { chatMemory, undoLog, type FoodProposal, type FoodProposalMeal, type SpecMsg } from './specchat';
+import { chatMemory, rollbackAction, undoLog, type FoodProposal, type FoodProposalMeal, type SpecMsg } from './specchat';
 import type { MealItem } from '../db/types';
 
 const DAY = ['', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
@@ -82,6 +82,7 @@ export async function askNutri(text: string, history: SpecMsg[], images?: { mime
   let proposal: FoodProposal | undefined;
   const validMt = (id: unknown) => types.some((m) => m.id === id);
   for (const a of Array.isArray(r?.acoes) ? r.acoes : []) {
+    const mark = undo.length;
     try {
       if (a?.tipo === 'guardar_preferencia') {
         const tx = String(a.texto ?? '').trim();
@@ -117,7 +118,7 @@ export async function askNutri(text: string, history: SpecMsg[], images?: { mime
         if (!list.length) { failed.push('A proposta veio sem refeições que eu consiga montar com os seus alimentos.'); continue; }
         proposal = { kind: 'food', date: d, meals: list, newFoods: newFoods.length ? newFoods : undefined, note: String(a.nota ?? '').trim() || undefined };
       }
-    } catch (e: any) { failed.push(String(e?.message ?? e)); }
+    } catch (e) { failed.push(await rollbackAction(undo, mark, e)); }
   }
   return {
     from: 'ai', at: Date.now(),

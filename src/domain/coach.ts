@@ -1,5 +1,6 @@
 // Conversa com a treinadora na aba Treino: ela conta o que aconteceu, a IA traduz em ações e o app aplica.
-import { db, all, byDateRange, get, remove, restore, update, upsert, uid, getMeta, setMeta } from '../db/db';
+import { db, all, byDateRange, get, getKind, remove, restore, update, upsert, uid, getMeta, setMeta } from '../db/db';
+import { rollbackAction } from './specchat';
 import { addDays, isoWeekday, todayKey, type DateKey } from '../lib/dates';
 import { planFor, plannedFood, plannedTraining } from './rules';
 import { portionText, totals } from './nutrition';
@@ -189,11 +190,30 @@ export async function askCoach(text: string, history: CoachMsg[]): Promise<Coach
   let rulesChanged = false;
   let ftpChanged = false;
   let proposal: CoachProposal | undefined;
+  let planMoved = false;
+  const ddmm = (d: DateKey) => `${DAY[isoWeekday(d)]} ${d.slice(8, 10)}/${d.slice(5, 7)}`;
+  const isDate = (d: unknown): d is DateKey => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
+  /** O que vale de fato no dia: plano da semana + avulsos, com os registros mais recentes. */
+  const plannedOn = async (d: DateKey) => plannedTraining(planFor(await all('plan'), 'training', d), d, await byDateRange('extra', d, d));
+  /** Tira um planejado do dia como "não hoje" (ou, se ele mudou de dia, marcando para onde foi). Avulso do dia sai em vez de ganhar pulo. */
+  const takeOut = async (date: DateKey, ref: string, movedTo?: DateKey) => {
+    const extraId = `extra:${date}:training:${ref}`;
+    if (await get(extraId)) {
+      await snap(extraId); await remove(extraId);
+      // Já tinha vindo de outro dia: o pulo da origem passa a apontar para o dia novo.
+      if (movedTo) for (const sk of await all('skip')) if (sk.domain === 'training' && sk.ref === ref && sk.movedTo === date) { await snap(sk.id); await update<'skip'>(sk.id, { movedTo }); }
+      return;
+    }
+    const id = `skip:${date}:training:${ref}`;
+    await snap(id);
+    await upsert('skip', id, movedTo ? { date, domain: 'training', ref, movedTo } : { date, domain: 'training', ref });
+  };
 
   for (const a of Array.isArray(r?.acoes) ? r.acoes : []) {
+    const mark = undo.length;
     try {
       if (a?.tipo === 'corrigir_treino') {
-        const w = await get<'workout'>(String(a.treino_id));
+        const w = await getKind('workout', a.treino_id);
         if (!w) { failed.push('Não achei o treino citado.'); continue; }
         const patch: Partial<Workout> = {};
         const changed: string[] = [];
@@ -219,8 +239,15 @@ export async function askCoach(text: string, history: CoachMsg[]): Promise<Coach
         await update<'workout'>(w.id, patch);
         done.push(`${label(w)}: ${changed.join(', ')}.`);
       } else if (a?.tipo === 'excluir_treino') {
-        const w = await get<'workout'>(String(a.treino_id));
-        if (!w) continue;
+        const w = await getKind('workout', a.treino_id);
+        if (!w) {
+          // Veio o ID de um planejado: tirar do dia é "não hoje", nunca apagar o modelo do plano da semana.
+          const tpl = await getKind('wtemplate', a.treino_id);
+          const date = isDate(a.data) ? a.data : todayKey();
+          if (tpl && (await plannedOn(date)).includes(tpl.id)) { await takeOut(date, tpl.id); done.push(`${tpl.name} saiu de ${ddmm(date)}.`); }
+          else failed.push('Não achei o treino citado.');
+          continue;
+        }
         await snap(w.id);
         await remove(w.id);
         done.push(`Excluí ${label(w).replace(/^./, (c) => c.toLowerCase())}${a.motivo ? ` (${String(a.motivo).replace(/\.$/, '')})` : ''}.`);
@@ -270,7 +297,8 @@ export async function askCoach(text: string, history: CoachMsg[]): Promise<Coach
           intensity: INT.includes(a.intensidade) ? a.intensidade : 'moderada',
           time: HM.test(a.horario ?? '') ? a.horario : undefined,
           note: String(a.nota ?? '').trim() || undefined,
-          replaces: (Array.isArray(a.substitui_template_ids) ? a.substitui_template_ids : []).map(String).filter((id: string) => tmpls.some((t) => t.id === id))
+          // Só sai o que está naquele dia; treino de outro dia não é substituído por aqui (para isso há mover_treino).
+          replaces: await (async () => { const day = await plannedOn(date); return (Array.isArray(a.substitui_template_ids) ? a.substitui_template_ids : []).map(String).filter((id: string) => tmpls.some((t) => t.id === id) && day.includes(id)); })()
         };
       } else if (a?.tipo === 'atualizar_ftp') {
         // FTP novo dito por ela (ex.: o que ela configurou no MyWhoosh): vale para watts das propostas e vai ao intervals.icu.
@@ -283,15 +311,30 @@ export async function askCoach(text: string, history: CoachMsg[]): Promise<Coach
         done.push(`FTP agora é ${v} W (era ${s.ftp ?? 'vazio'}).`);
         ftpChanged = true;
       } else if (a?.tipo === 'pular_planejado') {
-        const date = String(a.data ?? '') as DateKey;
-        const tpl = await get<'wtemplate'>(String(a.template_id));
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !tpl) continue;
-        const id = `skip:${date}:training:${tpl.id}`;
-        await snap(id);
-        await upsert('skip', id, { date, domain: 'training', ref: tpl.id });
-        done.push(`${tpl.name} de ${DAY[isoWeekday(date)]} ficou como "não hoje".`);
+        const date = a.data;
+        const tpl = await getKind('wtemplate', a.template_id);
+        if (!isDate(date) || !tpl) { failed.push('Não achei o treino planejado citado.'); continue; }
+        await takeOut(date, tpl.id);
+        done.push(`${tpl.name} de ${ddmm(date)} ficou como "não hoje".`);
+      } else if (a?.tipo === 'mover_treino') {
+        // O mesmo treino planejado muda de dia: sai da origem sem contar como falta e entra no destino, uma vez só na semana.
+        const de = a.de, para = a.para;
+        const tpl = await getKind('wtemplate', a.template_id);
+        if (!isDate(de) || !isDate(para) || de === para || para < todayKey()) { failed.push('A mudança de dia veio sem datas válidas.'); continue; }
+        if (!tpl) { failed.push('Não achei o treino planejado citado.'); continue; }
+        if (!(await plannedOn(de)).includes(tpl.id)) { failed.push(`${tpl.name} não está planejado em ${ddmm(de)}.`); continue; }
+        if ((await plannedOn(para)).includes(tpl.id)) { failed.push(`${tpl.name} já está em ${ddmm(para)}.`); continue; }
+        await takeOut(de, tpl.id, para);
+        const extraId = `extra:${para}:training:${tpl.id}`;
+        await snap(extraId);
+        await upsert('extra', extraId, { date: para, domain: 'training', ref: tpl.id, by: 'treinadora' });
+        // Um pulo antigo do mesmo treino no destino não pode escondê-lo.
+        const old = `skip:${para}:training:${tpl.id}`;
+        if (await get(old)) { await snap(old); await remove(old); }
+        done.push(`${tpl.name} foi de ${ddmm(de)} para ${ddmm(para)}.`);
+        planMoved = true;
       }
-    } catch (e: any) { failed.push(String(e?.message ?? e)); }
+    } catch (e) { failed.push(await rollbackAction(undo, mark, e)); }
   }
 
   // Regra nova vale também para o que já está registrado.
@@ -308,17 +351,17 @@ export async function askCoach(text: string, history: CoachMsg[]): Promise<Coach
     }
   }
 
-  // Leva o FTP novo ao intervals.icu já, sem esperar a sincronização da hora cheia.
-  if (ftpChanged) {
+  // Leva o FTP novo (ou o treino que mudou de dia) ao intervals.icu já, sem esperar a sincronização da hora cheia.
+  if (ftpChanged || planMoved) {
     try {
       const st = await get<'settings'>('settings');
       if (st?.intervals?.connected) {
         const { syncNow } = await import('../sync/sync');
         const { syncIntervalsNow } = await import('../sync/services');
         await syncNow(); await syncIntervalsNow(3);
-        done.push('Mandei o FTP novo ao intervals.icu.');
+        done.push(ftpChanged ? 'Mandei o FTP novo ao intervals.icu.' : 'Atualizei o intervals.icu.');
       }
-    } catch { failed.push('Não consegui mandar o FTP ao intervals agora; vai na próxima sincronização.'); }
+    } catch { failed.push('Não consegui atualizar o intervals agora; vai na próxima sincronização.'); }
   }
 
   return {

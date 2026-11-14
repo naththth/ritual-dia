@@ -393,6 +393,8 @@ export interface Skip extends Base {
   date: DateKey;
   domain: PlanDomain;
   ref: string;
+  /** Treino que não saiu do plano, só mudou de dia: fica fora da conta da semana neste dia e entra no outro. */
+  movedTo?: DateKey;
 }
 
 /** Sessão de ajuste do app com o Claude: ela descreve o que mudar numa tela; ao finalizar, uma sessão do Claude Code faz a mudança e publica. */

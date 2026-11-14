@@ -3,7 +3,7 @@
 import { all, byDateRange, create, get, update } from '../db/db';
 import { addDays, todayKey, weekStart, type DateKey } from '../lib/dates';
 import { askAI } from './ai';
-import { chatMemory, undoLog, type SpecMsg } from './specchat';
+import { chatMemory, rollbackAction, undoLog, type SpecMsg } from './specchat';
 import { loadMind } from './mindload';
 import type { CareerBase, DevPick, PickBook, Task } from '../db/types';
 
@@ -58,32 +58,36 @@ export async function askCareer(text: string, history: SpecMsg[]): Promise<SpecM
   const { undo, snap } = undoLog();
   const done: string[] = [];
   const base = await get<'careerbase'>(CAREER_ID);
+  const failed: string[] = [];
   for (const a of Array.isArray(r?.acoes) ? r.acoes : []) {
     const tx = String(a?.texto ?? a?.titulo ?? '').trim();
     if (!tx) continue;
-    if (a.tipo === 'guardar_preferencia') {
-      const s = await get<'settings'>('settings');
-      if (!s) continue;
-      await snap('settings');
-      const cur = s.aiPrefs?.career?.trim();
-      await update<'settings'>('settings', { aiPrefs: { ...(s.aiPrefs ?? {}), career: cur ? `${cur}\n${tx}` : tx } as any });
-      done.push(`Guardei: ${tx}`);
-    } else if (a.tipo === 'nova_pauta') {
-      const p = await create('post', { title: tx, note: a.nota ? String(a.nota) : undefined, status: 'ideia' } as any);
-      undo.push({ id: p.id, before: undefined }); done.push(`Pauta: ${tx}`);
-    } else if (a.tipo === 'nova_tarefa' && base?.workCategoryId) {
-      const t = await create('task', { title: tx, categoryId: base.workCategoryId, priority: a.prioridade === 'alta' ? 'alta' : 'media', status: 'pendente', tags: [], subtasks: [], history: [], plannedDate: /^\d{4}-\d{2}-\d{2}$/.test(String(a.data ?? '')) ? a.data : null } as any);
-      undo.push({ id: t.id, before: undefined }); done.push(`Tarefa: ${tx}`);
-    } else if (a.tipo === 'nova_conquista') {
-      const w = await create('win', { title: tx, impact: a.impacto ? String(a.impacto) : undefined, date: todayKey(), where: 'trabalho' } as any);
-      undo.push({ id: w.id, before: undefined }); done.push(`Conquista: ${tx}`);
-    }
+    const mark = undo.length;
+    try {
+      if (a.tipo === 'guardar_preferencia') {
+        const s = await get<'settings'>('settings');
+        if (!s) continue;
+        await snap('settings');
+        const cur = s.aiPrefs?.career?.trim();
+        await update<'settings'>('settings', { aiPrefs: { ...(s.aiPrefs ?? {}), career: cur ? `${cur}\n${tx}` : tx } as any });
+        done.push(`Guardei: ${tx}`);
+      } else if (a.tipo === 'nova_pauta') {
+        const p = await create('post', { title: tx, note: a.nota ? String(a.nota) : undefined, status: 'ideia' } as any);
+        undo.push({ id: p.id, before: undefined }); done.push(`Pauta: ${tx}`);
+      } else if (a.tipo === 'nova_tarefa' && base?.workCategoryId) {
+        const t = await create('task', { title: tx, categoryId: base.workCategoryId, priority: a.prioridade === 'alta' ? 'alta' : 'media', status: 'pendente', tags: [], subtasks: [], history: [], plannedDate: /^\d{4}-\d{2}-\d{2}$/.test(String(a.data ?? '')) ? a.data : null } as any);
+        undo.push({ id: t.id, before: undefined }); done.push(`Tarefa: ${tx}`);
+      } else if (a.tipo === 'nova_conquista') {
+        const w = await create('win', { title: tx, impact: a.impacto ? String(a.impacto) : undefined, date: todayKey(), where: 'trabalho' } as any);
+        undo.push({ id: w.id, before: undefined }); done.push(`Conquista: ${tx}`);
+      }
+    } catch (e) { failed.push(await rollbackAction(undo, mark, e)); }
   }
   return {
     from: 'ai', at: Date.now(),
     text: String(r?.mensagem ?? '').trim() || 'Não consegui formular uma resposta agora.',
     suggestion: r?.rascunho ? String(r.rascunho) : undefined,
-    done: done.length ? done : undefined, undo: undo.length ? undo : undefined
+    done: done.length ? done : undefined, failed: failed.length ? failed : undefined, undo: undo.length ? undo : undefined
   };
 }
 

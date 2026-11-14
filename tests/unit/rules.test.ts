@@ -182,6 +182,22 @@ describe('treino trocado não é treino pulado', () => {
     expect(r.filter(slotCounts).map((x) => x.id)).toEqual(['pedal', 'lpo']);
   });
 
+  it('pedal que mudou de dia: sai do sábado sem contar como falta e conta uma vez só, no domingo', () => {
+    const sun = '2026-11-08';
+    const skips = [{ date: d, domain: 'training', ref: 'pedal', movedTo: sun }];
+    const extras = [{ date: sun, domain: 'training', ref: 'pedal' }];
+    const sat = trainingDay(plan, d, extras, skips, [], tmpls);
+    expect(st(sat)).toEqual({ musc: 'pendente', pedal: 'trocado' });
+    expect(sat.find((x) => x.id === 'pedal')!.movedTo).toBe(sun);
+    expect(sat.filter(slotCounts).map((x) => x.id)).toEqual(['musc']);
+    // feito no sábado mesmo assim (antes de mudar de ideia): o treino feito vale
+    const w = [{ id: 'w1', date: d, modalityId: 'mod:ciclismo' }];
+    expect(st(trainingDay(plan, d, extras, skips, w, tmpls)).pedal).toBe('feito');
+    const dom = trainingDay(plan, sun, extras, [], [], tmpls);
+    expect(dom.map((x) => x.id)).toEqual(['pedal']);
+    expect(dom.filter(slotCounts)).toHaveLength(1);
+  });
+
   it('pulou sem nada no lugar: continua riscado', () => {
     expect(st(trainingDay(plan, d, [], [skip('musc')], [], tmpls))).toEqual({ musc: 'pulado', pedal: 'pendente' });
   });
