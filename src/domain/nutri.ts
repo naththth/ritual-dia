@@ -1,6 +1,7 @@
 // A nutricionista na área de Alimentação: ela conta o que comeu, o que vai mudar no dia, como está a fome,
 // e a especialista responde olhando o todo e troca refeições do dia. Troca de refeição só vale depois do aprovo.
-import { all, byDateRange, create, get, remove, update, upsert, uid } from '../db/db';
+import { all, byDateRange, create, get, getKind, remove, update, upsert, uid } from '../db/db';
+import { mealId } from './actions';
 import { addDays, isoWeekday, todayKey, type DateKey } from '../lib/dates';
 import { planFor, plannedFood, plannedTraining } from './rules';
 import { portionText, totals } from './nutrition';
@@ -47,7 +48,7 @@ export async function askNutri(text: string, history: SpecMsg[], images?: { mime
         refeicao: mt.id, nome: mt.label, horario: settings?.mealTimes?.[mt.id],
         planejado: tpl ? { modelo_id: tpl.id, nome: tpl.name, itens: itemsText(tpl.items), ...macros(totals(tpl.items, foods).n), trocado_pela_nutri: extras.some((e) => e.date === d && e.domain === 'food' && e.ref.startsWith(`${mt.id}:`)) || undefined } : null,
         pulada: skips.some((s) => s.date === d && s.domain === 'food' && s.ref === mt.id) || undefined,
-        comeu: meal ? { itens: itemsText(meal.items), ...macros(totals(meal.items, foods).n), registrada_as: hm(meal.createdAt), como_foi: meal.feeling || undefined } : undefined
+        comeu: meal ? { itens: itemsText(meal.items), itens_ids: meal.items.map((i) => ({ alimento_id: i.foodId, gramas: i.grams, porcao: i.grams ? undefined : i.portion })), ...macros(totals(meal.items, foods).n), registrada_as: hm(meal.createdAt), como_foi: meal.feeling || undefined } : undefined
       };
     });
   };
@@ -99,6 +100,27 @@ export async function askNutri(text: string, history: SpecMsg[], images?: { mime
         await snap(id);
         await upsert('skip', id, { date: d, domain: 'food', ref: a.refeicao });
         done.push(`${label(a.refeicao)} de ${ddmm(d)} ficou como "não hoje".`);
+      } else if (a?.tipo === 'registrar_refeicao') {
+        // O que ela conta que comeu entra direto (com desfazer): soma ao que já está registrado, ou substitui quando ela corrige.
+        const d = String(a.data ?? '') as DateKey;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || d > today || d < addDays(today, -6) || !validMt(a.refeicao)) { failed.push('Faltou dizer o dia ou a refeição para registrar.'); continue; }
+        const raw = Array.isArray(a.itens) ? a.itens : [];
+        const missing = raw.filter((i: any) => !foods.some((f) => f.id === String(i?.alimento_id ?? ''))).length;
+        const items = raw.filter((i: any) => foods.some((f) => f.id === String(i?.alimento_id ?? ''))).map((i: any) => itemFrom(String(i.alimento_id), i.porcao, i.gramas));
+        if (!items.length) { failed.push('Os alimentos citados não estão no seu catálogo; cadastre e eu registro.'); continue; }
+        const id = mealId(d, a.refeicao);
+        const cur = await getKind('meal', id);
+        await snap(id);
+        await upsert('meal', id, { date: d, mealType: a.refeicao, items: a.substituir || !cur ? items : [...cur.items, ...items], templateId: undefined, fromPlan: false });
+        done.push(`${label(a.refeicao)} de ${ddmm(d)}: ${a.substituir && cur ? 'corrigi para' : 'registrei'} ${items.map((i: MealItem) => `${fname(i.foodId)} (${i.portion})`).join(', ')}.`);
+        if (missing) failed.push(`${missing === 1 ? 'Um item ficou' : `${missing} itens ficaram`} de fora por não estar no seu catálogo.`);
+      } else if (a?.tipo === 'excluir_refeicao') {
+        const d = String(a.data ?? '') as DateKey;
+        const id = mealId(d, String(a.refeicao ?? ''));
+        if (!(await getKind('meal', id))) { failed.push('Não achei essa refeição registrada.'); continue; }
+        await snap(id);
+        await remove(id);
+        done.push(`Tirei o registro de ${label(a.refeicao).toLowerCase()} de ${ddmm(d)}.`);
       } else if (a?.tipo === 'propor_refeicoes') {
         const d = String(a.data ?? '') as DateKey;
         if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || d < today || d > addDays(today, 13)) { failed.push('A proposta veio sem uma data válida.'); continue; }

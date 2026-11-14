@@ -1,6 +1,7 @@
 // Carreira: trabalho atual, marca pessoal, conquistas, oportunidades e desenvolvimento.
 // A especialista lê tudo junto, mais o estado dela (sono, humor e energia) para dosar o esforço da semana.
-import { all, byDateRange, create, get, update } from '../db/db';
+import { all, byDateRange, create, get, getKind, update } from '../db/db';
+import { completeTask, moveTask } from './rules';
 import { addDays, todayKey, weekStart, type DateKey } from '../lib/dates';
 import { askAI } from './ai';
 import { chatMemory, rollbackAction, undoLog, type SpecMsg } from './specchat';
@@ -29,7 +30,7 @@ export async function careerContext(today: DateKey = todayKey()) {
     hoje: today,
     base_da_carreira: base && { empresa_atual: base.workName, cargo: base.role, posicionamento: base.posicionamento, publico: base.publico, pilares: base.pilares, tom_de_voz: base.tom, evitar: base.evitar, bio: base.bio, assinatura: base.assinatura, onde_quer_chegar: base.objetivo },
     trabalho: {
-      pendentes: work.filter((t) => t.status === 'pendente').slice(0, 40).map((t) => ({ titulo: t.title, prioridade: t.priority, para: t.plannedDate ?? t.appointmentDate, proximo_passo: t.nextStep })),
+      pendentes: work.filter((t) => t.status === 'pendente').slice(0, 40).map((t) => ({ tarefa_id: t.id, titulo: t.title, prioridade: t.priority, para: t.plannedDate ?? t.appointmentDate, proximo_passo: t.nextStep })),
       concluidas_14_dias: work.filter((t) => t.completedDate && t.completedDate >= addDays(today, -13)).map((t) => ({ titulo: t.title, em: t.completedDate }))
     },
     linkedin: {
@@ -61,9 +62,26 @@ export async function askCareer(text: string, history: SpecMsg[]): Promise<SpecM
   const failed: string[] = [];
   for (const a of Array.isArray(r?.acoes) ? r.acoes : []) {
     const tx = String(a?.texto ?? a?.titulo ?? '').trim();
-    if (!tx) continue;
     const mark = undo.length;
     try {
+      if (a?.tipo === 'concluir_tarefa' || a?.tipo === 'mover_tarefa') {
+        // Só tarefas de trabalho que existem; mover aceita data ou null (tira do dia).
+        const t = await getKind('task', a.tarefa_id);
+        if (!t || !isWork(t, base) || t.status !== 'pendente') { failed.push('Não achei essa tarefa entre as pendentes.'); continue; }
+        if (a.tipo === 'concluir_tarefa') {
+          await snap(t.id);
+          await update<'task'>(t.id, completeTask(t, todayKey()));
+          done.push(`Concluída: ${t.title}`);
+        } else {
+          const to = /^\d{4}-\d{2}-\d{2}$/.test(String(a.data ?? '')) ? (a.data as DateKey) : null;
+          if (to && to < todayKey()) { failed.push('A tarefa não pode ir para um dia que já passou.'); continue; }
+          await snap(t.id);
+          await update<'task'>(t.id, moveTask(t, to));
+          done.push(to ? `${t.title}: agora para ${to.slice(8, 10)}/${to.slice(5, 7)}` : `${t.title}: saiu do dia`);
+        }
+        continue;
+      }
+      if (!tx) continue;
       if (a.tipo === 'guardar_preferencia') {
         const s = await get<'settings'>('settings');
         if (!s) continue;

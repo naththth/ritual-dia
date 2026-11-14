@@ -39,7 +39,7 @@ const CONF: Record<ChatDomain, { title: string; sub: string; aria: string; place
     title: 'Nutricionista', who: 'a nutricionista', aria: 'Falar com a nutricionista',
     sub: 'Conte o que comeu e o que muda no dia; eu ajusto o plano',
     placeholder: 'Conte para a nutricionista…', busy: 'Olhando suas refeições e seus treinos…',
-    intro: 'Me conte o que comeu, como está a fome, o que vai ser diferente hoje ou nos próximos dias. Pode mandar foto do prato ou do cardápio. Eu respondo olhando metas, treinos e o que você já comeu, troco refeições de um dia e guardo o que deve valer para os próximos planos. Troca de refeição só entra depois que você aprova.',
+    intro: 'Me conte o que comeu, como está a fome, o que vai ser diferente hoje ou nos próximos dias. Pode mandar foto do prato ou do cardápio. Eu respondo olhando metas, treinos e o que você já comeu, registro e corrijo o que você conta que comeu, troco refeições de um dia e guardo o que deve valer para os próximos planos. Troca de refeição só entra depois que você aprova; registro entra na hora, com desfazer.',
     examples: [
       'Vou almoçar fora hoje, monta um jantar que feche a proteína',
       'O que comer antes do pedal das 18h?',
@@ -51,7 +51,7 @@ const CONF: Record<ChatDomain, { title: string; sub: string; aria: string; place
     title: 'Acompanhamento', who: 'a especialista da Mente', aria: 'Falar com a especialista da Mente',
     sub: 'Humor, sono, remédios e rotina, olhando tudo junto',
     placeholder: 'Conte como você está…', busy: 'Olhando humor, sono, treino e alimentação…',
-    intro: 'Eu acompanho humor, sono, remédios, café, treino e alimentação juntos, e ajudo a ler o que os dados mostram. Não substituo o seu psiquiatra nem a sua terapeuta: quando algo merece conversa com eles, eu digo, e monto a pauta da consulta para você levar.',
+    intro: 'Eu acompanho humor, sono, remédios, café, treino e alimentação juntos, e ajudo a ler o que os dados mostram. O que você me contar de humor, sono, café e remédios eu já lanço no app, com desfazer. Não substituo o seu psiquiatra nem a sua terapeuta: quando algo merece conversa com eles, eu digo, e monto a pauta da consulta para você levar.',
     examples: [
       'Como foi a minha semana?',
       'Monta a pauta da próxima consulta',
@@ -63,7 +63,7 @@ const CONF: Record<ChatDomain, { title: string; sub: string; aria: string; place
     title: 'Carreira', who: 'a especialista de carreira', aria: 'Falar com a especialista de carreira',
     sub: 'Trabalho, marca, conquistas e oportunidades, olhando tudo junto',
     placeholder: 'Conte o que está na sua cabeça…', busy: 'Olhando trabalho, marca e oportunidades…',
-    intro: 'Eu olho o seu trabalho, a sua marca, as conquistas que você registra, as oportunidades e o que você quer desenvolver, junto com como andam sono e energia. Ajudo a priorizar a semana, transformar pauta em post no seu tom, preparar conversa difícil, entrevista ou avaliação, e anoto tarefa, pauta ou conquista quando você pedir.',
+    intro: 'Eu olho o seu trabalho, a sua marca, as conquistas que você registra, as oportunidades e o que você quer desenvolver, junto com como andam sono e energia. Ajudo a priorizar a semana, transformar pauta em post no seu tom, preparar conversa difícil, entrevista ou avaliação, anoto tarefa, pauta ou conquista quando você pedir e concluo ou mudo de dia as tarefas que você me disser.',
     examples: [
       'Me ajuda a priorizar a semana de trabalho',
       'Transforma a próxima pauta em post no meu tom',
