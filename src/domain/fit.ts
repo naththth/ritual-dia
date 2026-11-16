@@ -124,6 +124,7 @@ export function summarize(data: any, ftp?: number): ParsedActivity {
     avgCadence: s.avg_cadence ? Math.round(s.avg_cadence) : undefined,
     ascentM: s.total_ascent ? Math.round(s.total_ascent * 1000) : undefined, // lengthUnit km
     avgSpeed: s.avg_speed ? Math.round(s.avg_speed * 10) / 10 : undefined,
+    movingSec: seconds ? Math.round(seconds) : undefined,
     zones,
     ftpUsed: ftp,
     laps: (data.laps ?? []).slice(0, 30).map((l: any) => ({

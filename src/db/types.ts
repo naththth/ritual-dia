@@ -334,7 +334,11 @@ export interface WorkoutMetrics {
   sport?: string;
   distanceKm?: number; kcal?: number; avgHr?: number; maxHr?: number;
   avgPower?: number; maxPower?: number; np?: number; if?: number; tss?: number;
-  best5?: number; best20?: number; avgCadence?: number; ascentM?: number; avgSpeed?: number;
+  best5?: number; best20?: number; avgCadence?: number; ascentM?: number;
+  /** Velocidade média em km/h. */
+  avgSpeed?: number;
+  /** Tempo em movimento, em segundos (para pace exato). */
+  movingSec?: number;
   zones?: Record<string, number>; ftpUsed?: number;
   laps?: { minutes: number; avgPower?: number; avgHr?: number }[];
 }

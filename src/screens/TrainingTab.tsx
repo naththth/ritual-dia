@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { metricCells, showsPowerZones } from '../domain/workoutMetrics';
 import { useNavigate } from 'react-router-dom';
 import { Upload, Plus, Sparkles, Trash2, ChevronLeft, ChevronRight, Check as CheckIcon, Activity } from 'lucide-react';
 import { Fold } from '../ui/ui';
@@ -293,21 +294,8 @@ export function TrainingTab() {
 
 export function WorkoutCard({ w, name, ftp, strength }: { w: Workout; name: string; ftp?: number; strength?: { program: StrengthExercise[]; firstGroup?: string; hint?: string } }) {
   const m = w.metrics;
-  const cells: [string, string][] = [];
-  if (w.duration) cells.push(['Duração', `${w.duration} min`]);
-  if (m?.distanceKm || w.distanceKm) cells.push(['Distância', `${m?.distanceKm ?? w.distanceKm} km`]);
-  if (m?.np) cells.push(['Potência NP', `${m.np} W`]);
-  if (m?.avgPower) cells.push(['Potência média', `${m.avgPower} W`]);
-  if (m?.if) cells.push(['Intensidade', `${m.if}`]);
-  if (m?.tss) cells.push(['TSS', `${m.tss}`]);
-  if (m?.avgHr) cells.push(['FC média', `${m.avgHr} bpm`]);
-  if (m?.maxHr) cells.push(['FC máxima', `${m.maxHr} bpm`]);
-  if (m?.best20) cells.push(['Melhor 20 min', `${m.best20} W`]);
-  if (m?.best5) cells.push(['Melhor 5 min', `${m.best5} W`]);
-  if (m?.avgCadence) cells.push(['Cadência', `${m.avgCadence} rpm`]);
-  if (m?.ascentM) cells.push(['Subida', `${m.ascentM} m`]);
-  if (m?.kcal) cells.push(['Calorias', `${m.kcal} kcal`]);
-  const zones = m?.zones;
+  const cells = metricCells(w);
+  const zones = showsPowerZones(w) ? m?.zones : undefined;
   const zTotal = zones ? Object.values(zones).reduce((a, b) => a + b, 0) : 0;
   return (
     <div className="wcard" data-testid="workout-card">

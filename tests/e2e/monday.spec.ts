@@ -273,7 +273,7 @@ test('importar treino .FIT e ver potência, FC e zonas', async ({ page }) => {
   const card = page.getByTestId('workout-card');
   await expect(card).toContainText('Ciclismo');
   await expect(card).toContainText('229 W');
-  await expect(card).toContainText('24.79 km');
+  await expect(card).toContainText('24,79 km');
   await expect(card).toContainText('Tempo por zona');
   // reimportar não duplica
   await page.getByTestId('fit-input').setInputFiles(path.resolve('tests/e2e/fixtures/pedal.fit'));

@@ -200,6 +200,7 @@ const SPORT: Record<string, string> = {
   Swim: 'mod:natacao', OpenWaterSwim: 'mod:natacao', WeightTraining: 'mod:musculacao', Workout: 'mod:musculacao', Yoga: 'mod:yoga'
 };
 const num = (...v: any[]) => { for (const x of v) if (typeof x === 'number' && !Number.isNaN(x)) return x; return undefined; };
+const round1 = (x?: number) => (x == null ? undefined : Math.round(x * 10) / 10);
 
 /** Texto de treino no formato do intervals.icu: cada bloco vira "- 10m 55%" (percentual do FTP). */
 function workoutText(t: any) {
@@ -339,7 +340,8 @@ async function syncIntervals(userId: string, days = 14) {
         source: 'intervals', sport: a.type, distanceKm: a.distance ? Math.round(a.distance / 10) / 100 : undefined,
         kcal: num(a.calories), avgHr: num(a.average_heartrate), maxHr: num(a.max_heartrate),
         avgPower: num(a.icu_average_watts, a.average_watts), np, if: np && ftp ? Math.round((np / ftp) * 100) / 100 : undefined,
-        tss: num(a.icu_training_load), avgCadence: num(a.average_cadence), ascentM: num(a.total_elevation_gain), ftpUsed: ftp
+        tss: num(a.icu_training_load), avgCadence: round1(num(a.average_cadence)), ascentM: round1(num(a.total_elevation_gain)), ftpUsed: ftp,
+        avgSpeed: round1(num(a.average_speed) != null ? num(a.average_speed)! * 3.6 : undefined), movingSec: Math.round(moving) || undefined
       },
       ...keep
     } });
