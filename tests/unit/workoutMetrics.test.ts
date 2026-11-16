@@ -50,3 +50,10 @@ describe('métricas do treino conforme o esporte', () => {
     expect(labels(w({ modalityId: 'mod:corrida', duration: 30, metrics: { source: 'intervals', distanceKm: 0.05 } }))).not.toContain('Pace');
   });
 });
+
+describe('velocidade do pedal', () => {
+  it('velocidade zerada do relógio cai para a conta de distância e tempo', () => {
+    const x: any = { id: 'p', kind: 'workout', date: '2026-01-10', createdAt: 1, updatedAt: 1, modalityId: 'mod:ciclismo', duration: 60, metrics: { source: 'intervals', distanceKm: 30, avgSpeed: 0, movingSec: 3600 } };
+    expect(metricCells(x).find(([l]) => l === 'Velocidade')?.[1].replace(/\u00a0/g, ' ')).toBe('30,0 km/h');
+  });
+});

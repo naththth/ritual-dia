@@ -62,7 +62,7 @@ export function metricCells(w: Workout): [string, string][] {
   } else if (fam === 'bike') {
     push(km, 'Distância', () => `${dec(km!, 2)}${NB}km`);
     const sec = movingSec(w);
-    const kmh = m?.avgSpeed ?? (km && sec ? km / (sec / 3600) : undefined);
+    const kmh = m?.avgSpeed || (km && sec ? km / (sec / 3600) : undefined);
     push(kmh, 'Velocidade', () => `${dec(kmh!, 1)}${NB}km/h`);
     push(m?.np, 'Potência NP', () => `${m!.np}${NB}W`);
     push(m?.avgPower, 'Potência média', () => `${m!.avgPower}${NB}W`);
