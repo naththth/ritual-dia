@@ -1,5 +1,6 @@
 // Leitura de cada treino pela IA: como foi a sessão contra a intenção e contra as anteriores, recuperação e o que comer depois.
 import { all, byDateRange, get, update } from '../db/db';
+import { metricsForAI, shortLine } from './workoutMetrics';
 import { addDays, isoWeekday, type DateKey } from '../lib/dates';
 import { planFor, plannedTraining } from './rules';
 import { trainingLoad } from './load';
@@ -26,7 +27,7 @@ export async function aiWorkoutFeedback(w: Workout): Promise<void> {
     ]);
     const modName = (id: string) => mods.find((m) => m.id === id)?.name ?? id;
     const tpl = tmpls.find((t) => t.id === w.templateId);
-    const metrics = w.metrics ? { ...w.metrics, laps: undefined } : undefined;
+    const metrics = metricsForAI(w);
     const exs = (x: Workout) => x.exercises?.map((e) => ({ exercicio: e.name, series: e.sets, repeticoes: repsPerSet(e), cargas_kg: loadsPerSet(e), volume_kg: exerciseVolume(e), programado: e.planned }));
     const times = { ...DEFAULT_MEAL_TIMES, ...(settings?.mealTimes ?? {}) };
     const eaten = totals(meals.flatMap((m) => m.items), foods).n;
@@ -40,7 +41,7 @@ export async function aiWorkoutFeedback(w: Workout): Promise<void> {
       o_que_estava_planejado: tpl ? { nome: tpl.name, minutos: tpl.duration, intensidade: tpl.intensity, blocos_pct_ftp: tpl.steps, roteiro: tpl.note } : null,
       ftp: settings?.ftp ?? null,
       mesma_modalidade_antes: history.filter((x) => !x.deleted && x.id !== w.id && x.modalityId === w.modalityId && x.date <= date).sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 4)
-        .map((x) => ({ data: x.date, minutos: x.duration, tss: x.metrics?.tss, fc_media: x.metrics?.avgHr, potencia_normalizada: x.metrics?.np, potencia_media: x.metrics?.avgPower, esforco: x.rpe, exercicios: exs(x) })),
+        .map((x) => ({ data: x.date, minutos: x.duration, distancia_e_ritmo: shortLine(x).join(', ') || undefined, tss: x.metrics?.tss, fc_media: x.metrics?.avgHr, potencia_normalizada: x.metrics?.np, potencia_media: x.metrics?.avgPower, esforco: x.rpe, exercicios: exs(x) })),
       carga: load ? { fitness: Math.round(load.ctl), fadiga: Math.round(load.atl), forma: Math.round(load.tsb) } : null,
       sono_e_recuperacao: wellness.map(wellnessForAI),
       alimentacao_do_dia: {

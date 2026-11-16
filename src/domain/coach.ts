@@ -1,5 +1,6 @@
 // Conversa com a treinadora na aba Treino: ela conta o que aconteceu, a IA traduz em ações e o app aplica.
 import { db, all, byDateRange, get, getKind, remove, restore, update, upsert, uid, getMeta, setMeta } from '../db/db';
+import { metricsForAI, shortLine } from './workoutMetrics';
 import { rollbackAction } from './specchat';
 import { addDays, isoWeekday, todayKey, type DateKey } from '../lib/dates';
 import { planFor, plannedFood, plannedTraining } from './rules';
@@ -121,7 +122,7 @@ async function context(text: string, history: CoachMsg[]) {
         nome: e.name, series: e.sets, reps: e.reps, reps_por_serie: e.setReps?.length ? repsPerSet(e) : undefined, carga_kg: topLoad(e), cargas_por_serie: e.setLoads?.length ? e.setLoads : undefined,
         volume_kg: exerciseVolume(e), programado: e.planned ? { nome: e.planned.name, series: e.planned.sets, reps: e.planned.reps, reps_por_serie: e.planned.setReps, carga_kg: topLoad(e.planned) } : undefined
       })) : undefined,
-      metricas: w.metrics ? { tss: w.metrics.tss, np: w.metrics.np, potencia_media: w.metrics.avgPower, fc_media: w.metrics.avgHr, kcal: w.metrics.kcal, km: w.metrics.distanceKm } : undefined
+      metricas: w.metrics ? { esporte: metricsForAI(w)?.esporte, tss: w.metrics.tss, np: w.metrics.np, potencia_media: w.metrics.avgPower, fc_media: w.metrics.avgHr, kcal: w.metrics.kcal, distancia_e_ritmo: shortLine(w).join(', ') || undefined } : undefined
     })),
     plano_da_semana: [1, 2, 3, 4, 5, 6, 7].map((d) => ({ dia: d, nome_dia: DAY[d], treinos: (tp?.training?.[d] ?? []).map((id) => tmpls.find((t) => t.id === id)).filter(Boolean).map((t) => ({ template_id: t!.id, nome: t!.name, modalidade_id: t!.modalityId, horario: t!.time, minutos: t!.duration })) })),
     planejado_hoje: plannedTraining(tp, today, extras).map((id) => ({ template_id: id, nome: tname(id) })),

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { shortLine } from '../domain/workoutMetrics';
 import { useSearchParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Check as CheckIcon, Plus, Trash2, Repeat } from 'lucide-react';
@@ -66,7 +67,7 @@ export function TrainingScreen() {
               <CheckIcon size={20} strokeWidth={3} />
               <button className="grow tap" onClick={() => setDraft({ ...w })}>
                 <div className="t">{modName(w.modalityId)}</div>
-                <div className="small">{[w.duration && `${w.duration} min`, w.intensity, w.distanceKm && `${w.distanceKm} km`, w.muscles?.join(', '), w.restType].filter(Boolean).join(', ')}</div>
+                <div className="small">{[w.duration && `${w.duration} min`, w.intensity, ...shortLine(w), w.muscles?.join(', '), w.restType].filter(Boolean).join(', ')}</div>
               </button>
               <button className="icon-btn" aria-label="Excluir treino" onClick={() => deleteRecord(w.id, 'Treino excluído')}><Trash2 size={18} /></button>
             </div>

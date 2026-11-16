@@ -92,3 +92,31 @@ export function metricCells(w: Workout): [string, string][] {
 
 /** Zonas de potência só fazem sentido no pedal. */
 export const showsPowerZones = (w: Workout) => sportFamily(w) === 'bike';
+
+const FAMILY_PT: Record<SportFamily, string> = { run: 'corrida', walk: 'caminhada', bike: 'pedal', swim: 'natação', other: 'força ou aula' };
+
+/**
+ * Métricas para as especialistas lerem o treino do mesmo jeito que ela vê no card: o esporte, os números já com unidade
+ * (pace, ppm, rpm) e, à parte, os valores crus úteis para conta. A cadência crua sai porque, na corrida, o relógio grava
+ * por perna e a IA leria 60 como rpm.
+ */
+export function metricsForAI(w: Workout) {
+  if (!w.metrics) return undefined;
+  const { laps: _laps, avgCadence: _cad, zones, ...raw } = w.metrics;
+  const fam = sportFamily(w);
+  return {
+    esporte: FAMILY_PT[fam],
+    como_aparece_no_app: Object.fromEntries(metricCells(w).map(([l, v]) => [l, v.replace(/\u00a0/g, ' ')])),
+    ...raw,
+    zones: fam === 'bike' ? zones : undefined
+  };
+}
+
+/** Resumo curto de uma linha: "30 min · 3,02 km · 9:50 /km". */
+export function shortLine(w: Workout): string[] {
+  const cells = new Map(metricCells(w));
+  const pick = (l: string) => cells.get(l)?.replace(/\u00a0/g, ' ');
+  const fam = sportFamily(w);
+  const extra = fam === 'run' || fam === 'walk' ? pick('Pace') : fam === 'swim' ? pick('Ritmo') : fam === 'bike' ? pick('Velocidade') : undefined;
+  return [pick('Distância'), extra].filter((x): x is string => !!x);
+}

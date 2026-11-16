@@ -57,3 +57,16 @@ describe('velocidade do pedal', () => {
     expect(metricCells(x).find(([l]) => l === 'Velocidade')?.[1].replace(/\u00a0/g, ' ')).toBe('30,0 km/h');
   });
 });
+
+describe('o que as especialistas recebem', () => {
+  it('corrida chega com pace e ppm, sem a cadência crua', async () => {
+    const { metricsForAI, shortLine } = await import('../../src/domain/workoutMetrics');
+    const run: any = { id: 'r', kind: 'workout', date: '2026-11-16', createdAt: 1, updatedAt: 1, modalityId: 'mod:corrida', duration: 30, metrics: { source: 'intervals', distanceKm: 3.02, movingSec: 1781, avgCadence: 60.3, tss: 23 } };
+    const m: any = metricsForAI(run);
+    expect(m.esporte).toBe('corrida');
+    expect(m.avgCadence).toBeUndefined();
+    expect(m.como_aparece_no_app.Pace).toBe('9:50 /km');
+    expect(m.como_aparece_no_app['Cadência']).toBe('121 ppm');
+    expect(shortLine(run)).toEqual(['3,02 km', '9:50 /km']);
+  });
+});
