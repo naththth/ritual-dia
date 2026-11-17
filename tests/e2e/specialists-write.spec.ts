@@ -1,3 +1,4 @@
+import { fakeGoogleTasks, googleTops } from './fixtures/gtasks';
 import { test, expect, type Page } from '@playwright/test';
 import path from 'node:path';
 
@@ -128,46 +129,32 @@ test('Carreira conclui a tarefa que ela diz que fez', async ({ page }) => {
   expect(t.status).toBe('concluida');
 });
 
-test('Carreira conclui e muda de dia as tarefas do Google Tasks, com desfazer', async ({ page }) => {
-  await page.addInitScript(() => {
-    const st: Record<string, any> = {
-      t1: { id: 't1', list: 'L1', listName: 'Minhas tarefas', title: 'Revisar a apresentação da diretoria', due: '2026-11-05', status: 'needsAction' },
-      t2: { id: 't2', list: 'L1', listName: 'Minhas tarefas', title: 'Pauta do 1:1 com a equipe', status: 'needsAction' }
-    };
-    (window as any).__gt = st;
-    (window as any).__RITUAL_TEST_GTASKS = (action: string, body: any) => {
-      if (action === 'update') { const t = st[body.id]; if ('due' in body) t.due = body.due ?? undefined; if (body.status) t.status = body.status; return { ok: true }; }
-      if (action === 'complete') { st[body.id].status = 'completed'; return { ok: true }; }
-      return { status: 'ok', tasks: Object.values(st).filter((t: any) => t.status === 'needsAction').map(({ status, ...t }: any) => t) };
-    };
-  });
+test('Carreira conclui e muda de dia as tarefas que vieram do Google Tasks e a mudança sobe para o Google', async ({ page }) => {
+  await fakeGoogleTasks(page, [
+    { list: 'dbc', title: 'Revisar a apresentação da diretoria', due: '2026-11-05' },
+    { list: 'dbc', title: 'Pauta do 1:1 com a equipe' }
+  ]);
   await seed(page);
   await page.evaluate(() => {
     const prev = (window as any).__RITUAL_TEST_AI;
     (window as any).__RITUAL_TEST_AI = (task: string, ctx: any) => {
       if (task !== 'career_coach') return prev(task, ctx);
-      (window as any).__careerCtx = ctx;
-      const g = (t: string) => ctx.trabalho.google_tasks.find((x: any) => x.titulo.startsWith(t)).tarefa_id;
-      return { mensagem: 'Feito.', rascunho: '', acoes: [{ tipo: 'mover_tarefa', tarefa_id: g('Revisar'), data: '2026-11-10' }, { tipo: 'concluir_tarefa', tarefa_id: g('Pauta') }] };
+      const id = (t: string) => ctx.trabalho.pendentes.find((x: any) => x.titulo.startsWith(t)).tarefa_id;
+      return { mensagem: 'Feito.', rascunho: '', acoes: [{ tipo: 'mover_tarefa', tarefa_id: id('Revisar'), data: '2026-11-10' }, { tipo: 'concluir_tarefa', tarefa_id: id('Pauta') }] };
     };
   });
   await page.goto('./#/carreira');
-  await expect(page.getByTestId('gtask-row')).toHaveCount(2);
+  await expect(page.getByTestId('area-carreira')).toContainText('Pauta do 1:1 com a equipe');
   await page.getByTestId('spec-open-career').click();
   await page.getByTestId('spec-input').fill('Fiz a pauta do 1:1 e a revisão fica para terça que vem');
   await page.getByTestId('spec-send').click();
   const done = page.getByTestId('spec-done').last();
-  await expect(done).toContainText('Revisar a apresentação da diretoria: agora para 10/11 no Google Tasks');
-  await expect(done).toContainText('Concluída no Google Tasks: Pauta do 1:1 com a equipe');
-  expect(await page.evaluate(() => (window as any).__gt.t1.due)).toBe('2026-11-10');
-  expect(await page.evaluate(() => (window as any).__gt.t2.status)).toBe('completed');
-  expect(await page.evaluate(() => (window as any).__careerCtx.trabalho.google_tasks[0].lista)).toBe('Minhas tarefas');
-  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/career-gtasks.png' });
-  await page.getByTestId('spec-undo').last().click();
-  await expect.poll(() => page.evaluate(() => (window as any).__gt.t2.status)).toBe('needsAction');
-  expect(await page.evaluate(() => (window as any).__gt.t1.due)).toBe('2026-11-05');
-  // a lista da tela recarrega sozinha
-  await page.keyboard.press('Escape');
-  await expect(page.getByTestId('gtasks')).toContainText('Minhas tarefas - qui, 05/11');
-  await expect(page.getByTestId('gtask-row')).toHaveCount(2);
+  await expect(done).toContainText('Revisar a apresentação da diretoria: agora para 10/11');
+  await expect(done).toContainText('Concluída: Pauta do 1:1 com a equipe');
+  // Abrir a tela de novo concilia com o Google.
+  await page.reload();
+  const g = (t: string) => googleTops(page).then((xs) => xs.find((x) => x.title.startsWith(t)));
+  await expect.poll(async () => (await g('Revisar'))?.due).toBe('2026-11-10');
+  expect((await g('Pauta'))?.status).toBe('completed');
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/career-gtasks.png' });
 });

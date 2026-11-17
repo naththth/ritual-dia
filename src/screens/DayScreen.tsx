@@ -8,7 +8,7 @@ import { TaskPicker, TaskRow, TaskSheet, prioLabel } from './tasks';
 import {
   habitDay, habitProgress, suggestTasks, suggestionReason, tasksForDay
 } from '../domain/rules';
-import { addDays, monthEnd, monthStart, todayKey, weekStart, type DateKey } from '../lib/dates';
+import { addDays, monthEnd, monthStart, weekStart, type DateKey } from '../lib/dates';
 import { logSuggestion, planTask, toggleHabit } from '../domain/actions';
 import type { Habit, Task } from '../db/types';
 import { toast } from '../state/store';
@@ -17,7 +17,6 @@ import { NowAndTimeline, TodayStats } from './today';
 import { RitualBar } from './ritual';
 import { TodayFocus } from './focus';
 import { WeekTeaser } from './week';
-import { GoogleTasks } from './career';
 
 export function DayScreen() {
   const date = useApp((s) => s.date);
@@ -35,8 +34,6 @@ export function DayScreen() {
       <NowAndTimeline date={date} hideNow />
       <DayBriefBlock date={date} />
       <TodayTasks date={date} tasks={tasks} />
-      {/* O que ela anotou no Google Tasks pelo PC da DBC e vence até hoje. */}
-      {date === todayKey() && <GoogleTasks compact />}
       <BriefTasks date={date} />
       <Suggestion date={date} tasks={tasks} />
     </div>

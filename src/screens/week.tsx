@@ -8,6 +8,7 @@ import { useAll, useRecord } from '../db/hooks';
 import { create, update } from '../db/db';
 import { addDays, isoWeekday, shortLabel, todayKey, weekStart, type DateKey } from '../lib/dates';
 import { aiAvailable } from '../domain/ai';
+import { PERSONAL_CAT } from '../domain/gtasks';
 import { aiWeekCross, weekData, weekToRead, type Pattern } from '../domain/week';
 import { toast } from '../state/store';
 import { PageHead } from './common';
@@ -63,7 +64,7 @@ export function WeekScreen() {
   const toTask = async (n: { acao: string; por_que?: string }, k: number) => {
     const sourceId = `week:${from}:${k}`;
     if (tasks?.some((t) => t.sourceId === sourceId && !t.deleted)) return;
-    await create('task', { title: n.acao, description: n.por_que, categoryId: 'cat:compromissos', priority: 'media', status: 'pendente', tags: ['semana'], subtasks: [], history: [{ at: Date.now(), text: 'Criada na leitura da semana' }], plannedDate: addDays(from, 7), sourceId } as any);
+    await create('task', { title: n.acao, description: n.por_que, categoryId: PERSONAL_CAT, priority: 'media', status: 'pendente', tags: ['semana'], subtasks: [], history: [{ at: Date.now(), text: 'Criada na leitura da semana' }], plannedDate: addDays(from, 7), sourceId } as any);
     toast(`Na sua lista para ${shortLabel(addDays(from, 7))}`);
   };
   const closed = addDays(from, 6) <= todayKey() || isoWeekday(todayKey()) === 7 && from === weekStart(todayKey());

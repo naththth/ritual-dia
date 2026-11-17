@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import path from 'node:path';
+import { fakeGoogleTasks, googleTops } from './fixtures/gtasks';
 
 test.use({ timezoneId: 'America/Sao_Paulo', viewport: { width: 360, height: 760 } });
 
@@ -210,34 +211,43 @@ test('Desenvolvimento: a especialista traz notícia, artigo e livro da semana, e
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
 });
 
-test('DBC: tarefas do Google Tasks aparecem e concluir marca lá também; sem conexão, oferece conectar', async ({ page }) => {
-  await page.addInitScript(() => {
-    const state = { connected: sessionStorage.getItem('gt-off') ? false : true, done: [] as string[] };
-    (window as any).__gtDone = state.done;
-    (window as any).__RITUAL_TEST_GTASKS = (action: string, body: any) => {
-      if (!state.connected) return { status: 'not_connected' };
-      if (action === 'complete') { state.done.push(body.id); return { ok: true }; }
-      return { status: 'ok', tasks: [
-        { id: 't1', list: 'L1', listName: 'Minhas tarefas', title: 'Revisar a apresentação da diretoria', due: '2026-11-05' },
-        { id: 't2', list: 'L1', listName: 'Minhas tarefas', title: 'Pauta do 1:1 com a equipe', notes: 'Levar números de prospecção' }
-      ].filter((t) => !state.done.includes(t.id)) };
-    };
-  });
+test('Tarefas e Google Tasks são uma coisa só: o que vem do PC aparece na DBC e no Hoje; o que muda aqui sobe para a lista certa', async ({ page }) => {
+  await fakeGoogleTasks(page, [
+    { list: 'dbc', title: 'Revisar a apresentação da diretoria', due: '2026-11-05' },
+    { list: 'dbc', title: 'Pauta do 1:1 com a equipe', notes: 'Levar números de prospecção' },
+    { list: 'dbc', title: 'Email material novos indicadores', due: '2026-11-04' },
+    { list: 'pessoal', title: 'Ligar para o pediatra da Amora' }
+  ]);
   await seed(page);
-  // No Hoje (04/11): só o que vence até hoje ou não tem data; a de 05/11 fica para a Carreira.
-  await expect(page.getByTestId('gtask-today-row')).toHaveCount(1);
-  await expect(page.getByTestId('gtasks-today')).toContainText('Pauta do 1:1 com a equipe');
   await page.goto('./#/carreira');
   await page.getByPlaceholder('Nome da empresa').fill('DBC');
   await page.getByRole('button', { name: 'Salvar' }).click();
-  await expect(page.getByTestId('gtask-row')).toHaveCount(2);
-  await expect(page.getByTestId('gtasks')).toContainText('Minhas tarefas - qui, 05/11');
+  // Uma lista só: as do Google entram como tarefas da DBC, cada uma no seu lugar.
+  await expect(page.getByTestId('gtasks-status')).toContainText('No Google Tasks - atualizado às');
+  await expect(page.getByTestId('area-carreira')).toContainText('Revisar a apresentação da diretoria');
+  await expect(page.getByTestId('area-carreira')).toContainText('Pauta do 1:1 com a equipe');
+  await expect(page.getByTestId('gtasks')).toHaveCount(0);
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/gtasks.png', fullPage: true });
-  await page.getByLabel('Concluir Revisar a apresentação da diretoria').click();
-  await expect(page.getByTestId('gtask-row')).toHaveCount(1);
-  expect(await page.evaluate(() => (window as any).__gtDone)).toEqual(['t1']);
+  // Anotar aqui e concluir aqui sobem para o Google, na lista DBC.
+  await page.getByTestId('qa-title').fill('Mandar proposta revisada');
+  await page.getByTestId('qa-add').click();
+  await page.getByLabel('Concluir Email material novos indicadores').click();
+  await page.getByTestId('gtasks-reload').click();
+  await expect.poll(async () => (await googleTops(page)).find((t) => t.title === 'Mandar proposta revisada')?.list).toBe('LDBC');
+  expect((await googleTops(page)).find((t) => t.title === 'Email material novos indicadores').status).toBe('completed');
+  // As pessoais (da importação e a do Google) ficam na lista Pessoal.
+  const tops = await googleTops(page);
+  expect(tops.filter((t) => t.list === 'LPES').length).toBeGreaterThan(1);
+  // Na tela Tarefas, o filtro é Pessoal e DBC.
+  await page.goto('./#/listas');
+  await expect(page.getByTestId('lists-screen')).toContainText('Ligar para o pediatra da Amora');
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/shots/gtasks-lists.png' });
+  // No Hoje, a da DBC com data de hoje está nas tarefas do dia.
+  await page.goto('./#/');
+  await expect(page.getByTestId('day-screen')).toContainText('Email material novos indicadores');
   // Sem conexão: aparece o convite para conectar.
   await page.evaluate(() => sessionStorage.setItem('gt-off', '1'));
+  await page.goto('./#/carreira');
   await page.reload();
   await expect(page.getByTestId('gtasks-connect')).toBeVisible();
 });

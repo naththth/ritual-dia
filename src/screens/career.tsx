@@ -7,7 +7,7 @@ import { create, remove, update, upsert } from '../db/db';
 import { addDays, shortLabel, todayKey, weekStart, type DateKey } from '../lib/dates';
 import { CAREER_ID, DEV_TYPE, isWork, OPP_STAGE, OPP_TYPE, WORK_FALLBACK, loadPicks, pickId } from '../domain/career';
 import { aiAvailable } from '../domain/ai';
-import { completeGTask, listGTasks, GTASKS_CHANGED, type GTask, type GTasksResult } from '../domain/gtasks';
+import { gtasksTesting, PERSONAL_CAT, refreshGoogleTasks, useGTasks } from '../domain/gtasks';
 import { connectGoogleTasks, useSync } from '../sync/sync';
 import { AreaPage } from './areas';
 import { TaskRow, TaskSheet } from './tasks';
@@ -60,66 +60,33 @@ export function QuickAdd({ categoryId, alt, autoFocus, onAdded }: { categoryId?:
 }
 
 /* ---------- Trabalho ---------- */
-/* ---------- Google Tasks: o que ela anota no PC da DBC aparece aqui ---------- */
-/** compact: versão do Hoje. Só aparece conectado e com algo vencendo até hoje (ou sem data); mostra até 4 e leva à Carreira. */
-export function GoogleTasks({ compact }: { compact?: boolean } = {}) {
-  const nav = useNavigate();
+/* ---------- Google Tasks: onde as tarefas vivem (listas Pessoal e DBC); aqui só a situação da conexão ---------- */
+export function GTasksStatus() {
   const session = useSync((s) => s.session);
   const saved = useSync((s) => s.gtasksSaved);
-  const [res, setRes] = useState<GTasksResult | 'loading' | { error: string }>('loading');
+  const { state, last, error } = useGTasks();
   const [busy, setBusy] = useState(false);
-  const testing = typeof window !== 'undefined' && !!(window as any).__RITUAL_TEST_GTASKS;
-  const load = async () => { try { setRes(await listGTasks()); } catch (e) { setRes({ error: (e as Error).message }); } };
-  useEffect(() => { if (session || testing) void load(); }, [session, saved]);
-  // A Carreira (ou o desfazer dela) mudou algo no Google Tasks: recarrega a lista.
-  useEffect(() => { const f = () => { if (session || testing) void load(); }; window.addEventListener(GTASKS_CHANGED, f); return () => window.removeEventListener(GTASKS_CHANGED, f); }, [session]);
+  const testing = gtasksTesting();
+  // Abrir a tela traz o que ela anotou no PC.
+  useEffect(() => { refreshGoogleTasks(); }, [session]);
   useEffect(() => { if (saved === true) toast('Google Tasks conectado'); else if (saved === false) toast('Não consegui guardar a conexão com o Google Tasks. Tente de novo.', undefined, 'error'); }, [saved]);
   if (!session && !testing) return null;
-  if (compact) {
-    if (res === 'loading' || !('status' in res) || res.status !== 'ok') return null;
-    const today = todayKey();
-    const due = res.tasks.filter((t) => !t.due || t.due <= today).sort((a, b) => (a.due ? 0 : 1) - (b.due ? 0 : 1) || (a.due ?? '').localeCompare(b.due ?? ''));
-    if (!due.length) return null;
-    return (
-      <section className="block b-paper gt" data-testid="gtasks-today" aria-label="Google Tasks de hoje">
-        <div className="bh"><h2>Do trabalho</h2><button className="link small" onClick={() => nav('/carreira')}>Ver todas</button></div>
-        <div className="list">{due.slice(0, 4).map((t) => (
-          <div key={t.id} className="row-item" data-testid="gtask-today-row">
-            <button className="gt-check" aria-label={`Concluir ${t.title}`} onClick={() => void doneTask(t)}><Check size={14} /></button>
-            <span className="grow"><span className="t">{t.title}</span><span className="s">{t.due ? (t.due < today ? `Venceu ${shortLabel(t.due)}` : 'Hoje') : t.listName ?? 'Sem data'}</span></span>
-          </div>
-        ))}</div>
-        {due.length > 4 && <p className="small muted" style={{ margin: '8px 0 0' }}>E mais {due.length - 4} na Carreira.</p>}
-      </section>
-    );
-  }
   const connect = async () => { setBusy(true); try { await connectGoogleTasks(); } catch (e) { toast((e as Error).message, undefined, 'error'); setBusy(false); } };
-  const done = async (t: GTask) => doneTask(t);
-  async function doneTask(t: GTask) {
-    if (res === 'loading' || !('status' in res) || res.status !== 'ok') return;
-    setRes({ status: 'ok', tasks: res.tasks.filter((x) => x.id !== t.id) });
-    haptic();
-    try { await completeGTask(t); toast('Feita, também no Google Tasks'); } catch (e) { toast((e as Error).message, undefined, 'error'); void load(); }
-  }
-  return (
-    <section className="block b-paper gt" data-testid="gtasks">
-      <div className="bh"><h2>Google Tasks</h2>{res !== 'loading' && 'status' in res && res.status === 'ok' && <button className="link small" onClick={() => void load()} data-testid="gtasks-reload">Atualizar</button>}</div>
-      {res === 'loading' && <p className="small muted" style={{ margin: 0 }}>Buscando suas tarefas…</p>}
-      {res !== 'loading' && 'error' in res && <p className="small" style={{ margin: 0, color: 'var(--alert)' }}>{res.error}</p>}
-      {res !== 'loading' && 'status' in res && res.status === 'not_connected' && <>
-        <p className="small muted" style={{ marginTop: 0 }}>Anote no Google Tasks pelo Gmail no PC da DBC e as tarefas aparecem aqui. Você entra de novo com o Google uma vez para autorizar.</p>
-        <button className="pill-act pa-ghost" disabled={busy} onClick={() => void connect()} data-testid="gtasks-connect">{busy ? 'Abrindo o Google…' : 'Conectar Google Tasks'}</button>
-      </>}
-      {res !== 'loading' && 'status' in res && res.status === 'not_configured' && <p className="small muted" style={{ margin: 0 }}>A conexão com o Google Tasks está quase pronta: falta concluir a configuração no servidor.</p>}
-      {res !== 'loading' && 'status' in res && res.status === 'ok' && (res.tasks.length === 0
-        ? <p className="small muted" style={{ margin: 0 }}>Nada pendente no Google Tasks.</p>
-        : <div className="list">{res.tasks.map((t) => (
-          <div key={t.id} className="row-item" data-testid="gtask-row">
-            <button className="gt-check" aria-label={`Concluir ${t.title}`} onClick={() => void done(t)}><Check size={14} /></button>
-            <span className="grow"><span className="t">{t.title}</span><span className="s">{[t.listName, t.due && shortLabel(t.due)].filter(Boolean).join(' - ')}</span>{t.notes && <span className="s gt-notes">{t.notes}</span>}</span>
-          </div>
-        ))}</div>)}
+  if (state === 'not_connected') return (
+    <section className="block b-paper gt" data-testid="gtasks-connect-card">
+      <p className="small muted" style={{ marginTop: 0 }}>Suas tarefas passam a viver no Google Tasks, nas listas Pessoal e DBC, e dá para ver e anotar também pelo Gmail no PC. Você entra de novo com o Google uma vez para autorizar.</p>
+      <button className="pill-act pa-ghost" disabled={busy} onClick={() => void connect()} data-testid="gtasks-connect">{busy ? 'Abrindo o Google…' : 'Conectar Google Tasks'}</button>
     </section>
+  );
+  if (state === 'not_configured') return <p className="small muted gt-line" data-testid="gtasks-status">A conexão com o Google Tasks está quase pronta: falta concluir a configuração no servidor.</p>;
+  const hhmm = last ? new Date(last).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+  return (
+    <div className="gt-line" data-testid="gtasks-status">
+      <span className={`small ${state === 'error' ? 'gt-err' : 'muted'}`}>
+        {state === 'syncing' ? 'Sincronizando com o Google Tasks…' : state === 'error' ? error : last ? `No Google Tasks - atualizado às ${hhmm}` : 'No Google Tasks'}
+      </span>
+      <button className="link small" disabled={state === 'syncing'} onClick={() => refreshGoogleTasks()} data-testid="gtasks-reload">Atualizar</button>
+    </div>
   );
 }
 
@@ -155,7 +122,7 @@ export function CareerWorkPage() {
         <div className="cr-stat"><b className="num">{doneWeek.length}</b><span>entregues na semana</span></div>
       </div>
       <QuickAdd categoryId={base.workCategoryId} />
-      <GoogleTasks />
+      <GTasksStatus />
       <Section title="Hoje e atrasadas" list={now} />
       <Section title="Próximos dias" list={next} />
       <Section title="Sem dia" list={loose} plan />
@@ -446,7 +413,7 @@ export function CaptureScreen() {
   const [recent, setRecent] = useState<string[]>([]);
   if (!cats || base === undefined || !settings) return <div className="screen no-nav" />;
   const work = base?.workCategoryId;
-  const personal = cats.find((c) => c.id === 'cat:compromissos')?.id ?? cats.find((c) => c.id !== work)?.id;
+  const personal = cats.find((c) => c.id === PERSONAL_CAT && !c.archived)?.id ?? cats.find((c) => c.id !== work && !c.archived)?.id;
   const alt = [work && { id: work, label: base?.workName ?? WORK_FALLBACK }, personal && { id: personal, label: 'Pessoal' }].filter(Boolean) as { id: string; label: string }[];
   const shown = (tasks ?? []).filter((t) => recent.includes(t.id));
   return (
@@ -455,7 +422,7 @@ export function CaptureScreen() {
       <QuickAdd categoryId={work ?? personal} alt={alt} autoFocus onAdded={(t) => setRecent((r) => [t.id, ...r].slice(0, 8))} />
       <p className="small muted" style={{ margin: '10px 2px' }}>Enter anota. Com horário, chega como notificação no celular no dia marcado.</p>
       {shown.length > 0 && <div className="list">{shown.map((t) => (
-        <div key={t.id} className="row-item"><span className="grow"><div className="t">{t.title}</div><div className="s">{cats.find((c) => c.id === t.categoryId)?.name}{t.plannedDate ? ` · ${shortLabel(t.plannedDate)}` : ''}{t.remindAt ? ` às ${t.remindAt}` : ''}</div></span><Check size={18} /></div>
+        <div key={t.id} className="row-item"><span className="grow"><div className="t">{t.title}</div><div className="s">{cats.find((c) => c.id === t.categoryId)?.name}{t.plannedDate ? ` - ${shortLabel(t.plannedDate)}` : ''}{t.remindAt ? ` às ${t.remindAt}` : ''}</div></span><Check size={18} /></div>
       ))}</div>}
     </div>
   );

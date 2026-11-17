@@ -1513,11 +1513,10 @@ input[type=checkbox]:checked::after { content: ''; width: 6px; height: 11px; bor
 
 /* Google Tasks na aba de trabalho */
 .gt { margin: 14px 0; }
-.gt .row-item .grow { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.gt .t { overflow-wrap: anywhere; }
-.gt-check { flex: 0 0 auto; width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--ink-2); display: grid; place-items: center; color: transparent; }
-.gt-check:active { background: var(--ink); color: var(--paper); }
-.gt-notes { white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.gt-line { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 8px 4px 12px; }
+.gt-line > span { min-width: 0; overflow-wrap: anywhere; }
+.gt-line .link { flex: 0 0 auto; }
+.gt-err { color: var(--alert); }
 
 /* + flutuante no canto inferior direito, em todas as telas */
 .fab-float { transition: transform .15s ease; }

@@ -23,10 +23,13 @@ export const DEFAULT_SETTINGS: Omit<Settings, 'id' | 'kind' | 'createdAt' | 'upd
   owners: ['Eu']
 };
 
-export const DEFAULT_CATEGORIES: Array<Pick<Category, 'id' | 'name' | 'labels' | 'subcategories' | 'order'>> = [
-  { id: 'cat:compras', name: 'Compras e materiais', labels: { alta: 'Alta', media: 'Média', baixa: 'Baixa' }, subcategories: [], order: 1 },
-  { id: 'cat:compromissos', name: 'Compromissos', labels: { alta: 'Alta', media: 'Média', baixa: 'Baixa' }, subcategories: [], order: 2 },
-  { id: 'cat:projetos', name: 'Projetos', labels: { alta: 'Alta', media: 'Média', baixa: 'Baixa' }, subcategories: [], order: 3 }
+// As tarefas vivem no Google Tasks em duas listas: Pessoal (aqui) e a do trabalho (criada na Carreira).
+// As três antigas ficam arquivadas, só para importações da planilha original.
+export const DEFAULT_CATEGORIES: Array<Pick<Category, 'id' | 'name' | 'labels' | 'subcategories' | 'order' | 'archived'>> = [
+  { id: 'cat:pessoal', name: 'Pessoal', labels: { alta: 'Alta', media: 'Média', baixa: 'Baixa' }, subcategories: [], order: 1 },
+  { id: 'cat:compras', name: 'Compras e materiais', labels: { alta: 'Alta', media: 'Média', baixa: 'Baixa' }, subcategories: [], order: 3, archived: true },
+  { id: 'cat:compromissos', name: 'Compromissos', labels: { alta: 'Alta', media: 'Média', baixa: 'Baixa' }, subcategories: [], order: 4, archived: true },
+  { id: 'cat:projetos', name: 'Projetos', labels: { alta: 'Alta', media: 'Média', baixa: 'Baixa' }, subcategories: [], order: 5, archived: true }
 ];
 
 export const DEFAULT_MODALITIES: Array<Pick<Modality, 'id' | 'name' | 'extra' | 'order'>> = [

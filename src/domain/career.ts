@@ -2,7 +2,6 @@
 // A especialista lê tudo junto, mais o estado dela (sono, humor e energia) para dosar o esforço da semana.
 import { all, byDateRange, create, get, getKind, update } from '../db/db';
 import { completeTask, moveTask } from './rules';
-import { listGTasks, updateGTask, type GTask } from './gtasks';
 import { addDays, todayKey, weekStart, type DateKey } from '../lib/dates';
 import { askAI } from './ai';
 import { chatMemory, rollbackAction, undoLog, type SpecMsg } from './specchat';
@@ -56,14 +55,6 @@ export async function askCareer(text: string, history: SpecMsg[]): Promise<SpecM
     preferencias_dela: settings?.aiPrefs?.career ?? ''
   };
   ctx.linkedin.ritmo = settings?.brand && !settings.brand.off ? { posts_por_semana: settings.brand.perWeek, dias: settings.brand.days } : undefined;
-  // Tarefas do Google Tasks (as da DBC ficam lá): a especialista vê e pode concluir ou mudar de dia.
-  let gtasks: GTask[] = [];
-  try {
-    const g = await Promise.race([listGTasks(), new Promise<never>((_, rej) => setTimeout(() => rej(new Error('lento')), 8000))]);
-    if (g.status === 'ok') gtasks = g.tasks;
-    else ctx.trabalho.google_tasks_situacao = g.status === 'not_connected' ? 'não conectado' : 'não configurado';
-  } catch { ctx.trabalho.google_tasks_situacao = 'indisponível agora'; }
-  if (gtasks.length) ctx.trabalho.google_tasks = gtasks.slice(0, 80).map((t) => ({ tarefa_id: `g:${t.list}:${t.id}`, titulo: t.title, lista: t.listName, para: t.due, nota: t.notes ? t.notes.slice(0, 200) : undefined }));
   const r = await askAI<any>('career_coach', ctx);
   const { undo, snap } = undoLog();
   const done: string[] = [];
@@ -73,19 +64,6 @@ export async function askCareer(text: string, history: SpecMsg[]): Promise<SpecM
     const tx = String(a?.texto ?? a?.titulo ?? '').trim();
     const mark = undo.length;
     try {
-      if ((a?.tipo === 'concluir_tarefa' || a?.tipo === 'mover_tarefa') && String(a.tarefa_id ?? '').startsWith('g:')) {
-        // Tarefa do Google Tasks: muda lá e guarda o estado de antes para o desfazer.
-        const gt = gtasks.find((t) => `g:${t.list}:${t.id}` === a.tarefa_id);
-        if (!gt) { failed.push('Não achei essa tarefa no Google Tasks.'); continue; }
-        const to = /^\d{4}-\d{2}-\d{2}$/.test(String(a.data ?? '')) ? (a.data as DateKey) : null;
-        if (a.tipo === 'mover_tarefa' && to && to < todayKey()) { failed.push('A tarefa não pode ir para um dia que já passou.'); continue; }
-        try {
-          await updateGTask(gt.list, gt.id, a.tipo === 'concluir_tarefa' ? { status: 'completed' } : { due: to });
-        } catch { failed.push(`Não consegui mudar "${gt.title}" no Google Tasks agora.`); continue; }
-        undo.push({ id: `ext:gtask:${gt.list}:${gt.id}`, before: { list: gt.list, id: gt.id, status: 'needsAction', due: gt.due ?? null } as any });
-        done.push(a.tipo === 'concluir_tarefa' ? `Concluída no Google Tasks: ${gt.title}` : to ? `${gt.title}: agora para ${to.slice(8, 10)}/${to.slice(5, 7)} no Google Tasks` : `${gt.title}: sem data no Google Tasks`);
-        continue;
-      }
       if (a?.tipo === 'concluir_tarefa' || a?.tipo === 'mover_tarefa') {
         // Só tarefas de trabalho que existem; mover aceita data ou null (tira do dia).
         const t = await getKind('task', a.tarefa_id);

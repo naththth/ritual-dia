@@ -102,6 +102,8 @@ export async function syncNow(): Promise<void> {
     await setMeta(`pull:${userId}`, lastId ? `${cursor}|${lastId}` : cursor);
     // Musculação do relógio no horário de uma aula vira a aula (o Garmin não tem LPO).
     try { const { reconcileClasses } = await import('../domain/classes'); if (await reconcileClasses()) again = true; } catch (e) { console.error(e); }
+    // Tarefas: concilia com o Google Tasks (lê a cada minuto; sobe na hora o que mudou aqui).
+    try { const { syncGoogleTasks } = await import('../domain/gtasks'); await syncGoogleTasks(); } catch (e) { console.error(e); }
 
     const left = await db.records.where('dirty').equals(1).count();
     useSync.setState({ state: left ? 'pending' : 'synced', lastSync: Date.now() });
@@ -171,6 +173,7 @@ async function saveGoogleTasksToken(session: Session) {
   const { error } = await supabase.rpc('save_user_secret', { p_provider: 'google_tasks', p_secret: rt, p_meta: { scope: 'tasks' } });
   try { localStorage.removeItem(GTASKS_FLAG); } catch { /* */ }
   useSync.setState({ gtasksSaved: !error });
+  if (!error) setTimeout(() => void import('../domain/gtasks').then((m) => m.syncGoogleTasks({ force: true })), 0);
 }
 
 export async function signOut() {

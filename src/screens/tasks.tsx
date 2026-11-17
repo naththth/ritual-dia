@@ -9,6 +9,7 @@ import { matchesSearch } from '../domain/rules';
 import { planTask, toggleTaskDone, deleteRecord, withUndo } from '../domain/actions';
 import { shortLabel, todayKey, type DateKey } from '../lib/dates';
 import { useApp, toast } from '../state/store';
+import { PERSONAL_CAT } from '../domain/gtasks';
 
 export function prioLabel(cats: Category[] | undefined, t: Pick<Task, 'categoryId' | 'priority'>) {
   const c = cats?.find((c) => c.id === t.categoryId);
@@ -109,7 +110,7 @@ export function TaskSheet({ open, onClose, task, defaults }: { open: boolean; on
   const [confirmEl, ask] = useConfirm();
   useEffect(() => {
     if (open) {
-      setD(task ? { ...task } : { title: '', categoryId: 'cat:compras', priority: 'media', status: 'pendente', tags: [], subtasks: [], history: [], plannedDate: null, ...defaults });
+      setD(task ? { ...task } : { title: '', categoryId: PERSONAL_CAT, priority: 'media', status: 'pendente', tags: [], subtasks: [], history: [], plannedDate: null, ...defaults });
       setMore(false);
     }
   }, [open, task?.id]);
@@ -139,7 +140,7 @@ export function TaskSheet({ open, onClose, task, defaults }: { open: boolean; on
         <button className="btn btn-ink" onClick={save} data-testid="task-save">Salvar</button>
       </>}>
       <input value={d.title ?? ''} onChange={(e) => set({ title: e.target.value })} placeholder="O que é?" aria-label="Título" autoFocus={!task} />
-      <span className="label">Categoria</span>
+      <span className="label">Lista</span>
       <div className="chips">
         {cats?.filter((c) => !c.archived).sort((a, b) => a.order - b.order).map((c) => <Chip key={c.id} on={d.categoryId === c.id} onClick={() => set({ categoryId: c.id, subcategory: undefined })}>{c.name}</Chip>)}
       </div>
@@ -148,7 +149,7 @@ export function TaskSheet({ open, onClose, task, defaults }: { open: boolean; on
           {cat.subcategories.map((s) => <Chip key={s} on={d.subcategory === s} onClick={() => set({ subcategory: d.subcategory === s ? undefined : s })}>{s}</Chip>)}
         </div>
       )}
-      <span className="label">Prioridade</span>
+      <span className="label">Prioridade <span className="muted small">(só no Ritual)</span></span>
       <Seg value={d.priority ?? 'media'} onChange={(v) => set({ priority: v })} options={PRIORITIES.map((p) => ({ id: p, label: cat?.labels[p] ?? p }))} label="Prioridade" />
       <span className="label">Dia em que pretendo fazer</span>
       <div className="chips">
@@ -161,7 +162,7 @@ export function TaskSheet({ open, onClose, task, defaults }: { open: boolean; on
       </div>
       {d.plannedDate && (
         <>
-          <span className="label">Lembrar às <span className="muted small">(opcional)</span></span>
+          <span className="label">Lembrar às <span className="muted small">(opcional, só no Ritual)</span></span>
           <input type="time" value={d.remindAt ?? ''} onChange={(e) => set({ remindAt: e.target.value || undefined })} aria-label="Lembrar às" data-testid="task-remind" />
         </>
       )}

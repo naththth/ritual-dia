@@ -6,6 +6,7 @@ import { useApp } from '../state/store';
 import { TopBar } from './common';
 import { Chip, Empty, ArtLeaf } from '../ui/ui';
 import { TaskRow, TaskSheet } from './tasks';
+import { GTasksStatus } from './career';
 import { matchesSearch } from '../domain/rules';
 import { PRIORITIES, type Priority, type Task, type TaskStatus } from '../db/types';
 import { shortLabel } from '../lib/dates';
@@ -21,6 +22,7 @@ export function ListsScreen() {
         <h1 className="page-title" style={{ margin: 0 }}>Tarefas</h1>
         <button className="link" onClick={() => nav('/biblioteca/categorias')} data-testid="task-categories"><Tags size={15} style={{ marginRight: 6, verticalAlign: '-2px' }} />Categorias</button>
       </div>
+      <GTasksStatus />
       <Tasks />
     </div>
   );

@@ -125,6 +125,17 @@ export interface Task extends Base {
   history: TaskHistory[];
   sourceId?: string;
   remindAt?: string; // HH:MM no dia planejado: vira notificação
+  /** Vínculo com o Google Tasks, onde a tarefa vive (listas Pessoal e DBC). Prioridade e lembrete ficam só aqui. */
+  g?: GLink;
+}
+
+export interface GLink {
+  id: string; // id da tarefa no Google
+  list: string; // id da lista no Google
+  v: string; // versão do Google na última conciliação ('' = recém-enviada, confirma na próxima leitura)
+  h: string; // retrato do que foi conciliado; se a tarefa mudar aqui, o retrato não bate e ela sobe
+  subs?: Record<string, string>; // subtarefa daqui -> id da subtarefa no Google
+  gone?: boolean; // excluída aqui e já apagada lá
 }
 
 export type SuggestionAction = 'aceita' | 'adiada' | 'dispensada';
