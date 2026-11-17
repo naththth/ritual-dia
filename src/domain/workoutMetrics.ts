@@ -120,3 +120,22 @@ export function shortLine(w: Workout): string[] {
   const extra = fam === 'run' || fam === 'walk' ? pick('Pace') : fam === 'swim' ? pick('Ritmo') : fam === 'bike' ? pick('Velocidade') : undefined;
   return [pick('Distância'), extra].filter((x): x is string => !!x);
 }
+
+/**
+ * Distância da semana separada por esporte, na ordem do triatlo. Somar km de pedal com km de corrida não diz nada,
+ * então cada esporte tem o seu número; natação em metros.
+ */
+export function weekDistances(ws: Workout[]): { fam: SportFamily; value: string; label: string }[] {
+  const sum = new Map<SportFamily, number>();
+  for (const w of ws) {
+    const km = w.metrics?.distanceKm ?? w.distanceKm ?? 0;
+    const fam = sportFamily(w);
+    if (km > 0 && fam !== 'other') sum.set(fam, (sum.get(fam) ?? 0) + km);
+  }
+  const ORDER: [SportFamily, string][] = [['swim', 'm nadados'], ['bike', 'km pedalados'], ['run', 'km corridos'], ['walk', 'km a pé']];
+  return ORDER.filter(([f]) => sum.has(f)).map(([fam, label]) => {
+    const km = sum.get(fam)!;
+    const value = fam === 'swim' ? dec(Math.round(km * 1000)) : dec(km, km >= 100 ? 0 : 1).replace(/,0$/, '');
+    return { fam, value, label };
+  });
+}

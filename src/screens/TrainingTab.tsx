@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { metricCells, showsPowerZones } from '../domain/workoutMetrics';
+import { metricCells, showsPowerZones, weekDistances } from '../domain/workoutMetrics';
 import { useNavigate } from 'react-router-dom';
 import { Upload, Plus, Sparkles, Trash2, ChevronLeft, ChevronRight, Check as CheckIcon, Activity } from 'lucide-react';
 import { Fold } from '../ui/ui';
@@ -83,7 +83,9 @@ export function TrainingTab() {
   const weekMin = workouts.reduce((a, w) => a + (w.duration ?? 0), 0);
   const weekTss = workouts.reduce((a, w) => a + (w.metrics?.tss ?? 0), 0);
   const weekKcal = workouts.reduce((a, w) => a + (w.metrics?.kcal ?? 0), 0);
-  const weekKm = workouts.reduce((a, w) => a + (w.metrics?.distanceKm ?? w.distanceKm ?? 0), 0);
+  // Distância por esporte: com um só, ocupa o card; com dois ou mais, ganha uma faixa própria e o card mostra o TSS.
+  const weekDist = weekDistances(workouts);
+  const oneDist = weekDist.length === 1 ? weekDist[0] : undefined;
 
   const importFit = async (files: FileList | null) => {
     if (!files?.length) return;
@@ -152,9 +154,14 @@ export function TrainingTab() {
       <div className="mini-stats" data-testid="training-week">
         <div className="ms t-teal"><span className="v num">{weekDone}{weekPlanned ? <small>/{weekPlanned}</small> : null}</span><span className="l">treinos</span></div>
         <div className="ms"><span className="v num">{Math.floor(weekMin / 60)}h{String(weekMin % 60).padStart(2, '0')}</span><span className="l">de treino</span></div>
-        {weekKm > 0 ? <div className="ms"><span className="v num">{fmt(weekKm)}</span><span className="l">km</span></div> : <div className="ms"><span className="v num">{weekTss || '–'}</span><span className="l">TSS</span></div>}
+        {oneDist ? <div className="ms"><span className="v num">{oneDist.value}</span><span className="l">{oneDist.label}</span></div> : <div className="ms"><span className="v num">{weekTss ? Math.round(weekTss) : '–'}</span><span className="l">TSS</span></div>}
         <div className="ms"><span className="v num">{weekKcal ? fmt(weekKcal) : '–'}</span><span className="l">kcal</span></div>
       </div>
+      {weekDist.length > 1 && (
+        <div className="mini-stats dist" style={{ gridTemplateColumns: `repeat(${weekDist.length}, 1fr)` }} data-testid="training-week-dist">
+          {weekDist.map((d) => <div key={d.fam} className="ms"><span className="v num">{d.value}</span><span className="l">{d.label}</span></div>)}
+        </div>
+      )}
 
       <section className="block b-blue" style={{ marginTop: 12 }} data-testid="training-day">
         <div className="bh"><h2 style={{ fontSize: 20 }}>{date === todayKey() ? 'Hoje' : shortLabel(date)}</h2></div>

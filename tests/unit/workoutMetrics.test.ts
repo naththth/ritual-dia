@@ -70,3 +70,12 @@ describe('o que as especialistas recebem', () => {
     expect(shortLine(run)).toEqual(['3,02 km', '9:50 /km']);
   });
 });
+
+describe('distância da semana por esporte', () => {
+  it('separa por esporte na ordem do triatlo, natação em metros, sem musculação', async () => {
+    const { weekDistances } = await import('../../src/domain/workoutMetrics');
+    const mk = (mod: string, km: number): any => ({ id: mod + km, kind: 'workout', date: '2026-11-16', createdAt: 1, updatedAt: 1, modalityId: mod, metrics: { source: 'intervals', distanceKm: km } });
+    const r = weekDistances([mk('mod:corrida', 3.02), mk('mod:ciclismo', 24.79), mk('mod:ciclismo', 5.21), mk('mod:natacao', 1.5), mk('mod:musculacao', 0.4)]);
+    expect(r.map((x) => `${x.value} ${x.label}`)).toEqual(['1.500 m nadados', '30 km pedalados', '3 km corridos']);
+  });
+});

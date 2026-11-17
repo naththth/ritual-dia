@@ -1074,6 +1074,7 @@ input[type=checkbox]:checked::after { content: ''; width: 6px; height: 11px; bor
 .ms .v small { font-size: 13px; font-weight: 700; }
 .ms .l { font-size: 11.5px; font-weight: 650; opacity: .8; }
 .ms.t-teal { background: var(--blue-ink); color: #E4F0EC; }
+.mini-stats.dist { margin-top: 6px; }
 .upcoming { margin-top: 4px; }
 .up-row { width: 100%; display: flex; align-items: center; gap: 12px; text-align: left; padding: 10px 12px; border-radius: 18px; background: var(--card); margin-bottom: 6px; }
 .up-row b { display: block; font-size: 15px; line-height: 1.3; }

@@ -39,3 +39,40 @@ test('card da corrida mostra pace e ppm, sem rpm, e os números ficam alinhados'
   expect(new Set(heights).size).toBe(1);
   if (process.env.SHOTS) await card.screenshot({ path: 'test-results/shots/corrida-metricas.png' });
 });
+
+test('semana com pedal e corrida mostra a distância de cada esporte, sem somar', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-11-16T08:00:00-03:00'));
+  await page.goto('./');
+  await page.getByTestId('start-local').click();
+  await page.getByTestId('file-input').setInputFiles(path.resolve('tests/e2e/fixtures/sample.json'));
+  await page.getByTestId('do-import').click();
+  await page.evaluate(async () => {
+    const req = indexedDB.open('ritual');
+    const db: IDBDatabase = await new Promise((r) => { req.onsuccess = () => r(req.result); });
+    const tx = db.transaction('records', 'readwrite');
+    const st = tx.objectStore('records');
+    const base = { deleted: 0, dirty: 0, updatedAt: 5, createdAt: 5 };
+    st.put({ ...base, id: 'workout:icu:run2', kind: 'workout', date: '2026-11-16', modalityId: 'mod:corrida', duration: 30, startTime: '2026-11-16T10:11:00Z', distanceKm: 3.02, metrics: { source: 'intervals', sport: 'VirtualRun', distanceKm: 3.02, tss: 23, kcal: 215 } });
+    st.put({ ...base, id: 'workout:icu:bike2', kind: 'workout', date: '2026-11-16', modalityId: 'mod:ciclismo', duration: 60, startTime: '2026-11-16T21:00:00Z', distanceKm: 26.98, metrics: { source: 'intervals', sport: 'VirtualRide', distanceKm: 26.98, tss: 55, kcal: 500 } });
+    const g = st.get('settings');
+    await new Promise((r) => { g.onsuccess = r; });
+    st.put({ ...g.result, onboarded: true });
+    await new Promise((r) => { tx.oncomplete = r; });
+  });
+  await page.goto('./#/');
+  await page.reload();
+  await expect(page.getByTestId('day-screen')).toBeVisible();
+  await page.goto('./#/treino');
+  const week = page.getByTestId('training-week');
+  await expect(week).toContainText('TSS');
+  await expect(week).not.toContainText('30 km');
+  const dist = page.getByTestId('training-week-dist');
+  await expect(dist.locator('.ms').nth(0)).toHaveText(/^27\s*km pedalados$/);
+  await expect(dist.locator('.ms').nth(1)).toHaveText(/^3\s*km corridos$/);
+  // valores das faixas na mesma altura e sem estourar a largura
+  const tops = await page.locator('[data-testid="training-week-dist"] .ms .v').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
+  expect(new Set(tops).size).toBe(1);
+  const over = await page.locator('.mini-stats .ms').evaluateAll((els) => els.some((e) => e.scrollWidth > e.clientWidth + 1));
+  expect(over).toBe(false);
+  if (process.env.SHOTS) await page.locator('.mini-stats').first().locator('..').screenshot({ path: 'test-results/shots/semana-distancias.png' });
+});
