@@ -3,7 +3,7 @@ import { db, all, byDateRange, get, getKind, remove, restore, update, upsert, ui
 import { metricsForAI, shortLine } from './workoutMetrics';
 import { rollbackAction } from './specchat';
 import { addDays, isoWeekday, todayKey, type DateKey } from '../lib/dates';
-import { planFor, plannedFood, plannedTraining } from './rules';
+import { activeTraining, planFor, plannedFood, plannedTraining } from './rules';
 import { portionText, totals } from './nutrition';
 import { wellnessForAI } from './wellness';
 import { askAI } from './ai';
@@ -126,7 +126,7 @@ async function context(text: string, history: CoachMsg[]) {
       metricas: w.metrics ? { esporte: metricsForAI(w)?.esporte, tss: w.metrics.tss, np: w.metrics.np, potencia_media: w.metrics.avgPower, fc_media: w.metrics.avgHr, kcal: w.metrics.kcal, distancia_e_ritmo: shortLine(w).join(', ') || undefined } : undefined
     })),
     plano_da_semana: [1, 2, 3, 4, 5, 6, 7].map((d) => ({ dia: d, nome_dia: DAY[d], treinos: (tp?.training?.[d] ?? []).map((id) => tmpls.find((t) => t.id === id)).filter(Boolean).map((t) => ({ template_id: t!.id, nome: t!.name, modalidade_id: t!.modalityId, horario: t!.time, minutos: t!.duration })) })),
-    planejado_hoje: plannedTraining(tp, today, extras).map((id) => ({ template_id: id, nome: tname(id) })),
+    planejado_hoje: activeTraining(tp, today, extras, skips).map((id) => ({ template_id: id, nome: tname(id) })),
     ftp: settings?.ftp ?? null,
     intervals_conectado: !!settings?.intervals?.connected,
     // Hoje e os próximos 6 dias como estão de fato: plano semanal + avulsos combinados, menos o que ela pulou.

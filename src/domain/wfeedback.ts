@@ -2,7 +2,7 @@
 import { all, byDateRange, get, update } from '../db/db';
 import { metricsForAI, shortLine } from './workoutMetrics';
 import { addDays, isoWeekday, type DateKey } from '../lib/dates';
-import { planFor, plannedTraining } from './rules';
+import { activeTraining, planFor } from './rules';
 import { trainingLoad } from './load';
 import { wellnessForAI } from './wellness';
 import { totals } from './nutrition';
@@ -21,9 +21,9 @@ export async function aiWorkoutFeedback(w: Workout): Promise<void> {
   inflight.add(w.id);
   try {
     const date = w.date as DateKey;
-    const [mods, tmpls, plans, history, wellness, meals, foods, settings, extras] = await Promise.all([
+    const [mods, tmpls, plans, history, wellness, meals, foods, settings, extras, skips] = await Promise.all([
       all('modality'), all('wtemplate'), all('plan'), byDateRange('workout', addDays(date, -120), date), byDateRange('wellness', addDays(date, -6), date),
-      byDateRange('meal', date, date), all('food'), get<'settings'>('settings'), byDateRange('extra', date, addDays(date, 3))
+      byDateRange('meal', date, date), all('food'), get<'settings'>('settings'), byDateRange('extra', date, addDays(date, 3)), byDateRange('skip', date, addDays(date, 3))
     ]);
     const modName = (id: string) => mods.find((m) => m.id === id)?.name ?? id;
     const tpl = tmpls.find((t) => t.id === w.templateId);
@@ -50,7 +50,8 @@ export async function aiWorkoutFeedback(w: Workout): Promise<void> {
         falta: goal ? { kcal: Math.max(0, (goal.kcal ?? 0) - eaten.kcal), p: Math.max(0, (goal.p ?? 0) - eaten.p), c: Math.max(0, (goal.c ?? 0) - eaten.c), f: Math.max(0, (goal.f ?? 0) - eaten.f) } : null
       },
       alimentos_que_ela_usa: foods.filter((f) => f.n && (usage.get(f.id) ?? 0) > 0).sort((a, b) => (usage.get(b.id) ?? 0) - (usage.get(a.id) ?? 0)).slice(0, 30).map((f) => ({ nome: f.name, por_100g: f.n, medidas: f.measures })),
-      proximos_treinos: [1, 2, 3].map((k) => { const d = addDays(date, k); return { data: d, dia_semana: isoWeekday(d), treinos: plannedTraining(planFor(plans, 'training', d), d, extras).map((id) => tmpls.find((t) => t.id === id)?.name).filter(Boolean) }; })
+      // Só o que vale: treino trocado, pulado ou mudado de dia não entra na leitura.
+      proximos_treinos: [1, 2, 3].map((k) => { const d = addDays(date, k); return { data: d, dia_semana: isoWeekday(d), treinos: activeTraining(planFor(plans, 'training', d), d, extras, skips).map((id) => tmpls.find((t) => t.id === id)?.name).filter(Boolean) }; })
     });
     if (!r || typeof r !== 'object' || !(r.desempenho || r.titulo)) return;
     const s = (x: unknown) => (x ? String(x) : undefined);

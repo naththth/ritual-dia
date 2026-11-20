@@ -97,7 +97,9 @@ test('Mente: tomadas no Hoje, café com horário, sem PIN, check-in, painel e re
   expect(ctx.dias.at(-1).humor_noite).toBe(1);
   // Treino pulado em outra tela: a especialista da Mente vê que saiu do dia.
   expect(ctx.dias.at(-1).treino_planejado_min).toBeUndefined();
-  expect(ctx.hoje_e_proximos_dias.dias[0].treinos[0]).toMatchObject({ nome: 'Pedal Z2', pulado: true });
+  // Pulado não fica entre os treinos do dia: vai para a lista do que ela tirou.
+  expect(ctx.hoje_e_proximos_dias.dias[0].treinos.map((t: any) => t.nome)).not.toContain('Pedal Z2');
+  expect(ctx.hoje_e_proximos_dias.dias[0].treinos_tirados_do_dia).toContain('Pedal Z2');
   expect(ctx.o_que_ela_toma.map((i: any) => i.nome)).toContain('Remédio da noite');
   await page.getByLabel('Fechar').click();
 

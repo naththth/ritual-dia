@@ -60,6 +60,17 @@ export function plannedTraining(plan: Plan | undefined, date: DateKey, extras?: 
   return add.length ? Array.from(new Set([...base, ...add])) : base;
 }
 
+/** O que vale de fato no dia: planejado menos o que ela tirou ("não hoje", trocado por outro ou mudado de dia).
+ *  É a regra única para qualquer IA que olhe o dia ou os próximos dias: treino trocado não pode reaparecer na leitura. */
+export function activeTraining(
+  plan: Plan | undefined, date: DateKey,
+  extras: { date: DateKey; domain?: string; ref: string; deleted?: 0 | 1 }[] | undefined,
+  skips: { date: DateKey; domain: string; ref: string; deleted?: 0 | 1 }[] | undefined
+): string[] {
+  const out = new Set((skips ?? []).filter((x) => x.date === date && !x.deleted && x.domain === 'training').map((x) => x.ref));
+  return plannedTraining(plan, date, extras).filter((id) => !out.has(id));
+}
+
 /** Situação de cada treino planejado do dia. "trocado" = saiu do dia porque outro treino entrou no lugar: não aparece riscado e não conta na semana.
  *  "pulado" só quando ela não fez nada no lugar. */
 export type TrainingStatus = 'pendente' | 'feito' | 'pulado' | 'trocado';

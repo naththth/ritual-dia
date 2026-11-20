@@ -1,7 +1,7 @@
 // A especialista da Mente: acompanha humor, sono, remédios, café, treino e alimentação, ajuda a nomear o que ela sente
 // e prepara a pauta das consultas. Não é psiquiatra nem terapeuta e nunca mexe em medicação.
 import { all, byDateRange, get, getKind, getMeta, update, upsert } from '../db/db';
-import { planFor, plannedTraining, plannedFood } from './rules';
+import { activeTraining, planFor, plannedTraining, plannedFood } from './rules';
 import { totals } from './nutrition';
 import { addDays, todayKey, type DateKey } from '../lib/dates';
 import { askAI } from './ai';
@@ -150,15 +150,17 @@ async function todayDetail(today: string) {
   const mod = (id?: string) => mods.find((m) => m.id === id)?.name;
   const days = [];
   for (let d = today; d <= to; d = addDays(d, 1)) {
-    const ids = plannedTraining(planFor(plans, 'training', d), d, extras);
+    // Só o que vale no dia; o que ela tirou (pulado, trocado ou mudado de dia) vai à parte, para não ser lido como treino do dia.
+    const plannedIds = plannedTraining(planFor(plans, 'training', d), d, extras);
+    const ids = activeTraining(planFor(plans, 'training', d), d, extras, skips);
+    const fora = plannedIds.filter((id) => !ids.includes(id)).map((id) => tmpls.find((t) => t.id === id)?.name).filter(Boolean);
     const treinos = ids.map((id) => tmpls.find((t) => t.id === id)).filter(Boolean).map((t) => ({
       nome: t!.name, modalidade: mod(t!.modalityId), minutos: t!.duration, intensidade: t!.intensity, horario: t!.time,
-      pulado: skips.some((x) => x.domain === 'training' && x.date === d && x.ref === t!.id) || undefined,
       combinado_com_a_treinadora: extras.some((x) => x.date === d && (x.domain ?? 'training') === 'training' && x.ref === t!.id) || undefined
     }));
     const pf = plannedFood(planFor(plans, 'food', d), d, extras);
     days.push({
-      data: d, treinos,
+      data: d, treinos, treinos_tirados_do_dia: fora.length ? fora : undefined,
       refeicoes_planejadas: Object.entries(pf).filter(([, v]) => v).map(([k, v]) => ({ refeicao: settings?.mealTypes?.find((m) => m.id === k)?.label ?? k, modelo: mtmpls.find((x) => x.id === v)?.name, pulada: skips.some((x) => x.domain === 'food' && x.date === d && x.ref === k) || undefined }))
     });
   }

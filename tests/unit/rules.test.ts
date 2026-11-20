@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { addDays, addMonths, fromKey, isoWeekday, monthGrid, toKey, todayKey, weekStart } from '../../src/lib/dates';
 import {
   activesTogether, completeTask, habitDoneDates, habitProgress, matchesSearch, moveTask, planFor, plannedSkin,
-  plannedTraining, planSaveTarget, suggestTasks, suggestionReason, tasksForDay, daySummary, trainingDay, slotCounts, slotDone
+  plannedTraining, activeTraining, planSaveTarget, suggestTasks, suggestionReason, tasksForDay, daySummary, trainingDay, slotCounts, slotDone
 } from '../../src/domain/rules';
 import type { Habit, HabitLog, Plan, Product, SuggestionLog, Task, Workout } from '../../src/db/types';
 
@@ -258,5 +258,23 @@ describe('não duplicar treino que já existe', () => {
   it('musculação e LPO no mesmo dia se chocam; pedal e LPO não', () => {
     expect(clashes({ id: 'a', modalityId: 'mod:lpo' }, { id: 'b', modalityId: 'mod:musculacao' })).toBe(true);
     expect(clashes({ id: 'a', modalityId: 'mod:lpo' }, { id: 'b', modalityId: 'mod:ciclismo' })).toBe(false);
+  });
+});
+
+describe('treino que vale no dia (regra das leituras da IA)', () => {
+  const tp = { ...base, id: 'p', kind: 'plan', domain: 'training', validFrom: '2026-01-01', training: { 6: ['musc', 'pedal'] } } as unknown as Plan;
+  const sab = '2026-10-24';
+  it('treino trocado ou pulado sai; avulso que entrou fica', () => {
+    const extras = [{ date: sab, domain: 'training', ref: 'lpo' }];
+    const skips = [{ date: sab, domain: 'training', ref: 'musc' }];
+    expect(activeTraining(tp, sab, extras, skips)).toEqual(['pedal', 'lpo']);
+  });
+  it('pulo de outro dia, de outra área ou desfeito não tira nada', () => {
+    const skips = [
+      { date: '2026-10-23', domain: 'training', ref: 'musc' },
+      { date: sab, domain: 'food', ref: 'musc' },
+      { date: sab, domain: 'training', ref: 'pedal', deleted: 1 as const }
+    ];
+    expect(activeTraining(tp, sab, [], skips)).toEqual(['musc', 'pedal']);
   });
 });
