@@ -21,6 +21,7 @@ import { MicButton, appendText } from '../ui/Dictation';
 import type { StrengthExercise, Workout, WorkoutTemplate } from '../db/types';
 import { programFor, lpoProgram, lpoFromText, LPO_GROUP, defaultExercises, reconcileWithNote, noteWithExercises, parseNoteLine, loadText, topLoad, loadsPerSet, exerciseVolume, repsPerSet, repsText } from '../domain/strength';
 import { ExerciseEditor, LogExercises } from './strength-ui';
+import { SessionHero, FeelCard, SessionExercises } from './session-ui';
 import { aiAvailable, askAI, applyTrainingResult } from '../domain/ai';
 import { fmt } from '../domain/nutrition';
 import { CoachButton } from './coach';
@@ -182,7 +183,7 @@ export function TrainingTab() {
             const strength = isMuscle(w.modalityId) ? { program: tpl ? programFor(tpl, history ?? [], w.date).exercises : [] }
               : isLpo(w.modalityId) ? { program: lpoProgram(w, history ?? []), firstGroup: LPO_GROUP, hint: lpoFromText(w.feeling).length ? 'Comecei pelo que você escreveu no comentário. Confira séries e repetições.' : undefined } : undefined;
             const k = w.templateId ?? w.id;
-            return <WorkoutCard key={w.id} w={w} name={modName(w.modalityId)} ftp={settings?.ftp} strength={strength} open={openSet.has(k)} onToggle={() => toggle(k)} />;
+            return <WorkoutCard key={w.id} w={w} name={modName(w.modalityId)} ftp={settings?.ftp} strength={strength} history={history ?? []} open={openSet.has(k)} onToggle={() => toggle(k)} />;
           })}
 
           {/* 2) O planejado que ainda vale. */}
@@ -311,8 +312,8 @@ export function TrainingTab() {
 }
 
 /** Item do dia: fechado mostra nome, o essencial e uma prévia; tocar abre os detalhes e as ações. */
-function TItem({ kind, title, meta, time, open, onToggle, preview, children, testId }: {
-  kind: 'done' | 'planned'; title: ReactNode; meta?: string; time?: string; open: boolean; onToggle: () => void; preview?: ReactNode; children: ReactNode; testId: string;
+function TItem({ kind, title, meta, time, open, onToggle, preview, children, testId, wide }: {
+  kind: 'done' | 'planned'; title: ReactNode; meta?: string; time?: string; open: boolean; onToggle: () => void; preview?: ReactNode; children: ReactNode; testId: string; wide?: boolean;
 }) {
   return (
     <article className={`titem ${kind} ${open ? 'open' : ''}`} data-testid={testId}>
@@ -328,12 +329,12 @@ function TItem({ kind, title, meta, time, open, onToggle, preview, children, tes
         </span>
       </button>
       {preview}
-      {open && <div className="titem-body">{children}</div>}
+      {open && <div className={`titem-body ${wide ? 'wide' : ''}`}>{children}</div>}
     </article>
   );
 }
 
-export function WorkoutCard({ w, name, ftp, strength, open, onToggle }: { w: Workout; name: string; ftp?: number; strength?: { program: StrengthExercise[]; firstGroup?: string; hint?: string }; open: boolean; onToggle: () => void }) {
+export function WorkoutCard({ w, name, ftp, strength, history = [], open, onToggle }: { w: Workout; name: string; ftp?: number; strength?: { program: StrengthExercise[]; firstGroup?: string; hint?: string }; history?: Workout[]; open: boolean; onToggle: () => void }) {
   const m = w.metrics;
   const cells = metricCells(w);
   const zones = showsPowerZones(w) ? m?.zones : undefined;
@@ -341,10 +342,27 @@ export function WorkoutCard({ w, name, ftp, strength, open, onToggle }: { w: Wor
   const meta = [w.duration ? `${w.duration} min` : '', ...shortLine(w), w.rpe ? `esforço ${w.rpe}` : ''].filter(Boolean).join(' · ');
   useAutoCoachRead(w);
   const read = w.aiFeedback?.titulo;
+  const time = w.startTime ? new Date(w.startTime).toTimeString().slice(0, 5) : undefined;
+  const preview = read && !open ? <button className="titem-read" onClick={onToggle} data-testid="wfb-preview"><Sparkles size={13} />{read}</button> : null;
+  const saveExercises = (exercises: StrengthExercise[]) => update<'workout'>(w.id, { exercises }).then(() => toast('Exercícios salvos no treino'));
+  // Força com exercícios lançados: capa, números, "Como foi" e um card por exercício, na largura toda.
+  if (strength && w.exercises?.length) {
+    return (
+      <TItem kind="done" testId="workout-card" open={open} onToggle={onToggle} title={name} meta={meta || undefined} time={time} preview={preview} wide>
+        {w.reclassifiedFrom && <p className="small ss-pad" style={{ margin: '0 0 8px' }} data-testid="reclassified">{w.reclassifiedBy === 'conversa' ? `Corrigido na conversa com a treinadora: contei como ${name}.` : w.reclassifiedBy === 'regra' ? `O relógio gravou de outro jeito; pela sua regra, contei como ${name}.` : `O relógio gravou como musculação; pelo horário da aula, contei como ${name}.`}</p>}
+        <SessionHero w={w} />
+        <FeelCard w={w} editor={<WorkoutFeedback w={w} forceOpen />} />
+        <div className="ss-pad"><CoachRead w={w} /></div>
+        <SessionExercises w={w} history={history} />
+        <div className="ss-pad ss-actions">
+          <LogExercises w={w} program={strength.program} firstGroup={strength.firstGroup} hint={strength.hint} onSave={saveExercises} hideSummary />
+          <button className="link small titem-del" aria-label="Excluir treino" onClick={() => deleteRecord(w.id, 'Treino excluído')}><Trash2 size={15} />Excluir treino</button>
+        </div>
+      </TItem>
+    );
+  }
   return (
-    <TItem kind="done" testId="workout-card" open={open} onToggle={onToggle} title={name} meta={meta || undefined}
-      time={w.startTime ? new Date(w.startTime).toTimeString().slice(0, 5) : undefined}
-      preview={read && !open ? <button className="titem-read" onClick={onToggle} data-testid="wfb-preview"><Sparkles size={13} />{read}</button> : null}>
+    <TItem kind="done" testId="workout-card" open={open} onToggle={onToggle} title={name} meta={meta || undefined} time={time} preview={preview}>
       {w.reclassifiedFrom && <p className="small" style={{ margin: '0 0 8px' }} data-testid="reclassified">{w.reclassifiedBy === 'conversa' ? `Corrigido na conversa com a treinadora: contei como ${name}.` : w.reclassifiedBy === 'regra' ? `O relógio gravou de outro jeito; pela sua regra, contei como ${name}.` : `O relógio gravou como musculação; pelo horário da aula, contei como ${name}.`}</p>}
       {cells.length > 0 && (
         <div className="metric-grid">
@@ -364,7 +382,7 @@ export function WorkoutCard({ w, name, ftp, strength, open, onToggle }: { w: Wor
         </div>
       )}
       {!m && [w.intensity, w.muscles?.join(', ')].filter(Boolean).length ? <div className="small">{[w.intensity, w.muscles?.join(', ')].filter(Boolean).join(', ')}</div> : null}
-      {strength && <LogExercises w={w} program={strength.program} firstGroup={strength.firstGroup} hint={strength.hint} onSave={(exercises) => update<'workout'>(w.id, { exercises }).then(() => toast('Exercícios salvos no treino'))} />}
+      {strength && <LogExercises w={w} program={strength.program} firstGroup={strength.firstGroup} hint={strength.hint} onSave={saveExercises} />}
       <WorkoutFeedback w={w} />
       <CoachRead w={w} />
       <div className="titem-foot">
@@ -375,7 +393,7 @@ export function WorkoutCard({ w, name, ftp, strength, open, onToggle }: { w: Wor
 }
 
 /** Como foi o treino: esforço percebido (1 a 10) e um comentário, digitado ou falado. A IA usa na análise. */
-function WorkoutFeedback({ w }: { w: Workout }) {
+function WorkoutFeedback({ w, forceOpen }: { w: Workout; forceOpen?: boolean }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState(w.feeling ?? '');
   // Se o comentário salvo mudar por fora (treino do relógio fundido com o "Feito"), o campo acompanha, a menos que ela esteja editando.
@@ -383,7 +401,7 @@ function WorkoutFeedback({ w }: { w: Workout }) {
   useEffect(() => { const f = w.feeling ?? ''; if (text.trim() === prevFeeling.current.trim()) setText(f); prevFeeling.current = f; }, [w.feeling]);
   const saved = (w.feeling ?? '') === text.trim();
   const saveText = async (t: string, announce = false) => { await update<'workout'>(w.id, { feeling: t.trim() || undefined }); if (announce) toast('Anotado no treino'); };
-  if (!open && !w.rpe && !w.feeling) return <button className="link" style={{ marginTop: 8 }} onClick={() => setOpen(true)} data-testid="feedback-open">Como foi? Registrar esforço e sensação</button>;
+  if (!forceOpen && !open && !w.rpe && !w.feeling) return <button className="link" style={{ marginTop: 8 }} onClick={() => setOpen(true)} data-testid="feedback-open">Como foi? Registrar esforço e sensação</button>;
   return (
     <div className="feedback" data-testid="feedback">
       <span className="small" style={{ fontWeight: 700 }}>Esforço percebido</span>

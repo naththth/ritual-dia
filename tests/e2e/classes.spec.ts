@@ -55,6 +55,7 @@ test('musculação no horário do LPO vira LPO e o comentário tem botão de sal
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/lpo-log.png', fullPage: true });
   await card.getByTestId('exercise-log-save').click();
   await expect(card.getByTestId('exercise-summary')).toContainText('Arremesso');
-  await expect(card.getByTestId('exercise-summary')).toContainText('5×2, 51 kg');
-  await expect(card.getByTestId('exercise-summary')).not.toContainText('programado');
+  await expect(card.getByTestId('exercise-summary')).toContainText('5×2');
+  await expect(card.getByTestId('exercise-summary')).toContainText('51 kg');
+  await expect(card.getByTestId('exercise-summary')).not.toContainText('Plano:');
 });

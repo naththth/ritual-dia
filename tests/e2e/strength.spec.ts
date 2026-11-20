@@ -97,8 +97,11 @@ test('musculação programada com carga, variações e lançamento do que foi fe
   await expect(row1).toContainText(`Volume: ${(32 * 10 + 36 * 8 + 40 * 6).toLocaleString('pt-BR')} kg`);
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/strength-sets.png', fullPage: true });
   await card.getByTestId('exercise-log-save').click();
-  await expect(card.getByTestId('exercise-summary')).toContainText('3×10/8/6, 32 → 36 → 40 kg');
-  await expect(card.getByTestId('exercise-summary')).toContainText('programado');
+  // séries com cargas diferentes viram escada: carga em cima, repetições embaixo; o plano aparece num selo
+  const first = card.getByTestId('ex-card').first();
+  await expect(first).toContainText('Pirâmide');
+  for (const t of ['32', '36', '40', '×10', '×8', '×6']) await expect(first).toContainText(t);
+  await expect(first).toContainText('Plano:');
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/strength-done.png', fullPage: true });
   const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(over).toBeLessThanOrEqual(0);

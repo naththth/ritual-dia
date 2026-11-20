@@ -105,7 +105,7 @@ export function ExerciseSummary({ value }: { value: StrengthExercise[] }) {
 }
 
 /** Lançar ou corrigir o que foi feito num treino de musculação já registrado (Garmin ou à mão). */
-export function LogExercises({ w, program, onSave, firstGroup, hint }: { w: { exercises?: StrengthExercise[] }; program: StrengthExercise[]; onSave: (v: StrengthExercise[]) => void; firstGroup?: string; hint?: string }) {
+export function LogExercises({ w, program, onSave, firstGroup, hint, hideSummary }: { w: { exercises?: StrengthExercise[] }; program: StrengthExercise[]; onSave: (v: StrengthExercise[]) => void; firstGroup?: string; hint?: string; hideSummary?: boolean }) {
   const [draft, setDraft] = useState<StrengthExercise[] | null>(null);
   if (draft) {
     return (
@@ -122,8 +122,8 @@ export function LogExercises({ w, program, onSave, firstGroup, hint }: { w: { ex
   const has = !!w.exercises?.length;
   return (
     <div style={{ marginTop: 10 }}>
-      {has && <><span className="small" style={{ fontWeight: 700 }}>Exercícios</span><ExerciseSummary value={w.exercises!} /></>}
-      <button className="link" style={{ marginTop: 6 }} data-testid="exercise-log-open" onClick={() => setDraft(has ? w.exercises! : firstGroup ? program : withPlanned(program))}>
+      {has && !hideSummary && <><span className="small" style={{ fontWeight: 700 }}>Exercícios</span><ExerciseSummary value={w.exercises!} /></>}
+      <button className={hideSummary ? 'pill-act pa-ghost' : 'link'} style={{ marginTop: hideSummary ? 0 : 6 }} data-testid="exercise-log-open" onClick={() => setDraft(has ? w.exercises! : firstGroup ? program : withPlanned(program))}>
         {has ? 'Editar exercícios' : firstGroup === 'LPO' ? 'Lançar levantamentos, séries e carga' : 'Lançar exercícios, séries e carga'}
       </button>
     </div>
