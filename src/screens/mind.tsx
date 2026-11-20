@@ -7,7 +7,8 @@ import { AlertTriangle, Brain, Coffee, FileText, Lock, Moon, Pill, Plus, Trash2,
 import { useAll, useByDate, useByRange, useSettings } from '../db/hooks';
 import { create, get, remove, update } from '../db/db';
 import { toast } from '../state/store';
-import { addDays, shortLabel, todayKey, type DateKey } from '../lib/dates';
+import { addDays, monthEnd, monthStart, MONTHS, shortLabel, todayKey, type DateKey } from '../lib/dates';
+import { Arc } from '../ui/art';
 import { Chip, Sheet, Switch, TimeInput, NumberInput, useConfirm } from '../ui/ui';
 import { PageHead } from './common';
 import { AreaPage } from './areas';
@@ -17,7 +18,7 @@ import {
   moodBaseline, type MindAlert, type MindDay
 } from '../domain/mind';
 import { addCaffeine, dismissAlert, loadMind, markDose, saveCheckin, unmarkDose } from '../domain/mindload';
-import { sleepPlan } from '../domain/sleep';
+import { hoursLabel, sleepPlan } from '../domain/sleep';
 import { askCare, cachedCare, careFeedback, careSignal, FALLBACK, songLink, type Care } from '../domain/mindcare';
 import { aiAvailable } from '../domain/ai';
 
@@ -428,6 +429,55 @@ function Panel({ days }: { days: MindDay[] }) {
 }
 
 /* ---------------- Abas da Mente ---------------- */
+/** Humor de agora num arco de −3 a +3, com sono, energia e ansiedade do dia. Some quando não há check-in recente. */
+function MoodHero({ days, today }: { days: MindDay[]; today: DateKey }) {
+  const recent = [...days].filter((d) => d.date <= today && (d.moodPm != null || d.moodAm != null)).sort((a, b) => b.date.localeCompare(a.date));
+  const last = recent[0];
+  if (!last) return null;
+  const mood = (last.date === today ? last.moodAm ?? last.moodPm : last.moodPm ?? last.moodAm) as number;
+  const week = recent.filter((d) => d.date > addDays(today, -7)).map((d) => (d.moodPm ?? d.moodAm) as number);
+  const stable = week.length >= 4 && Math.max(...week) - Math.min(...week) <= 2 && week.every((m) => Math.abs(m) <= 2);
+  const word = mood >= 2 ? 'para cima' : mood === 1 ? 'leve, com energia' : mood === 0 ? 'no meio' : mood === -1 ? 'um pouco para baixo' : 'para baixo';
+  const t = days.find((d) => d.date === today);
+  const sg = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0');
+  return (
+    <section className="hero2" data-testid="mood-hero" aria-label="Humor agora">
+      <div className="row between"><span className="h2-k">Humor {last.date === today ? 'agora' : `de ${shortLabel(last.date)}`}</span>{stable && <span className="chip" style={{ background: 'rgba(255,255,255,.12)', color: '#F6DDE3', height: 28 }}>estável há 7 dias</span>}</div>
+      <div className="arc-wrap">
+        <Arc f={(mood + 3) / 6} from="#7A3352" to="#EDC15A" label={`Humor ${sg(mood)} numa escala de −3 a +3`} />
+        <div className="arc-mid"><div className="h2-v num">{sg(mood)}</div><div style={{ fontSize: 14, marginTop: 4 }}>{word}</div></div>
+      </div>
+      <div className="row between small" style={{ margin: '0 18px', color: '#F6DDE3' }}><span>−3</span><span>+3</span></div>
+      {t && (t.sleepH != null || t.energy != null || t.anxiety != null) && (
+        <div className="h2-stats">
+          <div><b className="num">{t.sleepH != null ? hoursLabel(t.sleepH) : '–'}</b>sono</div>
+          <div><b className="num">{t.energy != null ? `${t.energy}/4` : '–'}</b>energia</div>
+          <div><b className="num">{t.anxiety != null ? `${t.anxiety}/4` : '–'}</b>ansiedade</div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** O mês em pontos: uma pílula por noite, na cor do humor. */
+function MonthDots({ days, today }: { days: MindDay[]; today: DateKey }) {
+  const nav = useNavigate();
+  const start = monthStart(today);
+  const n = Number(monthEnd(today).slice(8, 10));
+  const by = new Map(days.map((d) => [d.date, d]));
+  const color = (m?: number) => (m == null ? undefined : m <= -2 ? '#5A1E37' : m === -1 ? '#D18E97' : m === 0 ? '#D9CBAE' : m === 1 ? '#EDC15A' : '#C0582C');
+  const cells = Array.from({ length: n }, (_, i) => { const d = addDays(start, i); const x = by.get(d); return { d, c: d > today ? undefined : color(x?.moodPm ?? x?.moodAm), future: d > today, today: d === today }; });
+  if (!cells.some((c) => c.c)) return null;
+  return (
+    <section className="block b-paper" data-testid="month-dots">
+      <div className="bh"><h2>{MONTHS[Number(today.slice(5, 7)) - 1][0].toUpperCase() + MONTHS[Number(today.slice(5, 7)) - 1].slice(1)}</h2><button className="link" onClick={() => nav('/mente/painel')}>Painel</button></div>
+      <p className="small muted" style={{ margin: '-4px 0 12px' }}>Uma pílula por dia, na cor do humor</p>
+      <div className="mdots">{cells.map((c) => <span key={c.d} title={shortLabel(c.d)} className={`${c.future ? 'fut' : ''} ${c.today ? 'tdy' : ''}`} style={c.c ? { background: c.c } : undefined} />)}</div>
+      <div className="row wrap small muted" style={{ gap: 12, marginTop: 12 }}><span><b style={{ color: '#5A1E37' }}>●</b> −2 ou menos</span><span><b style={{ color: '#D18E97' }}>●</b> −1</span><span><b style={{ color: '#C9B691' }}>●</b> 0</span><span><b style={{ color: '#D2A432' }}>●</b> +1</span><span><b style={{ color: '#C0582C' }}>●</b> +2 ou mais</span></div>
+    </section>
+  );
+}
+
 export function MindScreen() {
   const data = useMind();
   const changes = useAll('medchange');
@@ -441,7 +491,9 @@ export function MindScreen() {
         {obs && <p className="notice calm" style={{ marginBottom: 14 }} data-testid="observing"><b>Modo observação até {shortLabel(addDays(obs.date, 14))}.</b> Houve ajuste do médico em {shortLabel(obs.date)}: capriche nos check-ins e anote efeitos colaterais. Tudo entra no relatório.</p>}
         {data && <CareCard data={data} force={care} onClose={!signal && care ? () => setCare(false) : undefined} />}
         {data?.alerts.map((a) => <AlertCard key={a.id} a={a} />)}
+        {data && <MoodHero days={data.days} today={today} />}
         <CheckinTiles date={today} />
+        {data && <MonthDots days={data.days} today={today} />}
         {!signal && !care && <button className="lib-item" style={{ marginBottom: 14 }} onClick={() => setCare(true)} data-testid="care-open"><span className="lib-icon"><HeartHandshake size={20} /></span><span className="grow"><b>Preciso de um respiro</b><br /><span className="small muted">Respiração guiada, uma frase e músicas para agora</span></span><ChevronRight size={18} /></button>}
         <DosesBlock date={today} />
         <section className="block b-paper"><div className="bh"><h2>Café</h2></div><CoffeeLine date={today} /></section>

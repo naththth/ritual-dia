@@ -99,6 +99,10 @@ export function SettingsScreen() {
       </section>
 
       <h2 className="set-group">Sua rotina</h2>
+      <section className="block b-paper">
+        <label className="label" htmlFor="call-me" style={{ marginTop: 0 }}>Como quer ser chamada</label>
+        <input id="call-me" defaultValue={settings?.callMe ?? ''} onBlur={(e) => update<'settings'>('settings', { callMe: e.target.value.trim() || undefined })} placeholder="Aparece na saudação do Hoje" data-testid="call-me" />
+      </section>
       <RemindersSection />
 
       <h2 className="set-group">Metas e alimentação</h2>

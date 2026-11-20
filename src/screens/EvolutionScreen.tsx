@@ -13,6 +13,7 @@ import { aiAvailable, aiWeekReview } from '../domain/ai';
 import { Sparkles, RefreshCw } from 'lucide-react';
 import { toast } from '../state/store';
 import { fmt, totals } from '../domain/nutrition';
+import { Arc } from '../ui/art';
 
 function Bars({ rows, color, unit = '' }: { rows: { label: string; value: number }[]; color: string; unit?: string }) {
   const max = Math.max(1, ...rows.map((r) => r.value));
@@ -99,10 +100,19 @@ export function EvolutionScreen() {
   const done = (tasks ?? []).filter((t) => t.completedDate && t.completedDate >= from && t.completedDate <= to);
   const byCat = (cats ?? []).map((c) => ({ label: c.name, value: done.filter((t) => t.categoryId === c.id).length })).filter((r) => r.value > 0);
 
+  // Consistência: hábitos (até a meta de cada um) e treinos do plano feitos sobre o combinado no período.
+  let combined = plannedCount, kept = fromPlan;
+  for (const h of (habits ?? []).filter((x) => !x.archived)) {
+    const target = h.freq === 'diaria' ? elapsed : h.freq === 'semanal' ? (mode === 'semana' ? h.target : Math.round((h.target * (diffDays(from, to) + 1)) / 7)) : h.target;
+    combined += target;
+    kept += Math.min(target, habitDoneDates(h, from, to, hlogs ?? [], workouts ?? []).length);
+  }
+  const pct = combined ? Math.round((kept / combined) * 100) : undefined;
+
   return (
     <div className="screen" data-testid="evolution-screen">
       <TopBar />
-      <h1 className="page-title">Evolução</h1>
+      <h1 className="page-title page-big">Evolução</h1>
       <Seg value={mode} onChange={(m) => setMode(m)} options={[{ id: 'semana', label: 'Semana' }, { id: 'mes', label: 'Mês' }]} />
       <div className="row between" style={{ margin: '10px 0 6px' }}>
         <button className="icon-btn" aria-label="Período anterior" onClick={() => shift(-1)}><ChevronLeft size={22} /></button>
@@ -110,6 +120,15 @@ export function EvolutionScreen() {
         <button className="icon-btn" aria-label="Próximo período" onClick={() => shift(1)}><ChevronRight size={22} /></button>
       </div>
       <p className="small muted" style={{ marginTop: 0 }}>Só o que você registrou. Dia sem registro aparece como não registrado, não como falha.</p>
+      {pct != null && (
+        <section className="hero2" style={{ background: '#0B3E40', color: '#DCEBE6', ['--hero-glow' as string]: '#6FA39A' }} data-testid="consistency">
+          <span className="h2-k">Consistência</span>
+          <div className="arc-wrap">
+            <Arc f={pct / 100} from="#6FA39A" to="#EDC15A" label={`Consistência de ${pct}%`} />
+            <div className="arc-mid"><div className="h2-v num">{pct}<span style={{ fontSize: 22, color: '#9FC4BC' }}>%</span></div><div style={{ fontSize: 14, marginTop: 4 }}>{kept} de {combined} combinados</div></div>
+          </div>
+        </section>
+      )}
       {mode === 'semana' && <WeekReview weekStartKey={from} />}
 
       <section className="block b-olive">

@@ -38,6 +38,7 @@ export interface Settings extends Base {
   aiContext?: string; // observações livres para a IA (rotina, restrições)
   /** Preferências dela por plano; a IA segue, com ressalva só para combinações claramente danosas. */
   aiPrefs?: { skin?: string; training?: string; food?: string; mind?: string; career?: string };
+  callMe?: string; // como ela quer ser chamada na saudação do Hoje
   profile?: Profile; // perfil e objetivos: base para nutrição, treino e pele
   targetsNote?: string; // como a IA chegou às metas
   showNutrition?: boolean; // padrão: ligado

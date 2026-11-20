@@ -2,6 +2,7 @@
 // Noite: como foi, o dia em resumo, uma pergunta e o amanhã. Não repete as áreas: lê o que elas registraram e pergunta o que elas não perguntam.
 import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { SkyScene } from '../ui/art';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Bath, Check, ChevronRight, Coffee, Dumbbell, Moon, Pill, RefreshCw, Sparkles, Sun, Sunrise, Target, Utensils, X } from 'lucide-react';
 import { useAll, useByDate, useRecord, useSettings } from '../db/hooks';
@@ -454,15 +455,17 @@ export function RitualBar({ date }: { date: DateKey }) {
   if (!active) return null;
   const r = active === 'am' ? am : pm;
   return (
-    <button className={`ritual-hero rh-${active}`} onClick={() => nav(`/ritual/${active}`)} data-testid={`ritual-hero-${active}`}>
-      <span className="grow">
-        <span className="rh-kicker">{r.count ? `Continuar · ${r.count} de ${r.steps.length}` : active === 'am' ? 'Começar o dia' : 'Fechar o dia'}</span>
+    <button className={`ritual-hero rh2 rh-${active}`} onClick={() => nav(`/ritual/${active}`)} data-testid={`ritual-hero-${active}`}>
+      <SkyScene period={active} />
+      <span className="rh-in">
+        <span className="rh-kicker">{active === 'am' ? 'Começar o dia' : 'Fechar o dia'}</span>
         <b className="rh-title">{active === 'am' ? 'Ritual da manhã' : 'Ritual da noite'}</b>
-        <span className="rh-sub">{active === 'am' ? 'Antes das 8:30: como acordou, o básico e o foco do dia.' : 'Como foi, o resumo e o que leva para amanhã.'}</span>
-        <span className="rh-dots" aria-hidden>{r.steps.map((s) => <i key={s} className={r.done[s] ? 'on' : ''} />)}</span>
+        <span className="rh-sub">{active === 'am' ? 'Como acordou, o básico e o foco do dia.' : 'Como foi, o resumo e o que leva para amanhã.'}</span>
+        <span className="rh-foot">
+          <span className="rh-start">{r.count ? 'Continuar' : 'Começar'} <ChevronRight size={18} /></span>
+          <span className="rh-count">{r.count} de {r.steps.length} feito</span>
+        </span>
       </span>
-      {/* O brilho pulsa atrás da seta, que é onde o toque leva. */}
-      <span className="rh-go"><span className="rh-orb" aria-hidden /><ChevronRight size={22} /></span>
     </button>
   );
 }

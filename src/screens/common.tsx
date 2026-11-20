@@ -1,6 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ChevronLeft, ChevronRight, Menu, Plus, Settings as Cog } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Dumbbell, House, LayoutGrid, Plus, Settings as Cog, Utensils } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { useSettings } from '../db/hooks';
 import { useApp } from '../state/store';
 import { addDays, isoWeekday, longDate, shortLabel, todayKey, weekDays, WEEKDAY_LETTER, WEEKDAY_LONG, dayNum } from '../lib/dates';
 import { factDots, useFacts } from '../domain/facts';
@@ -23,13 +25,15 @@ export function SyncDot() {
 
 /** Abre o menu lateral (todas as áreas e telas). */
 export function MenuButton() {
-  return <button className="icon-btn menu-btn" aria-label="Abrir menu" onClick={() => useApp.getState().setMenu(true)} data-testid="nav-menu"><Menu size={24} /></button>;
+  return <button className="wordmark-btn" aria-label="Abrir menu" onClick={() => useApp.getState().setMenu(true)} data-testid="nav-menu"><span className="wordmark">Ritual<i>.</i></span></button>;
 }
 
-/** O + único: flutua no canto inferior direito de todas as telas e abre a folha Registrar.
- *  Rolando para baixo ele se recolhe, para não cobrir números e textos à direita; rolando para cima, volta. */
+/** Barra de baixo, flutuante: Hoje, Treino, o + no centro (abre Registrar), Comida e Mais.
+ *  Rolando para baixo ela se recolhe, para não cobrir o conteúdo; rolando para cima, volta. */
 export function AddButton() {
   const [tuck, setTuck] = useState(false);
+  const loc = useLocation();
+  const nav = useNavigate();
   useEffect(() => {
     let last = window.scrollY;
     const on = () => {
@@ -41,14 +45,33 @@ export function AddButton() {
     window.addEventListener('scroll', on, { passive: true });
     return () => window.removeEventListener('scroll', on);
   }, []);
-  return <button className={`fab fab-float ${tuck ? 'tuck' : ''}`} aria-label="Registrar" onClick={() => useApp.getState().setReg(true)} data-testid="fab"><Plus size={28} strokeWidth={2.4} /></button>;
+  const p = loc.pathname;
+  const area = p === '/' ? 'hoje' : p.startsWith('/treino') ? 'treino' : p.startsWith('/alimentacao') ? 'comida' : 'mais';
+  const items: { k: string; to: string; label: string; icon: JSX.Element }[] = [
+    { k: 'hoje', to: '/', label: 'Hoje', icon: <House size={21} /> },
+    { k: 'treino', to: '/treino', label: 'Treino', icon: <Dumbbell size={21} /> },
+    { k: 'comida', to: '/alimentacao', label: 'Comida', icon: <Utensils size={21} /> },
+    { k: 'mais', to: '/mais', label: 'Mais', icon: <LayoutGrid size={21} /> }
+  ];
+  const tab = (i: typeof items[number]) => (
+    <button key={i.k} className={`bn-tab ${area === i.k ? 'on' : ''}`} aria-current={area === i.k ? 'page' : undefined} aria-label={i.label} onClick={() => nav(i.to)} data-testid={`bn-${i.k}`}>
+      {i.icon}{area === i.k && <span>{i.label}</span>}
+    </button>
+  );
+  return (
+    <nav className={`bottomnav2 ${tuck ? 'tuck' : ''}`} aria-label="Navegação principal">
+      {items.slice(0, 2).map(tab)}
+      <button className="fab fab-float" aria-label="Registrar" onClick={() => useApp.getState().setReg(true)} data-testid="fab"><Plus size={26} strokeWidth={2.4} /></button>
+      {items.slice(2).map(tab)}
+    </nav>
+  );
 }
 
 export function TopBar({ right }: { right?: ReactNode }) {
   const nav = useNavigate();
   return (
     <div className="topbar">
-      <span className="row" style={{ gap: 6 }}><MenuButton /><span className="wordmark">Ritual</span><SyncDot /></span>
+      <span className="row" style={{ gap: 6 }}><MenuButton /><SyncDot /></span>
       <span className="row" style={{ gap: 0 }}>
         {right}
         <button className="icon-btn" aria-label="Ajustes" onClick={() => nav('/ajustes')}><Cog size={22} /></button>
@@ -57,31 +80,37 @@ export function TopBar({ right }: { right?: ReactNode }) {
   );
 }
 
+export function greeting(h = new Date().getHours()) { return h >= 4 && h < 12 ? 'Bom dia' : h >= 12 && h < 18 ? 'Boa tarde' : 'Boa noite'; }
+
 export function DateHeader() {
   const { date, setDate } = useApp();
+  const settings = useSettings();
   const today = todayKey();
   const days = weekDays(date);
   const facts = useFacts(days[0], days[6]);
+  const isToday = date === today;
+  const who = settings?.callMe?.trim();
   return (
-    <div className="dayhead">
-      <div className="row">
-        <h1 data-testid="day-title">
-          <span className="dh-num num" aria-hidden>{dayNum(date)}</span>
-          <span className="dh-txt" aria-hidden><span className="dh-wd">{WEEKDAY_LONG[isoWeekday(date)]},</span>{' '}<span className="dh-mo">{longDate(date).replace(/^\d+ /, '')}</span></span>
-          <span className="sr-only">{WEEKDAY_LONG[isoWeekday(date)]}, {longDate(date)}</span>
-        </h1>
-        {date !== today ? <button className="today-pill" onClick={() => setDate(today)}>Voltar para hoje</button> : <span className="today-tag">Hoje</span>}
+    <div className="dayhead dayhead2">
+      <h1 data-testid="day-title">
+        {isToday ? <span className="dh-greet" aria-hidden>{greeting()}{who ? <>,<br />{who}</> : null}</span>
+          : <span className="dh-greet" aria-hidden><span className="num">{dayNum(date)}</span> <span className="dh-light">de {longDate(date).replace(/^\d+ de /, '').replace(/ de \d{4}$/, '')}</span></span>}
+        <span className="sr-only">{WEEKDAY_LONG[isoWeekday(date)]}, {longDate(date)}</span>
+      </h1>
+      <div className="dh-sub">
+        <span>{WEEKDAY_LONG[isoWeekday(date)][0].toUpperCase() + WEEKDAY_LONG[isoWeekday(date)].slice(1)}, {longDate(date).replace(/ de \d{4}$/, '')}</span>
+        {!isToday && <button className="today-pill" onClick={() => setDate(today)}>Voltar para hoje</button>}
       </div>
-      <div className="weekstrip" role="group" aria-label="Semana">
-        <button className="nav" aria-label="Semana anterior" onClick={() => setDate(addDays(date, -7))}><ChevronLeft size={20} /></button>
+      <div className="weekstrip ws2" role="group" aria-label="Semana">
+        <button className="nav" aria-label="Semana anterior" onClick={() => setDate(addDays(date, -7))}><ChevronLeft size={18} /></button>
         {days.map((d) => (
           <button key={d} className={`wd ${d === date ? 'sel' : ''} ${d === today ? 'today' : ''}`} onClick={() => setDate(d)} aria-label={shortLabel(d)} aria-pressed={d === date}>
+            <span className="n num">{dayNum(d)}</span>
             {WEEKDAY_LETTER[isoWeekday(d)]}
-            <span className="n">{dayNum(d)}</span>
             <span className="dots">{factDots(facts?.[d]).slice(0, 3).map((c, i) => <i key={i} style={{ background: d === date ? 'var(--paper)' : c }} />)}</span>
           </button>
         ))}
-        <button className="nav" aria-label="Próxima semana" onClick={() => setDate(addDays(date, 7))}><ChevronRight size={20} /></button>
+        <button className="nav" aria-label="Próxima semana" onClick={() => setDate(addDays(date, 7))}><ChevronRight size={18} /></button>
       </div>
     </div>
   );

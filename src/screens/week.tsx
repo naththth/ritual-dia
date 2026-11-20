@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowDown, ArrowUp, Brain, Check, ChevronLeft, ChevronRight, Dumbbell, Moon, Pill, RefreshCw, Sparkles, Utensils, Coffee, Scale, Sun } from 'lucide-react';
 import { useAll, useRecord } from '../db/hooks';
 import { create, update } from '../db/db';
-import { addDays, isoWeekday, shortLabel, todayKey, weekStart, type DateKey } from '../lib/dates';
+import { addDays, isoWeekday, shortLabel, todayKey, weekStart, WEEKDAY_LETTER, type DateKey } from '../lib/dates';
 import { aiAvailable } from '../domain/ai';
 import { PERSONAL_CAT } from '../domain/gtasks';
 import { aiWeekCross, weekData, weekToRead, type Pattern } from '../domain/week';
@@ -53,6 +53,27 @@ function PatternCard({ p, k }: { p: Pattern; k: number }) {
 
 const AREA_ICON: Record<string, JSX.Element> = { treino: <Dumbbell size={16} />, alimentacao: <Utensils size={16} />, mente: <Brain size={16} />, cuidados: <Sparkles size={16} />, sono: <Moon size={16} /> };
 
+/** Sono de cada noite em barras hachuradas; a melhor noite em destaque. */
+function SleepBars({ days }: { days: { date: DateKey; sleepH?: number }[] }) {
+  const vals = days.map((d) => d.sleepH);
+  if (vals.filter((v) => v != null).length < 2) return null;
+  const known = vals.filter((v): v is number => v != null);
+  const best = Math.max(...known);
+  const avg = known.reduce((a, b) => a + b, 0) / known.length;
+  const lo = Math.max(0, Math.min(...known) - 1.5), hi = best;
+  return (
+    <section className="wk-sleep anim-rise" data-testid="week-sleep">
+      <div className="row between"><span style={{ fontWeight: 600, fontSize: 14 }}><Moon size={15} style={{ verticalAlign: '-2px' }} /> Sono</span><span className="small">melhor: {f1(best)} h</span></div>
+      <div className="wk-sv"><b className="num">{f1(avg)} h</b> média</div>
+      <svg width="100%" height="120" viewBox="0 0 154 120" preserveAspectRatio="none" aria-label="Sono por noite" role="img">
+        <defs><pattern id="wkHatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="5" stroke="#CFC1DF" strokeWidth="1.6" /></pattern></defs>
+        {vals.map((v, i) => { const h = v == null ? 6 : Math.max(10, ((v - lo) / Math.max(0.1, hi - lo)) * 112); return <rect key={i} x={2 + i * 22} y={118 - h} width="16" height={h} rx="8" fill={v === best ? '#FAF6EC' : v == null ? 'rgba(255,255,255,.12)' : 'url(#wkHatch)'} stroke={v == null ? 'none' : '#CFC1DF'} strokeWidth="1.2" />; })}
+      </svg>
+      <div className="wk-days">{days.map((d) => <span key={d.date}>{WEEKDAY_LETTER[isoWeekday(d.date)]}</span>)}</div>
+    </section>
+  );
+}
+
 export function WeekScreen() {
   const nav = useNavigate();
   const [from, setFrom] = useState<DateKey>(weekToRead());
@@ -78,28 +99,15 @@ export function WeekScreen() {
   const s = data?.stats;
   return (
     <div className="screen no-nav week-screen" data-testid="week-screen">
-      <PageHead title="Sua semana" withDate={false} />
+      <PageHead title="" withDate={false} />
+      <h1 className="page-big" style={{ marginTop: 0 }}><span className="lt">Sua</span><br />semana</h1>
       <div className="wk-nav">
         <button className="icon-btn" aria-label="Semana anterior" onClick={() => setFrom(addDays(from, -7))}><ChevronLeft size={20} /></button>
         <span><b>{shortLabel(from)}</b> a <b>{shortLabel(addDays(from, 6))}</b></span>
         <button className="icon-btn" aria-label="Próxima semana" disabled={addDays(from, 7) > todayKey()} onClick={() => setFrom(addDays(from, 7))}><ChevronRight size={20} /></button>
       </div>
       {s && <>
-        <div className="wk-grid">
-          <Tile k={0} icon={<Moon size={16} />} v={s.sleep != null ? `${f1(s.sleep)} h` : '–'} l="sono médio" delta={<Delta now={s.sleep} prev={s.sleepPrev} unit=" h" />} />
-          <Tile k={1} icon={<Sun size={16} />} v={s.mood != null ? (s.mood > 0 ? '+' : '') + f1(s.mood) : '–'} l={`humor médio · ${s.checkins} noites`} delta={<Delta now={s.mood} prev={s.moodPrev} good="none" />} />
-          <Tile k={2} icon={<Dumbbell size={16} />} v={`${s.trainMin} min`} l={s.plannedMin ? `de ${s.plannedMin} planejados` : 'de treino'} delta={<Delta now={s.trainMin} prev={s.trainPrev} unit=" min" />} />
-          <Tile k={3} icon={<Utensils size={16} />} v={s.protein != null ? `${Math.round(s.protein)} g` : '–'} l={s.kcal != null ? `proteína · ${Math.round(s.kcal)} kcal` : 'proteína por dia'} />
-          <Tile k={4} icon={<Pill size={16} />} v={s.dosesDue ? `${Math.round((s.doses / s.dosesDue) * 100)}%` : '–'} l="doses tomadas" />
-          <Tile k={5} icon={s.weightTo != null ? <Scale size={16} /> : <Coffee size={16} />} v={s.weightTo != null ? `${f1(s.weightTo)} kg` : s.caffeine != null ? `${Math.round(s.caffeine)} mg` : '–'} l={s.weightTo != null ? 'peso no fim' : 'café por dia'} delta={s.weightTo != null ? <Delta now={s.weightTo} prev={s.weightFrom} good="down" unit=" kg" /> : <Delta now={s.caffeine} prev={s.caffeinePrev} good="down" unit=" mg" />} />
-        </div>
-
-        <section className="block b-paper anim-rise">
-          <div className="bh"><h2>Humor, sono e remédios</h2></div>
-          <MindChart days={s.days} />
-        </section>
-
-        <section className="block wk-team anim-rise" data-testid="week-review">
+        <section className="block wk-team wk-team2 anim-rise" data-testid="week-review">
           <div className="bh"><h2><Sparkles size={18} style={{ verticalAlign: '-2px' }} /> Leitura da equipe</h2>
             {review && <button className="icon-btn" aria-label="Refazer" disabled={busy} onClick={() => void gen()}><RefreshCw size={16} className={busy ? 'spin' : ''} /></button>}</div>
           {busy && !review && <div className="wk-skel"><i /><i /><i /></div>}
@@ -114,6 +122,21 @@ export function WeekScreen() {
             {review.weighed?.length ? <><span className="label">Pesou</span><ul className="wk-ul bad">{review.weighed.map((x) => <li key={x}>{x}</li>)}</ul></> : null}
           </>}
         </section>
+        <SleepBars days={s.days} />
+        <div className="wk-grid">
+          <Tile k={0} icon={<Moon size={16} />} v={s.sleep != null ? `${f1(s.sleep)} h` : '–'} l="sono médio" delta={<Delta now={s.sleep} prev={s.sleepPrev} unit=" h" />} />
+          <Tile k={1} icon={<Sun size={16} />} v={s.mood != null ? (s.mood > 0 ? '+' : '') + f1(s.mood) : '–'} l={`humor médio · ${s.checkins} noites`} delta={<Delta now={s.mood} prev={s.moodPrev} good="none" />} />
+          <Tile k={2} icon={<Dumbbell size={16} />} v={`${s.trainMin} min`} l={s.plannedMin ? `de ${s.plannedMin} planejados` : 'de treino'} delta={<Delta now={s.trainMin} prev={s.trainPrev} unit=" min" />} />
+          <Tile k={3} icon={<Utensils size={16} />} v={s.protein != null ? `${Math.round(s.protein)} g` : '–'} l={s.kcal != null ? `proteína · ${Math.round(s.kcal)} kcal` : 'proteína por dia'} />
+          <Tile k={4} icon={<Pill size={16} />} v={s.dosesDue ? `${Math.round((s.doses / s.dosesDue) * 100)}%` : '–'} l="doses tomadas" />
+          <Tile k={5} icon={s.weightTo != null ? <Scale size={16} /> : <Coffee size={16} />} v={s.weightTo != null ? `${f1(s.weightTo)} kg` : s.caffeine != null ? `${Math.round(s.caffeine)} mg` : '–'} l={s.weightTo != null ? 'peso no fim' : 'café por dia'} delta={s.weightTo != null ? <Delta now={s.weightTo} prev={s.weightFrom} good="down" unit=" kg" /> : <Delta now={s.caffeine} prev={s.caffeinePrev} good="down" unit=" mg" />} />
+        </div>
+
+        <section className="block b-paper anim-rise">
+          <div className="bh"><h2>Humor, sono e remédios</h2></div>
+          <MindChart days={s.days} />
+        </section>
+
 
         {review?.next?.length ? (
           <section className="anim-rise">

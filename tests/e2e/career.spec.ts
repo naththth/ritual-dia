@@ -252,7 +252,7 @@ test('Tarefas e Google Tasks são uma coisa só: o que vem do PC aparece na DBC 
   await expect(page.getByTestId('gtasks-connect')).toBeVisible();
 });
 
-test('o + flutua no canto inferior direito em qualquer tela, sai onde há barra de salvar, e abre o Registrar', async ({ page }) => {
+test('o + fica no centro da barra de baixo em qualquer tela, sai onde há barra de salvar, e abre o Registrar', async ({ page }) => {
   await seed(page);
   const vp = page.viewportSize()!;
   for (const route of ['./#/', './#/carreira/marca', './#/treino']) {
@@ -261,7 +261,8 @@ test('o + flutua no canto inferior direito em qualquer tela, sai onde há barra 
     await expect(plus).toBeVisible();
     await expect(page.locator('.topbar').getByTestId('fab')).toHaveCount(0);
     const b = (await plus.boundingBox())!;
-    expect(vp.width - (b.x + b.width)).toBeLessThan(40);
+    expect(Math.abs(vp.width / 2 - (b.x + b.width / 2))).toBeLessThan(30);
+    await expect(page.getByTestId('bn-hoje')).toBeVisible();
     expect(vp.height - (b.y + b.height)).toBeLessThan(60);
     if (process.env.SHOTS && route === './#/') await page.screenshot({ path: '/tmp/shots/fab.png' });
   }

@@ -68,7 +68,8 @@ test('ritual da manhã passo a passo e o conselho troca o treino forte', async (
   expect([well.sleepStart, well.sleepEnd, well.sleepH, well.timesConfirmed]).toEqual(['23:10', '06:05', 5.4, true]);
   // Sai no meio: o ritual continua no Hoje e retoma de onde parou.
   await page.getByLabel('Fechar').click();
-  await expect(page.getByTestId('ritual-hero-am')).toContainText('Continuar · 1 de 4');
+  await expect(page.getByTestId('ritual-hero-am')).toContainText('Continuar');
+  await expect(page.getByTestId('ritual-hero-am')).toContainText('1 de 4 feito');
   // Com o ritual aberto para preencher, ele vem antes dos números do dia.
   expect((await page.getByTestId('ritual-hero-am').boundingBox())!.y).toBeLessThan((await page.getByTestId('today-stats').boundingBox())!.y);
   // Fora de hora, o outro ritual não ocupa o Hoje: fica no +.

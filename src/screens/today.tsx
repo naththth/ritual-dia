@@ -1,7 +1,7 @@
 // O dia como linha do tempo: "Agora" no topo e o resto em ordem de horário.
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check as CheckIcon, Droplets, Dumbbell, Flame, Moon, NotebookPen, Pill, Sunrise, Sun, Utensils } from 'lucide-react';
+import { Check as CheckIcon, Dumbbell, Flame, Moon, NotebookPen, Pill, Sunrise, Sun, Utensils } from 'lucide-react';
 import { useAll, useByDate, useRecord, useSettings } from '../db/hooks';
 import { planFor, plannedFood, plannedSkin, plannedTraining, trainingDay } from '../domain/rules';
 import { nightAdjust } from '../domain/skinAdapt';
@@ -14,6 +14,9 @@ import { paceLabel } from '../domain/fit';
 import { WaterSheet } from './WaterSheet';
 import { dosesFor, slotsFor, toMin as tmin, fromMin } from '../domain/mind';
 import { markDose } from '../domain/mindload';
+import { MACRO_COLORS } from './food-ui';
+import { PlateArt, SportScene, WaterGlass } from '../ui/art';
+import { ArrowUpRight } from 'lucide-react';
 
 export const DEFAULT_MEAL_TIMES: Record<string, string> = { cafe: '07:30', almoco: '12:30', lanche: '16:00', jantar: '20:00', ceia: '22:00' };
 export const DEFAULT_SKIN_TIMES = { am: '07:00', pm: '21:30' };
@@ -176,6 +179,13 @@ export function useTimeline(date: DateKey): TLItem[] | undefined {
   return items.sort((a, b) => order(a) - order(b));
 }
 
+const sportOf = (t: string): 'run' | 'bike' | 'swim' | 'strength' => (/nata|swim|piscina/i.test(t) ? 'swim' : /pedal|bike|ciclis|z2 bike/i.test(t) ? 'bike' : /corr|run|trote/i.test(t) ? 'run' : 'strength');
+function nextStyle(i: TLItem) {
+  if (i.mod === 'food') return { background: '#F2B48C', color: '#4A1F0A' };
+  if (i.mod === 'training') return { background: 'var(--blue)', color: 'var(--ink)' };
+  return { background: MOD_STYLE[i.mod].bg, color: MOD_STYLE[i.mod].ink };
+}
+
 function workoutLine(w: any, _mods: any[]) {
   const m = w.metrics;
   const pace = paceLabel(w.modalityId, w.duration, m?.distanceKm);
@@ -193,6 +203,14 @@ export function NowAndTimeline({ date, hideNow }: { date: DateKey; hideNow?: boo
   const next = isToday && !hideNow
     ? pending.find((i) => (toMin(i.time) ?? 9999) >= now - 60) ?? pending.find((i) => !i.time) ?? pending[0]
     : undefined;
+  // Linha "agora": antes do primeiro item com horário depois de agora.
+  const nowLabel = `${String(Math.floor(now / 60)).padStart(2, '0')}:${String(now % 60).padStart(2, '0')}`;
+  const firstAfter = items.findIndex((i) => (toMin(i.time) ?? -1) > now);
+  const nowIdx = firstAfter < 0 ? items.length : firstAfter;
+  const upcoming = isToday ? items.slice(nowIdx).find((i) => !i.done && !i.skipped && !i.marker && i.mod !== 'sleep' && !(i.mod === 'skin' && !i.action)) : undefined;
+  const past = items.slice(0, nowIdx).filter((i) => !i.marker && i.mod !== 'sleep');
+  const pastCount = past.length;
+  const doneCount = past.filter((i) => i.done).length;
   const runAction = async (i: TLItem) => {
     if (i.action?.label === 'Registrar') { nav(i.open); return; }
     await i.action?.run();
@@ -214,23 +232,52 @@ export function NowAndTimeline({ date, hideNow }: { date: DateKey; hideNow?: boo
         </section>
       )}
       <section aria-label="Linha do tempo" data-testid="timeline" style={{ marginTop: 18 }}>
-        {/* Sem contador e sem filtros: cada área tem a própria tela no menu. */}
-        <h2 className="section-title" style={{ marginBottom: 12 }}>{isToday ? 'Seu dia' : 'O dia'}</h2>
-        {items.map((i) => (
-          <div key={i.key} className={`tl2 ${i.done ? 'done' : ''} ${i.skipped ? 'skipped' : ''}`} data-testid={`tl-${i.key}`}>
-            <span className="tl2-time num">{i.time ?? ''}</span>
-            <span className="tl2-dot" style={i.mod === 'journal' ? { background: 'var(--wine)', color: 'var(--wine-ink)' } : { background: i.done ? MOD_STYLE[i.mod].ink : MOD_STYLE[i.mod].bg, color: i.done ? 'var(--paper)' : MOD_STYLE[i.mod].ink }}>
-              {i.done ? <CheckIcon size={14} strokeWidth={3} /> : i.icon}
-            </span>
-            <button className="tl2-body tap" onClick={() => nav(i.open)}>
-              <span className="tl2-title">{i.title}</span>
-              {i.detail && <span className="tl2-detail">{i.detail}</span>}
-            </button>
-            {i.action && !i.done && (
-              <button className={`pill-act ${MOD_STYLE[i.mod].pill}`} onClick={() => runAction(i)} data-testid={i.action.testId}>{i.action.label}</button>
-            )}
-          </div>
-        ))}
+        {/* Horários na coluna da esquerda; em hoje, a linha "agora" e o próximo passo em destaque. */}
+        <div className="row between" style={{ marginBottom: 12, alignItems: 'baseline' }}>
+          <h2 className="section-title">{isToday ? 'Seu dia' : 'O dia'}</h2>
+          {isToday && <span className="small muted">{doneCount} de {pastCount} até agora</span>}
+        </div>
+        <div className="tl3">
+          {items.map((i, idx) => {
+            const showNow = isToday && idx === nowIdx;
+            const isNext = isToday && i === upcoming;
+            const st = MOD_STYLE[i.mod];
+            return (
+              <div key={i.key} style={{ display: 'contents' }}>
+                {showNow && <div className="tl-now" aria-label={`Agora, ${nowLabel}`}><b className="num">{nowLabel}</b><i /><em /></div>}
+                <div className={`tl2 ${i.done ? 'done' : ''} ${i.skipped ? 'skipped' : ''}`} data-testid={`tl-${i.key}`}>
+                  <span className="tl2-time num">{i.time ?? ''}</span>
+                  {isNext ? (
+                    <div className="tl-next" style={nextStyle(i)}>
+                      {i.mod === 'training' && <SportScene sport={sportOf(i.title)} />}
+                      {i.mod === 'food' && <span className="tn-art"><PlateArt size={150} /></span>}
+                      <button className="tap tn-in" onClick={() => nav(i.open)} style={{ textAlign: 'left' }}>
+                        <span className="tn-k" style={{ display: 'block' }}>Próximo</span>
+                        <span className="tn-t tl2-title" style={{ display: 'block' }}>{i.title}</span>
+                        {i.detail && <span className="tn-d tl2-detail" style={{ display: 'block' }}>{i.detail}</span>}
+                      </button>
+                      <div className="tn-foot">
+                        {i.action ? <button className="pill-act pa-ghost" style={{ background: 'rgba(255,255,255,.7)', minHeight: 40 }} onClick={() => runAction(i)} data-testid={i.action.testId}>{i.action.label}</button> : <span />}
+                        <button className="tn-go" aria-label={`Abrir ${i.title}`} onClick={() => nav(i.open)}><ArrowUpRight size={18} /></button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="tl2-card">
+                      <span className="tl2-dot" style={i.mod === 'journal' ? { background: 'var(--wine)', color: 'var(--wine-ink)' } : { background: i.done || i.skipped ? (i.done ? st.bg : 'var(--paper-2)') : st.bg, color: st.ink }}>{i.icon}</span>
+                      <button className="tl2-body tap" onClick={() => nav(i.open)}>
+                        <span className="tl2-title">{i.title}</span>
+                        {i.detail && <span className="tl2-detail">{i.detail}</span>}
+                      </button>
+                      {i.done ? <span className="tl2-ok" aria-label="Feito"><CheckIcon size={14} strokeWidth={3} /></span>
+                        : i.action ? <button className={`pill-act ${isToday && idx < nowIdx ? 'pa-late' : st.pill}`} onClick={() => runAction(i)} data-testid={i.action.testId}>{i.action.label}</button> : null}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          {isToday && nowIdx === items.length && <div className="tl-now" aria-label={`Agora, ${nowLabel}`}><b className="num">{nowLabel}</b><i /><em /></div>}
+        </div>
       </section>
     </>
   );
@@ -256,22 +303,47 @@ export function TodayStats({ date }: { date: DateKey }) {
   const burned = workouts.reduce((a, w) => a + (w.metrics?.kcal ?? 0), 0);
   const trainMin = workouts.reduce((a, w) => a + (w.duration ?? 0), 0);
   const showN = settings?.showNutrition !== false;
+  const goalMl = settings?.waterGoalMl ?? 2500;
+  const preset = settings?.waterPresets?.[0] ?? 300;
+  const n = eaten;
+  const R = 56, C = 2 * Math.PI * R;
+  const parts = [['p', n.p * 4], ['c', n.c * 4], ['f', n.f * 9]] as const;
+  const sum = parts.reduce((x, [, v]) => x + v, 0);
+  const k = sum > 0 && goal ? Math.min(C, (n.kcal / goal) * C) / sum : sum > 0 ? C / sum : 0;
+  let off = 0;
   return (
-    <div className="stats-row" data-testid="today-stats">
+    <div className="bento" data-testid="today-stats">
       {showN && (
-        <button className="stat-tile" onClick={() => nav('/alimentacao')} style={{ background: 'var(--honey)', color: 'var(--honey-ink)' }}>
-          <Flame size={16} /><span className="v num">{fmt(eaten.kcal)}</span><span className="l">{goal ? `de ${fmt(goal)} kcal` : 'kcal'}</span>
+        <button className="bt bt-food" onClick={() => nav('/alimentacao')}>
+          <span className="bt-head"><span className="row" style={{ gap: 8 }}><span className="bt-ic" style={{ background: 'var(--honey)', color: 'var(--honey-ink)' }}><Flame size={16} /></span>Comida</span></span>
+          <span className="bt-ring" style={{ position: 'relative', width: 132, height: 132 }}>
+            <svg width="132" height="132" viewBox="0 0 132 132" aria-hidden>
+              <circle cx="66" cy="66" r={R} fill="none" stroke="var(--paper-2)" strokeWidth="12" />
+              {parts.map(([key, v]) => { const len = v * k; const el = len > 1 ? <circle key={key} cx="66" cy="66" r={R} fill="none" stroke={MACRO_COLORS[key]} strokeWidth="12" strokeLinecap="round" strokeDasharray={`${Math.max(0.5, len - 4)} ${C}`} strokeDashoffset={-off} transform="rotate(-90 66 66)" /> : null; off += len; return el; })}
+            </svg>
+            <span style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+              <span className="bt-v num">{fmt(n.kcal)}</span><span className="small muted">{goal ? `de ${fmt(goal)} kcal` : 'kcal'}</span>
+            </span>
+          </span>
+          <span className="bt-macros"><span><b style={{ color: MACRO_COLORS.p }}>{fmt(n.p)} g</b>proteína</span><span><b style={{ color: '#9A7418' }}>{fmt(n.c)} g</b>carbo</span><span><b style={{ color: MACRO_COLORS.f }}>{fmt(n.f)} g</b>gordura</span></span>
         </button>
       )}
-      <div className="stat-tile water-tile" style={{ background: 'var(--card)', border: '1.5px solid var(--line)' }}>
-        <button className="tap water-open" onClick={() => setWaterOpen(true)} aria-label={`Água: ${ml} mL. Abrir registros de água`} data-testid="water-open">
-          <Droplets size={16} /><span className="v num">{ml >= 1000 ? (ml / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' L' : ml + ' mL'}</span><span className="l">{settings?.waterGoalMl ? `de ${(settings.waterGoalMl / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} L` : 'água'}</span>
-        </button>
-        <button className="water-plus" onClick={() => addWater(date, settings?.waterPresets?.[0] ?? 300)} aria-label={`Somar ${settings?.waterPresets?.[0] ?? 300} mL de água`} data-testid="water">+{settings?.waterPresets?.[0] ?? 300}</button>
+      <div className="bt bt-water">
+        <div className="bw-l">
+          <button className="tap water-open" onClick={() => setWaterOpen(true)} aria-label={`Água: ${ml} mL. Abrir registros de água`} data-testid="water-open" style={{ textAlign: 'left' }}>
+            <span style={{ display: 'block', fontSize: 14, fontWeight: 600 }}>Água</span>
+            <span className="bt-v num" style={{ display: 'block', marginTop: 8 }}>{ml >= 1000 ? (ml / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' L' : ml + ' mL'}</span>
+            <span className="bt-l">de {(goalMl / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} L</span>
+          </button>
+          <button className="water-plus" onClick={() => addWater(date, preset)} aria-label={`Somar ${preset} mL de água`} data-testid="water">+{preset}</button>
+        </div>
+        <span className="bw-glass"><WaterGlass level={ml / goalMl} /></span>
       </div>
       <WaterSheet open={waterOpen} date={date} onClose={() => setWaterOpen(false)} />
-      <button className="stat-tile" onClick={() => nav('/treino')} style={{ background: 'var(--blue)', color: 'var(--blue-ink)' }}>
-        <Dumbbell size={16} /><span className="v num">{trainMin ? `${trainMin} min` : '–'}</span><span className="l">{burned ? `${fmt(burned)} kcal no treino` : workouts.length ? 'treino feito' : 'treino'}</span>
+      <button className="bt bt-train" onClick={() => nav('/treino')}>
+        <span className="bt-head"><span>Treino</span>{workouts.length > 0 && <span className="bt-chip">{workouts.length} {workouts.length === 1 ? 'feito' : 'feitos'}</span>}</span>
+        <span className="bt-v num">{trainMin ? (trainMin >= 60 ? `${Math.floor(trainMin / 60)}h${String(trainMin % 60).padStart(2, '0')}` : `${trainMin} min`) : '–'}</span>
+        <span className="bt-l" style={{ whiteSpace: 'normal' }}>{burned ? `${fmt(burned)} kcal no treino` : workouts.length ? 'treino feito' : 'nada registrado ainda'}</span>
       </button>
     </div>
   );

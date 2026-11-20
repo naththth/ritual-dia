@@ -1,4 +1,5 @@
 // Cada área reúne o dia, o plano e os cadastros dela: Treino, Cuidados e Alimentação. Sem pular entre pastas.
+import { SkyScene } from '../ui/art';
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { aiAvailable } from '../domain/ai';
 import { toast } from '../state/store';
@@ -57,7 +58,7 @@ export function AreaPage({ area, children, testId }: { area: AreaId; children: R
     <div className="screen" data-testid={testId}>
       <TopBar />
       <div className="row between" style={{ alignItems: 'center' }}>
-        <h1 className="page-title">{AREAS[area].title}</h1>
+        <h1 className="page-title page-big">{AREAS[area].title}</h1>
         {spec && <SpecialistButton domain={spec} />}
       </div>
       <AreaNav area={area} />
@@ -92,16 +93,21 @@ export function CareTodayPage() {
   const extras = useByDate('extra', date);
   const plan = planFor(plans ?? [], 'skin', date);
   const restock = (products ?? []).filter((p) => p.status === 'acabou' || p.status === 'quero_comprar').sort((a, b) => Number(a.status === 'quero_comprar') - Number(b.status === 'quero_comprar') || a.brand.localeCompare(b.brand));
+  // A próxima rotina por fazer vira o card grande, com o céu da hora; a outra fica compacta.
+  const h = new Date().getHours();
+  const doneP = (p: 'am' | 'pm') => !!logs?.find((l) => l.period === p);
+  const hero: 'am' | 'pm' | undefined = date !== todayKey() ? undefined : !doneP('am') && h < 14 ? 'am' : !doneP('pm') ? 'pm' : undefined;
   const card = (p: 'am' | 'pm') => {
     const log = logs?.find((l) => l.period === p);
     const n = log?.productIds.length ?? 0;
     const planned = products ? plannedSkin(plan, date, p, products, false, { skips: skips ?? [], extras: extras ?? [] }).length : 0;
     const status = log ? (log.skipped ? 'Pulada' : `Feita · ${n} ${n === 1 ? 'produto' : 'produtos'}`) : planned ? `${planned} ${planned === 1 ? 'produto' : 'produtos'} no plano` : 'Ainda não registrada';
     return (
-      <button key={p} className={`care-card ${p === 'am' ? 'cc-am' : 'cc-pm'} ${log && !log.skipped ? 'done' : ''}`} onClick={() => nav(`/pele?p=${p}`)} data-testid={`care-${p}`}>
+      <button key={p} className={`care-card ${p === 'am' ? 'cc-am' : 'cc-pm'} ${log && !log.skipped ? 'done' : ''} ${hero === p ? 'cc-hero' : ''}`} onClick={() => nav(`/pele?p=${p}`)} data-testid={`care-${p}`}>
+        {hero === p && <SkyScene period={p} />}
         <span className="cc-ic">{p === 'am' ? <Sunrise size={22} /> : <Moon size={22} />}</span>
-        <span className="cc-t">{p === 'am' ? 'Rotina da manhã' : 'Rotina da noite'}</span>
-        <span className="cc-s">{status}</span>
+        <span className="cc-txt"><span className="cc-t">{p === 'am' ? 'Rotina da manhã' : 'Rotina da noite'}</span>
+        <span className="cc-s">{status}</span></span>
         <span className="cc-go">{log ? 'Ver ou corrigir' : 'Começar'}<ChevronRight size={16} /></span>
       </button>
     );
@@ -109,7 +115,7 @@ export function CareTodayPage() {
   return (
     <AreaPage area="cuidados" testId="area-cuidados">
       <p className="small muted" style={{ margin: '0 0 10px' }}>{date === todayKey() ? `Hoje, ${shortLabel(date)}` : shortLabel(date)}</p>
-      <div className="care-cards">{card('am')}{card('pm')}</div>
+      <div className="care-cards">{hero === 'pm' ? <>{card('pm')}{card('am')}</> : <>{card('am')}{card('pm')}</>}</div>
       <button className="lib-item" onClick={() => nav('/cuidados/rotina')}>
         <span className="lib-icon" style={{ background: 'var(--rose)' }}><ListOrdered size={20} /></span>
         <span className="grow"><b>Rotina da semana</b><br /><span className="small muted">O que entra em cada dia, na ordem de aplicação</span></span>

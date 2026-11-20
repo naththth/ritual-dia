@@ -91,8 +91,11 @@ function Shell() {
   if (inOnboarding && !loc.pathname.startsWith('/revisao')) {
     return (<div className="app"><Onboarding /><Toasts /></div>);
   }
+  // Cada área tem a cor do brilho no topo da tela.
+  const p = loc.pathname;
+  const area = p === '/' ? 'hoje' : p.startsWith('/mente') ? 'mente' : p.startsWith('/cuidados') || p.startsWith('/pele') ? 'cuidados' : p.startsWith('/evolucao') || p.startsWith('/indicadores') ? 'evolucao' : p.startsWith('/treino') ? 'treino' : p.startsWith('/alimentacao') ? 'comida' : p.startsWith('/semana') ? 'semana' : 'geral';
   return (
-    <div className="app">
+    <div className="app" data-area={area}>
       <Routes>
         <Route path="/" element={<DayScreen />} />
         <Route path="/calendario" element={<CalendarScreen />} />
