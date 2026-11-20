@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { Plus, ChevronLeft, ChevronRight, Undo2, Repeat2, Droplets, Pencil } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, ChevronDown, Undo2, Repeat2, Droplets, Pencil } from 'lucide-react';
 import { AreaNav } from './areas';
 import { TopBar } from './common';
 import { useAll, useByDate, useByRange, useSettings } from '../db/hooks';
@@ -10,12 +10,43 @@ import { addDays, shortLabel, todayKey } from '../lib/dates';
 import { addWater, mealFromTemplate, saveMeal, skipPlanned } from '../domain/actions';
 import { lastMealOf, nextMealType } from '../domain/repeat';
 import { FuelNext, useFuel } from './fuel-ui';
-import { fmt, itemNutr, portionText, totals } from '../domain/nutrition';
-import { MACRO_COLORS, MacroBar, MacroLine } from './food-ui';
+import { fmt, itemNutr, portionText, shortFoodName, totals } from '../domain/nutrition';
+import { FoodStack, FoodThumb, MACRO_COLORS, MacroLine } from './food-ui';
+import { fillFoodImages } from '../domain/foodImage';
 import { remove } from '../db/db';
 import { DEFAULT_MEAL_TIMES } from './today';
 import { SpecialistButton } from './specchat';
-import type { MealItem } from '../db/types';
+import type { MealItem, Nutr } from '../db/types';
+
+/** Anel do dia: quanto da meta já foi, com a fatia de cada macro na ordem proteína, carbo, gordura; no centro, o que falta. */
+function DayRing({ eaten, goal, size = 128, stroke = 12 }: { eaten: Nutr; goal: number; size?: number; stroke?: number }) {
+  const r = (size - stroke) / 2;
+  const C = 2 * Math.PI * r;
+  const parts = [['p', eaten.p * 4], ['c', eaten.c * 4], ['f', eaten.f * 9]] as const;
+  const sum = parts.reduce((a, [, v]) => a + v, 0);
+  // A fatia de cada macro é proporcional às calorias dele; o anel inteiro é a meta.
+  const scaleK = sum > 0 ? Math.min(C, (eaten.kcal / goal) * C) / sum : 0;
+  const left = goal - eaten.kcal;
+  let off = 0;
+  return (
+    <div className="day-ring" style={{ width: size, height: size }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={`${Math.round((eaten.kcal / goal) * 100)}% da meta de calorias`}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--paper-2)" strokeWidth={stroke} />
+        {parts.map(([k, v]) => {
+          const len = v * scaleK;
+          const el = len > 1 ? <circle key={k} cx={size / 2} cy={size / 2} r={r} fill="none" stroke={MACRO_COLORS[k]} strokeWidth={stroke}
+            strokeDasharray={`${Math.max(0.5, len - 2)} ${C}`} strokeDashoffset={-off} transform={`rotate(-90 ${size / 2} ${size / 2})`} className="dr-seg" /> : null;
+          off += len;
+          return el;
+        })}
+      </svg>
+      <div className="dr-mid">
+        <b className="num">{fmt(Math.abs(left))}</b>
+        <span>{left >= 0 ? 'kcal restantes' : 'kcal acima'}</span>
+      </div>
+    </div>
+  );
+}
 
 export function FoodTab() {
   const { date, setDate } = useApp();
@@ -32,6 +63,10 @@ export function FoodTab() {
   const recent = useByRange('meal', addDays(date, -21), addDays(date, -1));
   const fuel = useFuel(date);
   const [nowMin, setNowMin] = useState(() => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); });
+  // Refeições abertas à mão; a próxima já vem aberta, as outras ficam resumidas.
+  const [opened, setOpened] = useState<Record<string, boolean>>({});
+  // Alimentos sem foto ganham uma de referência em segundo plano.
+  useEffect(() => { if (foods) void fillFoodImages(foods); }, [foods?.length]);
   useEffect(() => { const t = setInterval(() => { const d = new Date(); setNowMin(d.getHours() * 60 + d.getMinutes()); }, 60_000); return () => clearInterval(t); }, []);
   if (!settings || !meals || !foods || !tmpls || !plans || !water || !workouts || !skips) return <div className="screen"><TopBar /></div>;
   const showN = settings.showNutrition !== false;
@@ -64,14 +99,15 @@ export function FoodTab() {
       </div>
 
       {showN && (
-        <section className="block b-honey" data-testid="food-summary">
+        <section className="food-hero" data-testid="food-summary">
           {goal.kcal ? (
-          <div className="kcal-eq">
-              <div><span className="kv num">{goal.kcal ? fmt(goal.kcal) : '–'}</span><span className="kl">{settings.targets?.kcal ? 'meta' : 'plano'}</span></div>
-              <span className="op">−</span>
-              <div><span className="kv num">{fmt(eaten.n.kcal)}</span><span className="kl">consumido</span></div>
-              <span className="op">=</span>
-              <div><span className="kv num">{goal.kcal ? fmt(goal.kcal - eaten.n.kcal) : '–'}</span><span className="kl">restante</span></div>
+            <div className="fh-top">
+              <DayRing eaten={eaten.n} goal={goal.kcal} />
+              <div className="fh-num">
+                <span className="fh-k">Consumido</span>
+                <span className="fh-big num">{fmt(eaten.n.kcal)}</span>
+                <span className="fh-of">de {fmt(goal.kcal)} kcal{settings.targets?.kcal ? '' : ' do plano'}</span>
+              </div>
             </div>
           ) : (
             <div className="kcal-solo">
@@ -79,15 +115,18 @@ export function FoodTab() {
               <button className="link small" onClick={() => nav('/ajustes')}>Definir meta</button>
             </div>
           )}
-          {goal.kcal ? <div className="macro-bar" style={{ height: 10 }}><i style={{ width: `${pct(eaten.n.kcal, goal.kcal)}%` }} /></div> : null}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginTop: 10 }}>
-            {([['Proteína', eaten.n.p, goal.p], ['Carboidrato', eaten.n.c, goal.c], ['Gordura', eaten.n.f, goal.f]] as [string, number, number | undefined][]).map(([l, v, m]) => (
-              <div key={l} className="small" style={{ minWidth: 0 }}><div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}><i className="fs-dot" style={{ background: l === 'Proteína' ? MACRO_COLORS.p : l === 'Carboidrato' ? MACRO_COLORS.c : MACRO_COLORS.f, flex: '0 0 auto' }} />{l === 'Carboidrato' ? 'Carbo' : l}</div><div className="num">{fmt(v)}{m ? ` de ${fmt(m)}` : ''} g</div>
-                {m ? <div className="macro-bar"><i style={{ width: `${pct(v, m)}%` }} /></div> : null}</div>
+          <div className="fh-macros">
+            {([['p', 'Proteína', eaten.n.p, goal.p], ['c', 'Carbo', eaten.n.c, goal.c], ['f', 'Gordura', eaten.n.f, goal.f]] as const).map(([k, l, v, m]) => (
+              <div key={k} className="fh-m">
+                <span className="fh-ml"><i style={{ background: MACRO_COLORS[k] }} />{l}</span>
+                <span className="fh-mv num"><b>{fmt(v)}</b>{m ? ` / ${fmt(m)}` : ''} g</span>
+                <span className="fh-bar">{m ? <i style={{ width: `${pct(v, m)}%`, background: MACRO_COLORS[k] }} /> : null}</span>
+              </div>
             ))}
           </div>
-          {burned > 0 && <p className="tiny" style={{ margin: '10px 0 0', opacity: .85 }}>Treinos de hoje: {fmt(burned)} kcal. Não entram na meta; o plano já considera sua rotina.</p>}
-          {eaten.missing > 0 && <p className="tiny" style={{ margin: '6px 0 0' }}>{eaten.missing} {eaten.missing === 1 ? 'item sem dados nutricionais' : 'itens sem dados nutricionais'}, fora da conta.</p>}
+          {burned > 0 && <p className="tiny fh-note">Treinos de hoje: {fmt(burned)} kcal. Não entram na meta; o plano já considera sua rotina.</p>}
+          {eaten.missing > 0 && <p className="tiny fh-note">{eaten.missing} {eaten.missing === 1 ? 'item sem dados nutricionais' : 'itens sem dados nutricionais'}, fora da conta.</p>}
+          <button className="fh-link" onClick={() => nav('/indicadores')}><span>Ver a semana em Indicadores</span><ChevronRight size={18} /></button>
         </section>
       )}
 
@@ -113,47 +152,71 @@ export function FoodTab() {
         const last = !meal && !skipped && recent ? lastMealOf(recent, mt.id, date) : undefined;
         const ltot = last ? totals(last.items, foods).n : undefined;
         const isNext = mt.id === nextId;
+        const open = opened[mt.id] ?? isNext;
+        const toggle = () => setOpened((o) => ({ ...o, [mt.id]: !open }));
+        const mealFoods = meal ? meal.items.map((i) => foods.find((f) => f.id === i.foodId)) : [];
+        const names = [...new Set(mealFoods.map((f) => (f ? shortFoodName(f.name) : '?')))].join(', ');
+        const sub = meal ? names
+          : skipped ? 'Não hoje'
+          : tpl ? `Do plano: ${tpl.items.map((i) => shortFoodName(fname(i.foodId))).join(', ')}${ttot && showN ? ` · ${fmt(ttot.kcal)} kcal` : ''}`
+          : 'Ainda não registrada';
         return (
-          <section key={mt.id} className={`meal-card ${meal ? 'logged' : ''} ${isNext ? 'next' : ''} ${skipped ? 'skipped' : ''}`} data-testid={`meal-sec-${mt.id}`}>
+          <section key={mt.id} className={`meal-card ${meal ? 'logged' : ''} ${isNext ? 'next' : ''} ${skipped ? 'skipped' : ''} ${open ? 'open' : ''}`} data-testid={`meal-sec-${mt.id}`}>
             <div className="mc-head">
-              <div className="grow">
-                {isNext && <span className="mc-kicker">Próxima refeição</span>}
-                <h3>{mt.label} <span className="mc-time num">{times[mt.id] ?? ''}</span></h3>
-              </div>
-              {meal ? (showN && mtot ? <span className="mc-kcal num">{fmt(mtot.kcal)} kcal</span> : <span className="mc-chip">Registrada</span>)
-                : skipped ? <span className="mc-chip">Não hoje</span> : null}
-            </div>
-            {showN && mtot && <div className="meal-macros" data-testid={`meal-macros-${mt.id}`}><MacroLine n={mtot} /><MacroBar n={mtot} /></div>}
-            {meal && meal.items.map((i, k) => {
-              const n = itemNutr(foods.find((f) => f.id === i.foodId), i);
-              return (
-                <button key={k} className="food-line tap" onClick={() => nav(`/alimentacao/refeicao?m=${mt.id}&edit=${encodeURIComponent(i.foodId)}`)} aria-label={`Ajustar ${fname(i.foodId)}`}>
-                  <span className="grow" style={{ textAlign: 'left' }}><span style={{ fontWeight: 650 }}>{fname(i.foodId)}</span> <span className="small muted">{portionText(foods.find((f) => f.id === i.foodId), i)}</span>
-                    {showN && n && <><br /><span className="tiny muted num">P {fmt(n.p)} · C {fmt(n.c)} · G {fmt(n.f)} g</span></>}</span>
-                  {showN && <span className="small num">{n ? `${fmt(n.kcal)} kcal` : 'sem dados'}</span>}
-                </button>
-              );
-            })}
-            {isNext && !meal && fuel && showN && <FuelNext fuel={fuel} mealType={mt.id} label={mt.label} date={date} />}
-            {!meal && !skipped && last && (
-              <button className="repeat-row" onClick={() => saveMeal(date, mt.id, last.items)} data-testid={`repeat-${mt.id}`}>
-                <span className="rr-ic"><Repeat2 size={18} /></span>
-                <span className="grow"><b>Repetir de {shortLabel(last.date)}</b><span className="rr-s">{last.items.map((i) => fname(i.foodId)).join(', ')}{showN && ltot ? ` · ${fmt(ltot.kcal)} kcal` : ''}</span></span>
+              <button className="mc-toggle" onClick={toggle} aria-expanded={open} data-testid={`meal-toggle-${mt.id}`}>
+                <span className="mc-txt">
+                  {isNext && <span className="mc-kicker">Próxima refeição</span>}
+                  <span className="mc-title"><b>{mt.label}</b> <span className="mc-time num">{times[mt.id] ?? ''}</span></span>
+                  {!(open && !meal) && <span className="mc-sub">{sub}</span>}
+                </span>
+                {meal && !open && <FoodStack foods={mealFoods} />}
+                <ChevronDown size={18} className="mc-chev" aria-hidden />
               </button>
+              {!meal && !open && !skipped && <button className="mc-add" aria-label={`Registrar ${mt.label.toLowerCase()}`} onClick={() => nav(`/alimentacao/refeicao?m=${mt.id}`)} data-testid={`add-${mt.id}`}><Plus size={20} /></button>}
+            </div>
+            {showN && mtot && (
+              <div className="meal-macros" data-testid={`meal-macros-${mt.id}`}>
+                <b className="num mc-kcal">{fmt(mtot.kcal)} kcal</b><MacroLine n={mtot} className="tiny" />
+              </div>
             )}
-            {!meal && tpl && !skipped && (
-              <div className="food-plan">
-                <div className="small" style={{ fontWeight: 700, marginBottom: 2 }}>Do seu plano{ttot && showN ? `, ${fmt(ttot.kcal)} kcal` : ''}</div>
-                <div className="small">{tpl.items.map((i) => `${fname(i.foodId)} ${i.portion}`).join(', ')}</div>
-                <div className="row wrap" style={{ gap: 8, marginTop: 8 }}>
-                  <button className="pill-act pa-honey" onClick={() => mealFromTemplate(tpl, date, mt.id, true)} data-testid={`eat-plan-${mt.id}`}>Comi isso</button>
+            {open && (
+              <div className="mc-body">
+                {meal && meal.items.map((i, k) => {
+                  const f = foods.find((x) => x.id === i.foodId);
+                  const n = itemNutr(f, i);
+                  return (
+                    <button key={k} className="food-line tap" onClick={() => nav(`/alimentacao/refeicao?m=${mt.id}&edit=${encodeURIComponent(i.foodId)}`)} aria-label={`Ajustar ${fname(i.foodId)}`}>
+                      <FoodThumb food={f} size={48} />
+                      <span className="fl-txt">
+                        <span className="fl-name">{f ? shortFoodName(f.name) : '?'}</span>
+                        <span className="fl-sub">{portionText(f, i)}{showN && n ? ` · P ${fmt(n.p)} · C ${fmt(n.c)} · G ${fmt(n.f)}` : ''}</span>
+                      </span>
+                      {showN && <span className="fl-kcal num">{n ? `${fmt(n.kcal)} kcal` : 'sem dados'}</span>}
+                    </button>
+                  );
+                })}
+                {isNext && !meal && fuel && showN && <FuelNext fuel={fuel} mealType={mt.id} label={mt.label} date={date} />}
+                {!meal && !skipped && last && (
+                  <button className="repeat-row" onClick={() => saveMeal(date, mt.id, last.items)} data-testid={`repeat-${mt.id}`}>
+                    <span className="rr-ic"><Repeat2 size={18} /></span>
+                    <span className="grow"><b>Repetir de {shortLabel(last.date)}</b><span className="rr-s">{last.items.map((i) => fname(i.foodId)).join(', ')}{showN && ltot ? ` · ${fmt(ltot.kcal)} kcal` : ''}</span></span>
+                  </button>
+                )}
+                {!meal && tpl && !skipped && (
+                  <div className="food-plan">
+                    <div className="small" style={{ fontWeight: 700, marginBottom: 2 }}>Do seu plano{ttot && showN ? `, ${fmt(ttot.kcal)} kcal` : ''}</div>
+                    <div className="small">{tpl.items.map((i) => `${fname(i.foodId)} ${i.portion}`).join(', ')}</div>
+                    <div className="row wrap" style={{ gap: 8, marginTop: 8 }}>
+                      <button className="pill-act pa-honey" onClick={() => mealFromTemplate(tpl, date, mt.id, true)} data-testid={`eat-plan-${mt.id}`}>Comi isso</button>
+                    </div>
+                  </div>
+                )}
+                <div className="mc-acts">
+                  <button className="add-line" onClick={() => nav(`/alimentacao/refeicao?m=${mt.id}`)} data-testid={`add-${mt.id}`}>{meal ? <><Pencil size={15} />Editar ou adicionar</> : <><Plus size={16} />Adicionar alimento</>}</button>
+                  {!meal && !skipped && (tpl || isNext) && <button className="mc-skip" onClick={() => skipPlanned(date, 'food', mt.id, 'Refeição marcada como não hoje')}>Pulei</button>}
                 </div>
               </div>
             )}
-            <div className="mc-acts">
-              <button className="add-line" onClick={() => nav(`/alimentacao/refeicao?m=${mt.id}`)} data-testid={`add-${mt.id}`}>{meal ? <><Pencil size={15} />Editar ou adicionar</> : <><Plus size={16} />Adicionar alimento</>}</button>
-              {!meal && !skipped && (tpl || isNext) && <button className="mc-skip" onClick={() => skipPlanned(date, 'food', mt.id, 'Refeição marcada como não hoje')}>Pulei</button>}
-            </div>
           </section>
         );
       })}

@@ -1587,3 +1587,95 @@ body:has(.save-bar) .fab-float, body:has(.chat-input) .fab-float, body:has(.ritu
 @media (prefers-reduced-motion: reduce) { .titem-body { animation: none; } .titem-chev { transition: none; } }
 .titem-read { display: flex; align-items: flex-start; gap: 6px; margin: -4px 12px 12px 48px; padding: 0; background: none; border: 0; color: inherit; text-align: left; font-size: 13.5px; line-height: 1.35; font-weight: 650; }
 .titem-read svg { flex: none; margin-top: 2px; }
+
+/* ---------- Alimentação, nov/2026: número do dia em destaque, refeições resumidas com fotos ---------- */
+.fab-float.tuck { transform: translateY(calc(100% + 40px)); }
+@media (prefers-reduced-motion: reduce) { .fab-float { transition: none; } }
+
+.food-hero { background: var(--card); border-radius: 28px; padding: 20px 18px 6px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 18px; }
+.fh-top { display: flex; align-items: center; gap: 18px; }
+.day-ring { position: relative; flex: 0 0 auto; }
+.day-ring svg { display: block; }
+.dr-seg { transition: stroke-dasharray .6s cubic-bezier(.2,.8,.2,1), stroke-dashoffset .6s cubic-bezier(.2,.8,.2,1); }
+.dr-mid { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.dr-mid b { font-family: var(--f-display); font-weight: 600; font-size: 26px; line-height: 1; letter-spacing: -0.02em; }
+.dr-mid span { font-size: 12px; font-weight: 650; color: var(--ink-2); margin-top: 3px; line-height: 1.15; max-width: 84px; }
+.fh-num { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.fh-k { font-size: 12.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
+.fh-big { font-family: var(--f-display); font-weight: 600; font-size: 52px; line-height: .95; letter-spacing: -0.035em; }
+.fh-of { font-size: 15px; font-weight: 550; color: var(--ink-2); }
+/* três colunas com a mesma estrutura de linhas: rótulo, número e barra ficam na mesma altura */
+.fh-macros { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: auto auto 6px; column-gap: 12px; row-gap: 6px; }
+.fh-m { display: grid; grid-row: span 3; grid-template-rows: subgrid; min-width: 0; }
+.fh-ml { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 650; color: var(--ink-2); }
+.fh-ml i { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.fh-mv { font-size: 13.5px; font-weight: 550; color: var(--ink-2); white-space: nowrap; }
+.fh-mv b { font-family: var(--f-display); font-size: 20px; font-weight: 600; color: var(--ink); margin-right: 1px; }
+.fh-bar { height: 6px; border-radius: 3px; background: var(--paper-2); overflow: hidden; }
+.fh-bar i { display: block; height: 100%; border-radius: 3px; transition: width .6s cubic-bezier(.2,.8,.2,1); }
+.fh-note { margin: -8px 0 0; color: var(--ink-2); }
+.fh-link { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 48px; border-top: 1px solid var(--line); font-weight: 700; font-size: 15px; color: var(--wine); text-align: left; }
+@media (max-width: 370px) { .fh-big { font-size: 44px; } .fh-mv b { font-size: 18px; } .fh-mv { font-size: 12.5px; } }
+
+.food-thumb { display: block; flex: 0 0 auto; object-fit: cover; background: var(--paper-2); }
+.ft-ic { display: grid; place-items: center; background: color-mix(in srgb, var(--honey) 28%, var(--paper)); color: var(--honey-ink); }
+.food-stack { display: inline-flex; align-items: center; flex: 0 0 auto; }
+.food-stack > * { border: 2px solid var(--card); box-sizing: border-box; }
+.food-stack > * + * { margin-left: -14px; }
+.meal-card.logged .food-stack > * { border-color: color-mix(in srgb, var(--honey) 22%, var(--card)); }
+.fs-more { display: grid; place-items: center; background: var(--paper-2); font-size: 13px; font-weight: 750; color: var(--ink-2); }
+
+.meal-card { padding: 6px 12px 6px 16px; border-radius: 24px; }
+.meal-card.next { padding-top: 10px; }
+.meal-card .mc-head { align-items: center; gap: 6px; }
+.mc-toggle { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; min-height: 64px; padding: 8px 0; text-align: left; color: inherit; }
+.mc-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.mc-title b { font-family: var(--f-display); font-weight: 650; font-size: 19px; letter-spacing: -0.015em; font-variation-settings: 'opsz' 32; }
+.meal-card.next .mc-title b { font-size: 24px; }
+.mc-sub { font-size: 13.5px; font-weight: 550; color: var(--ink-2); line-height: 1.35; overflow-wrap: anywhere; }
+.mc-chev { flex: 0 0 auto; color: var(--ink-2); transition: transform .2s ease; }
+.meal-card.open .mc-chev { transform: rotate(180deg); }
+.mc-add { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--paper-2); flex: 0 0 auto; }
+.meal-card .meal-macros { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: -6px 0 10px; }
+.meal-card .meal-macros .mc-kcal { font-size: 14.5px; font-weight: 750; padding: 0; }
+.mc-body { animation: mc-open .22s ease both; }
+@keyframes mc-open { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .mc-body { animation: none; } .mc-chev { transition: none; } }
+.meal-card .food-line { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 8px 0; border-top: 1px solid var(--line); }
+.fl-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.fl-name { font-weight: 700; font-size: 15.5px; line-height: 1.25; overflow-wrap: anywhere; }
+.fl-sub { font-size: 13px; font-weight: 500; color: var(--ink-2); line-height: 1.3; }
+.fl-kcal { flex: 0 0 auto; font-size: 14.5px; font-weight: 700; white-space: nowrap; }
+
+/* Ideal agora: cartão claro sobre o creme, números grandes, itens com foto que ela marca ou desmarca */
+.meal-card .fuel { margin: 2px 0 6px; padding: 0; background: none; color: var(--ink); }
+.fuel-card { padding: 14px 14px 12px; border-radius: 20px; background: rgba(255, 255, 255, .6); border: 1px solid color-mix(in srgb, var(--honey-2) 30%, transparent); box-shadow: 0 10px 24px -16px rgba(74, 46, 6, .45); }
+.fuel-card .fuel-h { font-size: 15px; gap: 8px; }
+.fuel-card .fuel-h svg { color: var(--wine); }
+.fuel-tag { font-size: 12.5px; padding: 4px 11px; }
+.fuel-nums { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
+.fuel-nums span { display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; font-weight: 650; color: var(--ink-2); min-width: 0; }
+.fuel-nums b { font-family: var(--f-display); font-size: 22px; font-weight: 600; line-height: 1; color: var(--ink); letter-spacing: -0.02em; white-space: nowrap; }
+.fuel-why { margin: 10px 0 0; font-size: 13.5px; line-height: 1.4; color: var(--ink-2); }
+.meal-card .fuel-picks { gap: 8px; margin-top: 10px; }
+.meal-card .fuel-picks li { display: flex; align-items: center; gap: 12px; padding: 8px; border-radius: 18px; background: var(--card); transition: opacity .15s ease; }
+.meal-card .fuel-picks li.off { opacity: .55; }
+.fp-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.fp-name { font-weight: 700; font-size: 15px; line-height: 1.25; overflow-wrap: anywhere; }
+.fp-sub { font-size: 13px; color: var(--ink-2); }
+.fp-add { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; flex: 0 0 auto; border: 1.5px solid var(--line-2); color: var(--wine); }
+.fp-add.on { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.fuel-acts { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin-top: 12px; }
+.fuel-acts .btn { min-height: 48px; gap: 6px; padding: 0 10px; font-size: 14.5px; white-space: nowrap; }
+.fuel-ai { display: inline-flex; align-items: center; gap: 5px; min-height: 40px; margin-top: 4px; }
+
+/* Ficha do alimento: foto e de onde ela veio */
+.fs-photo { display: flex; align-items: center; gap: 14px; margin: 2px 0 14px; }
+.fs-photo-side { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
+.fs-photo-side .btn { gap: 6px; }
+
+/* Tela da refeição: modos de registro lado a lado */
+.add-modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0 0 12px; }
+.add-mode { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 78px; padding: 10px 6px; border-radius: 18px; background: var(--card); border: 1.5px solid var(--line); font-size: 13px; font-weight: 700; text-align: center; line-height: 1.2; color: var(--ink); }
+.add-mode.am-main { background: var(--wine); border-color: var(--wine); color: var(--wine-ink); }
+.plate-row .food-thumb, .add-row .food-thumb { margin-right: 4px; }

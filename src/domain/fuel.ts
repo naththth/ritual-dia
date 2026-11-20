@@ -5,6 +5,7 @@
 //   (ISSN 2017 sobre timing; ACSM/AND/DC 2016);
 // - água: ritmo ao longo do dia, para não concentrar tudo à noite.
 import type { Food, Meal, MealItem, Nutr, Workout } from '../db/types';
+import { fmt } from './nutrition';
 
 export interface Macros { kcal: number; p: number; c: number; f: number }
 export const M0: Macros = { kcal: 0, p: 0, c: 0, f: 0 };
@@ -117,3 +118,12 @@ export function usageOf(meals: Meal[]): Map<string, number> {
 }
 
 export const toMacros = (n: Nutr): Macros => ({ kcal: n.kcal, p: n.p, c: n.c, f: n.f });
+
+/** Por que a sugestão é assim, em uma frase: pós-treino e o que sobra de carbo na meta do dia. */
+export function fuelReason(o: { post?: { minsAgo: number; demanding: boolean }; target: Macros; remainingC: number; goalC?: number }): string {
+  const parts: string[] = [];
+  if (o.post) parts.push(`O treino terminou há ${o.post.minsAgo} min.`);
+  if (o.goalC && o.target.c < o.target.p / 2 && o.remainingC <= 40) parts.push(`Restam só ${fmt(o.remainingC)} g de carbo na meta de hoje, por isso a sugestão prioriza proteína.`);
+  else if (o.post?.demanding) parts.push('Proteína e carboidrato juntos ajudam a repor e recuperar.');
+  return parts.join(' ');
+}

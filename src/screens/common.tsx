@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ChevronLeft, ChevronRight, Menu, Plus, Settings as Cog } from 'lucide-react';
 import { useApp } from '../state/store';
@@ -26,9 +26,22 @@ export function MenuButton() {
   return <button className="icon-btn menu-btn" aria-label="Abrir menu" onClick={() => useApp.getState().setMenu(true)} data-testid="nav-menu"><Menu size={24} /></button>;
 }
 
-/** O + único: flutua no canto inferior direito de todas as telas e abre a folha Registrar. */
+/** O + único: flutua no canto inferior direito de todas as telas e abre a folha Registrar.
+ *  Rolando para baixo ele se recolhe, para não cobrir números e textos à direita; rolando para cima, volta. */
 export function AddButton() {
-  return <button className="fab fab-float" aria-label="Registrar" onClick={() => useApp.getState().setReg(true)} data-testid="fab"><Plus size={28} strokeWidth={2.4} /></button>;
+  const [tuck, setTuck] = useState(false);
+  useEffect(() => {
+    let last = window.scrollY;
+    const on = () => {
+      const y = window.scrollY;
+      if (Math.abs(y - last) < 6) return;
+      setTuck(y > last && y > 80);
+      last = y;
+    };
+    window.addEventListener('scroll', on, { passive: true });
+    return () => window.removeEventListener('scroll', on);
+  }, []);
+  return <button className={`fab fab-float ${tuck ? 'tuck' : ''}`} aria-label="Registrar" onClick={() => useApp.getState().setReg(true)} data-testid="fab"><Plus size={28} strokeWidth={2.4} /></button>;
 }
 
 export function TopBar({ right }: { right?: ReactNode }) {

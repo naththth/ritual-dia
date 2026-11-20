@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mealTarget, pickFoods, postWorkout, remainingOf, portionLabel, dayFraction } from '../../src/domain/fuel';
+import { fuelReason, mealTarget, pickFoods, postWorkout, remainingOf, portionLabel, dayFraction } from '../../src/domain/fuel';
 
 const food = (id: string, name: string, type: string, kcal: number, p: number, c: number, f: number, measures?: any[]): any => ({ id, kind: 'food', name, type, portions: [], n: { kcal, p, c, f }, measures, updatedAt: 1, createdAt: 1 });
 const FOODS = [
@@ -56,5 +56,20 @@ describe('limites por refeição', () => {
     const t = mealTarget({ remaining: { kcal: 1100, p: 75, c: 75, f: 55 }, mealsLeft: 1, weightKg: 89, dayKcal: 1800 });
     expect(t.p).toBeLessThanOrEqual(49);
     expect(t.kcal).toBeLessThanOrEqual(630);
+  });
+});
+
+describe('fuelReason: o porquê da sugestão em uma frase', () => {
+  const t = { kcal: 180, p: 28, c: 7, f: 5 };
+  it('pós-treino com pouco carbo sobrando na meta explica que a proteína vem primeiro', () => {
+    expect(fuelReason({ post: { minsAgo: 29, demanding: false }, target: t, remainingC: 28, goalC: 74 }))
+      .toBe('O treino terminou há 29 min. Restam só 28 g de carbo na meta de hoje, por isso a sugestão prioriza proteína.');
+  });
+  it('treino exigente com carbo de sobra fala de repor', () => {
+    expect(fuelReason({ post: { minsAgo: 10, demanding: true }, target: { kcal: 500, p: 30, c: 60, f: 10 }, remainingC: 200, goalC: 250 }))
+      .toBe('O treino terminou há 10 min. Proteína e carboidrato juntos ajudam a repor e recuperar.');
+  });
+  it('sem treino e sem aperto de carbo, nada a explicar', () => {
+    expect(fuelReason({ target: { kcal: 500, p: 30, c: 60, f: 10 }, remainingC: 200, goalC: 250 })).toBe('');
   });
 });

@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { usePhotoPicker } from '../ui/PhotoPicker';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Search, Star, Copy, Check as CheckIcon, X, Trash2, ChevronRight, Pencil, Camera } from 'lucide-react';
+import { Plus, Search, Star, Copy, Check as CheckIcon, X, Trash2, ChevronRight, Pencil, Camera, FileText } from 'lucide-react';
 import { PlateSheet, type PlateRow } from './plate';
 import { aiAvailable } from '../domain/ai';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -17,7 +17,7 @@ import { addDays, shortLabel } from '../lib/dates';
 import { FoodForm, FoodSuggest, foodFromTaco, foodFromOff } from './library/FoodForm';
 import { BarcodeButton } from './library/Barcode';
 import { defaultItem, displayFood, fmt, itemNutr, portionText, totals } from '../domain/nutrition';
-import { FoodSheet, MacroLine, MacroRing } from './food-ui';
+import { FoodSheet, FoodThumb, MacroLine, MacroRing } from './food-ui';
 import { planFor, plannedFood } from '../domain/rules';
 import { PlateCoach, useFuel } from './fuel-ui';
 
@@ -179,6 +179,7 @@ export function FoodScreen() {
           const n = f ? itemNutr(f, i) : undefined;
           return (
             <div key={i.foodId} className="plate-row">
+              <FoodThumb food={f} size={44} />
               <button className="plate-main tap" onClick={() => f && open(f)} aria-label={`Quantidade de ${f?.name}`}>
                 <span className="plate-name">{d.name}</span>
                 <span className="plate-sub">{d.brand ? `${d.brand} · ` : ''}<span className="qty-pill"><Pencil size={12} />{portionText(f, i)}</span></span>
@@ -202,16 +203,14 @@ export function FoodScreen() {
       {/* Adicionar */}
       <section style={{ marginTop: 22 }}>
         <h3 className="sec-cap">Adicionar</h3>
-        {aiAvailable() && (
-          <>
-            <button className="plate-cta" onClick={platePick.open} data-testid="plate-photo">
-              <span className="plate-cta-ic"><Camera size={20} /></span>
-              <span className="grow" style={{ textAlign: 'left' }}><b>Foto do prato</b><br /><span className="small">A IA reconhece os alimentos e estima as porções</span></span>
-              <ChevronRight size={18} />
-            </button>
-            {platePick.el}
-          </>
-        )}
+        {/* Três jeitos de registrar sem digitar: o prato pela câmera, a embalagem pelo código, o rótulo pela tabela */}
+        <div className="add-modes">
+          {aiAvailable() && <button className="add-mode am-main" onClick={platePick.open} data-testid="plate-photo"><Camera size={22} strokeWidth={1.8} /><span>Foto do prato</span></button>}
+          <BarcodeButton tile onFound={(o) => addNew(foodFromOff(o))} />
+          <button className="add-mode" onClick={() => setAdding(true)} data-testid="label-tile"><FileText size={22} strokeWidth={1.8} /><span>Rótulo ou nome</span></button>
+        </div>
+        {aiAvailable() && <p className="tiny muted" style={{ margin: '-4px 0 10px' }}>Na foto do prato, a IA reconhece os alimentos e estima as porções. Câmera ou galeria.</p>}
+        {platePick.el}
         <div style={{ position: 'relative', marginBottom: 10 }}>
           <Search size={18} style={{ position: 'absolute', left: 14, top: 15, color: 'var(--ink-2)' }} />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar alimento ou marca" style={{ paddingLeft: 40, paddingRight: 52 }} aria-label="Buscar alimento" autoComplete="off" />
@@ -242,6 +241,7 @@ export function FoodScreen() {
                   const k = kcalOf(f, it);
                   return (
                     <div key={f.id} className="add-row">
+                      <FoodThumb food={f} size={40} />
                       <button className="grow tap" style={{ textAlign: 'left', minWidth: 0 }} onClick={() => open(f)} aria-label={`Ver ${f.name}`}>
                         <div className="plate-name">{f.favorite ? '★ ' : ''}{d.name}</div>
                         <div className="plate-sub">{[d.brand, portionText(f, it), showN && k != null ? `${fmt(k)} kcal` : ''].filter(Boolean).join(' · ')}</div>

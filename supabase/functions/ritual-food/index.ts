@@ -6,8 +6,9 @@ import { Image } from "https://deno.land/x/imagescript@1.3.0/mod.ts";
 // Buscas na internet feitas pelo servidor (sem bloqueio de navegador):
 //  - search: alimento de marca no Open Food Facts, com prioridade para o Brasil ("leite sem lactose batavo")
 //  - barcode: código de barras (EAN) lido pela câmera
-//  - image: foto de um produto de cuidados (busca de imagens), devolvida já em miniatura
-//  - images_batch: miniaturas para os produtos dela que ainda não têm foto (também pelo agendador, com o segredo)
+//  - image: foto de um produto de cuidados ou de um alimento (busca de imagens), devolvida já em miniatura
+//  - images_batch: miniaturas para os produtos (ou, com kind 'food', os alimentos) dela que ainda não têm foto
+//    (também pelo agendador, com o segredo)
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -30,6 +31,7 @@ const admin = () => createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SU
 /* ---------- Fotos de produtos de cuidados ---------- */
 const BROWSER = { 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36', 'accept-language': 'pt-BR,pt;q=0.9,en;q=0.8' };
 const THUMB = 160;
+const FOOD_THUMB = 256; // foto de prato aparece maior na ficha do alimento
 
 /** Endereços das imagens que a busca de imagens do Bing devolve para o texto, na ordem da busca. */
 async function imageCandidates(q: string): Promise<string[]> {
@@ -49,8 +51,9 @@ async function imageCandidates(q: string): Promise<string[]> {
   } catch { return []; } finally { clearTimeout(t); }
 }
 
-/** Baixa a imagem e devolve uma miniatura quadrada em JPEG, com fundo claro (embalagens costumam vir em PNG transparente). */
-async function thumbFrom(url: string): Promise<string | null> {
+/** Baixa a imagem e devolve uma miniatura quadrada em JPEG. Embalagem: inteira sobre fundo claro (costuma vir em PNG
+ *  transparente). Prato (cover): recorta o centro e preenche o quadrado, como foto de comida pede. */
+async function thumbFrom(url: string, cover = false): Promise<string | null> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 8000);
   try {
@@ -62,6 +65,12 @@ async function thumbFrom(url: string): Promise<string | null> {
     if (buf.length > 2_500_000) return null;
     const img = await Image.decode(buf);
     if (img.width * img.height > 9_000_000) return null;
+    if (cover) {
+      const side = Math.min(img.width, img.height);
+      img.crop(Math.round((img.width - side) / 2), Math.round((img.height - side) / 2), side, side);
+      img.resize(FOOD_THUMB, FOOD_THUMB);
+      return `data:image/jpeg;base64,${encodeBase64(await img.encodeJPEG(80))}`;
+    }
     const k = Math.min(THUMB / img.width, THUMB / img.height);
     img.resize(Math.max(1, Math.round(img.width * k)), Math.max(1, Math.round(img.height * k)));
     const bg = new Image(THUMB, THUMB).fill(0xffffffff);
@@ -74,26 +83,35 @@ async function thumbFrom(url: string): Promise<string | null> {
 const imageQuery = (brand?: string, name?: string) => `${brand ?? ''} ${(name ?? '').replace(/\(.*?\)/g, ' ')}`.replace(/\s+/g, ' ').trim();
 
 /** A primeira imagem que der certo a partir da posição pedida (para "buscar outra"). */
-async function findImage(q: string, skip = 0) {
+async function findImage(q: string, skip = 0, cover = false) {
   const urls = await imageCandidates(q);
   for (let i = skip; i < Math.min(urls.length, skip + 6); i++) {
-    const thumb = await thumbFrom(urls[i]);
+    const thumb = await thumbFrom(urls[i], cover);
     if (thumb) return { image: thumb, source: urls[i], index: i, total: urls.length };
   }
   return null;
 }
 
-/** Miniaturas para os produtos que ainda não têm foto: grava direto no registro, que chega ao app pela sincronização. */
-async function imagesBatch(user: string, limit: number) {
+/** Texto de busca de um alimento: produto de marca procura a embalagem; alimento genérico (TACO) procura o prato,
+ *  sem as vírgulas da tabela nem as anotações dela ("Ovo, de galinha, inteiro, frito" → "Ovo de galinha inteiro frito comida"). */
+const foodQuery = (d: any) => d.source === 'off'
+  ? imageQuery(d.brand, d.name)
+  : `${String(d.name ?? '').replace(/\(.*?\)/g, ' ').replace(/,/g, ' ')} comida`.replace(/\s+/g, ' ').trim();
+
+/** Miniaturas para os produtos (ou alimentos) que ainda não têm foto: grava direto no registro, que chega ao app pela sincronização. */
+async function imagesBatch(user: string, limit: number, kind: 'product' | 'food' = 'product') {
   const db = admin();
-  const { data: rows, error } = await db.from('records').select('id, data').eq('user_id', user).eq('kind', 'product').eq('deleted', false);
+  const { data: rows, error } = await db.from('records').select('id, data').eq('user_id', user).eq('kind', kind).eq('deleted', false);
   if (error) throw new Error(error.message);
-  const todo = (rows ?? []).filter((r: any) => !r.data?.image && !r.data?.imageTried && !['arquivado', 'de_outra'].includes(r.data?.status));
+  const todo = (rows ?? []).filter((r: any) => !r.data?.image && !r.data?.imageTried
+    && (kind === 'food' ? !r.data?.archived : !['arquivado', 'de_outra'].includes(r.data?.status)));
   let done = 0, failed = 0;
   const started = Date.now();
   for (const r of todo.slice(0, limit)) {
     if (Date.now() - started > 110_000) break;
-    const found = await findImage(imageQuery(r.data.brand, r.data.name));
+    const found = kind === 'food'
+      ? await findImage(foodQuery(r.data), 0, r.data.source !== 'off')
+      : await findImage(imageQuery(r.data.brand, r.data.name));
     const data = found ? { ...r.data, image: found.image, imageSrc: found.source } : { ...r.data, imageTried: true };
     await db.from('records').update({ data, client_updated_at: new Date().toISOString() }).eq('user_id', user).eq('id', r.id);
     if (found) done++; else failed++;
@@ -141,9 +159,9 @@ async function search(q: string) {
     seen.add(x.code); out.push(x);
   }
   // Brasil primeiro, depois quem tem calorias, depois quem tem todas as palavras da busca no nome/marca.
-  const words = q.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').split(/\s+/).filter((w) => w.length > 2);
+  const words = q.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/\s+/).filter((w) => w.length > 2);
   const score = (x: any) => {
-    const hay = `${x.name} ${x.brand ?? ''}`.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const hay = `${x.name} ${x.brand ?? ''}`.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     return (x.br ? 4 : 0) + (x.n ? 2 : 0) + words.filter((w) => hay.includes(w)).length / Math.max(1, words.length) * 3;
   };
   return out.sort((x, y) => score(y) - score(x)).slice(0, 15);
@@ -163,11 +181,11 @@ Deno.serve(async (req: Request) => {
     if (action === 'images_batch' && req.headers.get('x-cron-secret')) {
       const { data } = await admin().from('app_secrets').select('value').eq('key', 'cron_secret').maybeSingle();
       if (!data?.value || data.value !== req.headers.get('x-cron-secret') || !/^[0-9a-f-]{36}$/.test(String(body.user_id))) return new Response(JSON.stringify({ error: 'forbidden' }), { status: 403, headers: J });
-      return new Response(JSON.stringify(await imagesBatch(String(body.user_id), Math.min(40, Number(body.limit) || 15))), { headers: J });
+      return new Response(JSON.stringify(await imagesBatch(String(body.user_id), Math.min(40, Number(body.limit) || 15), body.kind === 'food' ? 'food' : 'product')), { headers: J });
     }
     if (!authed(req)) return new Response(JSON.stringify({ error: 'Entre com Google para buscar na internet.' }), { status: 401, headers: J });
-    if (action === 'image' && typeof q === 'string' && q.trim().length >= 2) return new Response(JSON.stringify({ item: await findImage(q.trim().slice(0, 120), Math.max(0, Number(body.skip) || 0)) }), { headers: J });
-    if (action === 'images_batch') return new Response(JSON.stringify(await imagesBatch(String(claims(req).sub), Math.min(40, Number(body.limit) || 15))), { headers: J });
+    if (action === 'image' && typeof q === 'string' && q.trim().length >= 2) return new Response(JSON.stringify({ item: await findImage(q.trim().slice(0, 120), Math.max(0, Number(body.skip) || 0), body.cover === true) }), { headers: J });
+    if (action === 'images_batch') return new Response(JSON.stringify(await imagesBatch(String(claims(req).sub), Math.min(40, Number(body.limit) || 15), body.kind === 'food' ? 'food' : 'product')), { headers: J });
     if (action === 'search' && typeof q === 'string' && q.trim().length >= 2) return new Response(JSON.stringify({ items: await search(q.trim().slice(0, 80)) }), { headers: J });
     if (action === 'barcode' && /^\d{6,14}$/.test(String(code))) return new Response(JSON.stringify({ item: await barcode(String(code)) }), { headers: J });
     return new Response(JSON.stringify({ error: 'Pedido inválido' }), { status: 400, headers: J });

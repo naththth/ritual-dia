@@ -57,6 +57,7 @@ test('app propositivo: radar, ideal da refeição, leitura do treino e indicador
   await expect(fuel).toContainText('Ideal agora');
   await expect(fuel).toContainText('pós-treino');
   await expect(fuel).toContainText('Frango grelhado');
+  if (process.env.SHOTS) { await fuel.scrollIntoViewIfNeeded(); await page.screenshot({ path: '/tmp/claude-0/shots/ideal-agora.png' }); }
   await page.getByTestId('fuel-use-jantar').click();
   await expect(page.getByTestId('meal-sec-jantar')).toContainText('Frango grelhado');
 

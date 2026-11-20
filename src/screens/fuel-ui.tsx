@@ -1,11 +1,12 @@
 // O app propõe o que comer: alvo da refeição, o que fecha a conta com os alimentos dela e, se ela quiser, pratos montados pela IA.
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Sparkles, Target } from 'lucide-react';
+import { Plus, Check, RefreshCw, Sparkles, Target } from 'lucide-react';
+import { FoodThumb } from './food-ui';
 import { useAll, useByDate, useByRange, useSettings } from '../db/hooks';
 import { planFor, plannedFood } from '../domain/rules';
 import { addDays, todayKey, type DateKey } from '../lib/dates';
 import { fmt, totals } from '../domain/nutrition';
-import { M0, mealTarget, pickFoods, postWorkout, remainingOf, toMacros, usageOf, type Macros, type FoodPick } from '../domain/fuel';
+import { M0, fuelReason, mealTarget, pickFoods, postWorkout, remainingOf, toMacros, usageOf, type Macros, type FoodPick } from '../domain/fuel';
 import { DEFAULT_MEAL_TIMES } from './today';
 import { aiAvailable, askAI } from '../domain/ai';
 import { saveMeal } from '../domain/actions';
@@ -23,7 +24,7 @@ function useNow() {
 export interface Fuel {
   goal: Partial<Macros>; eaten: Macros; remaining: Macros; weightKg?: number; hasGoal: boolean;
   mealsLeft: string[]; post?: ReturnType<typeof postWorkout>; foods: Food[]; usage: Map<string, number>;
-  targetFor: (mealType: string, plate?: MealItem[]) => { target: Macros; gap: Macros; picks: FoodPick[]; leftover: number };
+  targetFor: (mealType: string, plate?: MealItem[], exclude?: Set<string>) => { target: Macros; gap: Macros; picks: FoodPick[]; leftover: number };
 }
 
 /** Tudo o que o app sabe sobre a comida do dia, numa conta só. */
@@ -55,7 +56,7 @@ export function useFuel(date: DateKey): Fuel | undefined {
     const mealsLeft = settings.mealTypes.filter((m) => !logged.has(m.id) && (!today || (toMin(times[m.id]) ?? 9999) >= now - 60)).map((m) => m.id);
     const post = postWorkout(workouts, meals, now, today);
     const usage = usageOf([...recent, ...meals]);
-    const targetFor = (mealType: string, plate: MealItem[] = []) => {
+    const targetFor = (mealType: string, plate: MealItem[] = [], exclude: Set<string> = new Set()) => {
       // O que já está neste prato ainda não foi salvo: tira da conta do dia para não contar duas vezes.
       const saved = meals.find((m) => m.mealType === mealType);
       const savedN = saved ? toMacros(totals(saved.items, foods).n) : M0;
@@ -65,44 +66,65 @@ export function useFuel(date: DateKey): Fuel | undefined {
       const leftover = left === 1 && rem.kcal > target.kcal + 150 ? rem.kcal - target.kcal : 0;
       const plateN = toMacros(totals(plate, foods).n);
       const gap = remainingOf(target, plateN);
-      const picks = pickFoods(gap, foods, usage, new Set(plate.map((i) => i.foodId)));
+      const picks = pickFoods(gap, foods, usage, new Set([...plate.map((i) => i.foodId), ...exclude]));
       return { target, gap, picks, leftover };
     };
     return { goal, eaten, remaining, weightKg, hasGoal: !!goal.kcal || !!goal.p, mealsLeft, post, foods, usage, targetFor };
   }, [settings, meals, workouts, skips, extras, foods, plans, tmpls, recent, wellness, now, date]);
 }
 
-function MacroChips({ m, muted }: { m: Macros; muted?: boolean }) {
-  return (
-    <div className={`fuel-chips ${muted ? 'muted' : ''}`}>
-      <span><b className="num">{fmt(m.p)}</b> g proteína</span>
-      <span><b className="num">{fmt(m.c)}</b> g carbo</span>
-      <span><b className="num">{fmt(m.f)}</b> g gordura</span>
-      <span><b className="num">{fmt(m.kcal)}</b> kcal</span>
-    </div>
-  );
-}
-
-/** No cartão da próxima refeição: o que é ideal agora e com quais alimentos dela. */
+/** No cartão da próxima refeição: o que é ideal agora e com quais alimentos dela. Ela escolhe os itens e registra com um toque. */
 export function FuelNext({ fuel, mealType, label, date }: { fuel: Fuel; mealType: string; label: string; date: DateKey }) {
   const [ai, setAi] = useState(false);
+  const [seen, setSeen] = useState<Set<string>>(new Set());
+  const [off, setOff] = useState<Set<string>>(new Set());
   if (!fuel.hasGoal) return null;
-  const { target, picks } = fuel.targetFor(mealType);
+  let { target, picks } = fuel.targetFor(mealType, [], seen);
+  // Sem mais opções diferentes: volta ao começo em vez de mostrar a lista vazia.
+  if (!picks.length && seen.size) ({ target, picks } = fuel.targetFor(mealType));
   if (target.kcal < 50 && target.p < 5) return <p className="fuel-done small">A meta do dia já fechou. Se tiver fome, prefira algo leve e rico em proteína ou fibras.</p>;
+  const chosen = picks.filter((x) => !off.has(x.food.id));
+  const why = fuelReason({ post: fuel.post, target, remainingC: fuel.remaining.c, goalC: fuel.goal.c });
+  const flip = (id: string) => setOff((o) => { const n = new Set(o); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const nums = ['', 'um', 'os dois', 'os três', 'os quatro'];
   return (
     <div className="fuel" data-testid={`fuel-${mealType}`}>
-      <div className="fuel-h"><Target size={16} /><b>Ideal agora</b>{fuel.post ? <span className="fuel-tag">pós-treino</span> : null}</div>
-      <MacroChips m={target} />
-      {fuel.post && <p className="tiny" style={{ margin: '4px 0 0' }}>Treino terminou há {fuel.post.minsAgo} min{fuel.post.demanding ? ': proteína e carboidrato juntos ajudam a repor e recuperar.' : '.'}</p>}
+      <div className="fuel-card">
+        <div className="fuel-h"><Target size={17} /><b>Ideal agora</b>{fuel.post ? <span className="fuel-tag">pós-treino</span> : null}</div>
+        <div className="fuel-nums">
+          <span><b className="num">{fmt(target.p)} g</b>proteína</span>
+          <span><b className="num">{fmt(target.c)} g</b>carbo</span>
+          <span><b className="num">{fmt(target.f)} g</b>gordura</span>
+          <span><b className="num">{fmt(target.kcal)}</b>kcal</span>
+        </div>
+        {why && <p className="fuel-why">{why}</p>}
+      </div>
       {picks.length > 0 && (
         <ul className="fuel-picks">
-          {picks.map((x) => <li key={x.food.id}><span className="grow"><b>{x.food.name}</b> {x.label}</span><span className="tiny num">{fmt(x.n.p)} g P · {fmt(x.n.kcal)} kcal</span></li>)}
+          {picks.map((x) => {
+            const on = !off.has(x.food.id);
+            return (
+              <li key={x.food.id} className={on ? '' : 'off'}>
+                <FoodThumb food={x.food} size={52} />
+                <span className="fp-txt"><span className="fp-name">{x.food.name}</span><span className="fp-sub num">{x.label} · {fmt(x.n.p)} g P · {fmt(x.n.kcal)} kcal</span></span>
+                <button className={`fp-add ${on ? 'on' : ''}`} aria-pressed={on} aria-label={on ? `Tirar ${x.food.name} da sugestão` : `Incluir ${x.food.name}`} onClick={() => flip(x.food.id)}>
+                  {on ? <Check size={18} strokeWidth={2.6} /> : <Plus size={18} strokeWidth={2.4} />}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
-      <div className="row wrap" style={{ gap: 8, marginTop: 8 }}>
-        {picks.length > 0 && <button className="pill-act pa-honey" data-testid={`fuel-use-${mealType}`} onClick={() => saveMeal(date, mealType, picks.map((x) => ({ foodId: x.food.id, portion: `${x.grams} g`, grams: x.grams })))}>Comi isso</button>}
-        {aiAvailable() && <button className="pill-act pa-ghost" onClick={() => setAi(true)}><Sparkles size={15} />Montar prato com IA</button>}
-      </div>
+      {picks.length > 0 && (
+        <div className="fuel-acts">
+          <button className="btn btn-soft" onClick={() => { setSeen((s0) => new Set([...s0, ...picks.map((x) => x.food.id)])); setOff(new Set()); }}><RefreshCw size={16} />Outra sugestão</button>
+          <button className="btn btn-ink" data-testid={`fuel-use-${mealType}`} disabled={!chosen.length}
+            onClick={() => saveMeal(date, mealType, chosen.map((x) => ({ foodId: x.food.id, portion: `${x.grams} g`, grams: x.grams })))}>
+            {chosen.length === picks.length && picks.length > 1 && picks.length <= 4 ? `Registrar ${nums[picks.length]}` : chosen.length === 1 ? 'Registrar este' : `Registrar ${chosen.length} itens`}
+          </button>
+        </div>
+      )}
+      {aiAvailable() && <button className="link small fuel-ai" onClick={() => setAi(true)}><Sparkles size={14} />Montar prato com IA</button>}
       <AIMealSheet open={ai} onClose={() => setAi(false)} fuel={fuel} mealType={mealType} label={label} date={date} onUse={(items) => saveMeal(date, mealType, items)} />
     </div>
   );

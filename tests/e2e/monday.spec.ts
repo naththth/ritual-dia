@@ -468,6 +468,8 @@ test('ficha do alimento: pão francês em unidades, macros por refeição', asyn
   await expect(page.getByTestId('food-screen')).toBeHidden();
   await page.goto('./#/alimentacao');
   await expect(page.getByTestId('meal-macros-cafe')).toContainText('P');
+  // refeição registrada fica resumida: abre para ver os itens
+  await page.getByTestId('meal-toggle-cafe').click();
   await page.getByRole('button', { name: /Ajustar Pão/ }).click();
   await expect(page.getByTestId('qty-sheet')).toBeVisible();
   if (process.env.SHOTS) { await page.getByTestId('qty-save').click(); await page.goto('./#/alimentacao'); await page.screenshot({ path: '/tmp/claude-0/shots/dia.png' }); }

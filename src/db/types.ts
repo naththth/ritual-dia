@@ -266,6 +266,9 @@ export interface Food extends Base {
   measures?: Measure[]; // medidas caseiras com peso (ex.: 1 un. = 50 g)
   archived?: boolean;
   sourceId?: string;
+  image?: string; // miniatura quadrada em data URL: foto dela ou referência achada na internet
+  imageSrc?: string; // endereço de origem quando veio da internet
+  imageTried?: boolean; // a busca automática não achou: não tenta de novo sozinha
 }
 export interface MealItem { foodId: string; portion: string; grams?: number }
 export interface MealTemplate extends Base {

@@ -5,13 +5,17 @@ import { Sheet } from '../../ui/ui';
 import { toast } from '../../state/store';
 import { lookupBarcode, type OffFood } from '../../domain/nutrition';
 
-export function BarcodeButton({ onFound, label }: { onFound: (o: OffFood) => void; label?: string }) {
+export function BarcodeButton({ onFound, label, tile }: { onFound: (o: OffFood) => void; label?: string; tile?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button className={label ? 'btn btn-soft btn-sm' : 'icon-btn'} aria-label="Ler código de barras" onClick={() => setOpen(true)} data-testid="barcode-open">
-        <ScanBarcode size={20} />{label}
-      </button>
+      {tile ? (
+        <button className="add-mode" onClick={() => setOpen(true)} data-testid="barcode-tile"><ScanBarcode size={22} strokeWidth={1.8} /><span>Código de barras</span></button>
+      ) : (
+        <button className={label ? 'btn btn-soft btn-sm' : 'icon-btn'} aria-label="Ler código de barras" onClick={() => setOpen(true)} data-testid="barcode-open">
+          <ScanBarcode size={20} />{label}
+        </button>
+      )}
       <BarcodeSheet open={open} onClose={() => setOpen(false)} onFound={(o) => { setOpen(false); onFound(o); }} />
     </>
   );

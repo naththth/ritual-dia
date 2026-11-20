@@ -1,7 +1,10 @@
 // Peças visuais da alimentação: anel de macros e a ficha do alimento (quantidade antes de ir para o prato).
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Star, Trash2 } from 'lucide-react';
+import { Star, Trash2, Camera, RefreshCw, Egg, Beef, Drumstick, Fish, Wheat, Carrot, Salad, Apple, Banana, Citrus, Milk, Coffee, Bean, Nut, Croissant, Cookie, Soup, Droplet, Utensils, type LucideIcon } from 'lucide-react';
 import { update } from '../db/db';
+import { usePhotoPicker } from '../ui/PhotoPicker';
+import { foodThumbFromFile, searchFoodImage, setFoodImage } from '../domain/foodImage';
+import { toast } from '../state/store';
 import { useSettings } from '../db/hooks';
 import { Sheet } from '../ui/ui';
 import type { Food, MealItem, Nutr } from '../db/types';
@@ -48,6 +51,43 @@ export function MacroBar({ n }: { n: Nutr }) {
   );
 }
 
+/** Ícone de reserva, só enquanto o alimento não tem foto: pela palavra principal do nome ou pelo grupo. */
+const ICONS: [RegExp, LucideIcon][] = [
+  [/\bovos?\b|omelete/i, Egg], [/frango|peru|chester|coxa|sobrecoxa/i, Drumstick], [/peixe|atum|sardinha|salm[aã]o|til[aá]pia|camar[aã]o/i, Fish],
+  [/carne|\bboi\b|patinho|ac[eé]m|alcatra|picanha|porco|lombo|presunto|bacon|lingui[cç]a|hamb[uú]rguer/i, Beef],
+  [/feij[aã]o|lentilha|gr[aã]o-de-bico|ervilha|soja/i, Bean], [/castanha|amendoim|nozes|am[eê]ndoa|pasta de amendoim/i, Nut],
+  [/p[aã]o|torrada|bisnaguinha|croissant/i, Croissant], [/biscoito|bolacha|cookie|bolo/i, Cookie], [/sopa|caldo/i, Soup],
+  [/arroz|trigo|aveia|granola|cuscuz|macarr[aã]o|massa|tapioca|milho|quinoa/i, Wheat],
+  [/cenoura|ab[oó]bora|batata|mandioca|beterraba|chuchu|abobrinha|br[oó]colis|couve-flor|legume/i, Carrot],
+  [/alface|r[uú]cula|agri[aã]o|couve|espinafre|salada|repolho|tomate|pepino|verdura/i, Salad],
+  [/banana/i, Banana], [/laranja|lim[aã]o|tangerina|mexerica|abacaxi/i, Citrus], [/ma[cç][aã]|\bpera\b|mam[aã]o|manga|morango|\buvas?\b|fruta|abacate|melancia|mel[aã]o|kiwi/i, Apple],
+  [/leite|iogurte|queijo|ricota|requeij[aã]o|whey|coalhada|kefir/i, Milk], [/caf[eé]|ch[aá]\b|cappuccino/i, Coffee], [/azeite|[oó]leo|manteiga/i, Droplet]
+];
+function iconFor(f?: Pick<Food, 'name' | 'type'>): LucideIcon {
+  const hay = `${f?.name ?? ''} ${f?.type ?? ''}`;
+  return ICONS.find(([re]) => re.test(hay))?.[1] ?? Utensils;
+}
+
+/** Miniatura do alimento: a foto (dela ou de referência) ou, sem foto, um ícone discreto na mesma moldura. */
+export function FoodThumb({ food, size = 52, radius }: { food?: Pick<Food, 'name' | 'type' | 'image'>; size?: number; radius?: number }) {
+  const r = radius ?? Math.round(size * 0.3);
+  if (food?.image) return <img className="food-thumb" src={food.image} alt="" width={size} height={size} style={{ width: size, height: size, borderRadius: r }} loading="lazy" />;
+  const Ic = iconFor(food);
+  return <span className="food-thumb ft-ic" aria-hidden style={{ width: size, height: size, borderRadius: r }}><Ic size={Math.round(size * 0.46)} strokeWidth={1.6} /></span>;
+}
+
+/** Fotos sobrepostas dos itens de uma refeição, com "+N" quando passam de três. */
+export function FoodStack({ foods, size = 40 }: { foods: (Food | undefined)[]; size?: number }) {
+  const shown = foods.slice(0, 3);
+  const more = foods.length - shown.length;
+  return (
+    <span className="food-stack" aria-hidden>
+      {shown.map((f, i) => <FoodThumb key={i} food={f} size={size} radius={size / 2} />)}
+      {more > 0 && <span className="food-thumb fs-more" style={{ width: size, height: size, borderRadius: size / 2 }}>+{more}</span>}
+    </span>
+  );
+}
+
 /** Linha compacta de macros com bolinha de cor: P 25 g · C 30 g · G 10 g. */
 export function MacroLine({ n, className = 'small' }: { n: Nutr; className?: string }) {
   return (
@@ -69,8 +109,16 @@ export function FoodSheet({ food, item, mealLabel, onClose, onSave, onRemove }: 
   const [qty, setQty] = useState('');
   const [fav, setFav] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [img, setImg] = useState<{ image?: string; src?: string; skip: number }>({ skip: -1 });
+  const [imgBusy, setImgBusy] = useState(false);
+  const ownPick = usePhotoPicker({ onFiles: async (fs) => {
+    if (!food) return;
+    const t = await foodThumbFromFile(fs[0]);
+    setImg({ image: t, src: undefined, skip: -1 }); await setFoodImage(food.id, t);
+  }, testId: 'food-own-photo' });
   useEffect(() => {
     if (!food) return;
+    setImg({ image: food.image, src: food.imageSrc, skip: food.image && food.imageSrc ? 0 : -1 });
     setFav(!!food.favorite);
     if (item) { const r = unitOfItem(food, item, units); setUnitKey(r.unit.key); setQty(fmtQ(r.qty)); return; }
     const first = units.find((u) => u.key !== 'g' && u.grams);
@@ -99,6 +147,15 @@ export function FoodSheet({ food, item, mealLabel, onClose, onSave, onRemove }: 
     onSave(itemFromUnit(food.id, u, u.grams ? n : 1));
   };
   const toggleFav = async () => { setFav(!fav); await update<'food'>(food.id, { favorite: !fav }); };
+  /** Outra foto de referência da internet: pula as que ela já viu. */
+  const another = async () => {
+    setImgBusy(true);
+    try {
+      const r = await searchFoodImage(food, img.skip + 1);
+      if (r) { setImg({ image: r.image, src: r.source, skip: r.index }); await setFoodImage(food.id, r.image, r.source); }
+      else toast('Não achei outra foto para este alimento.', undefined, 'default', { important: true });
+    } catch (e: any) { toast(e.message, undefined, 'error'); } finally { setImgBusy(false); }
+  };
 
   return (
     <Sheet open onClose={onClose} title={d.name} sub={d.brand} testId="qty-sheet"
@@ -108,6 +165,15 @@ export function FoodSheet({ food, item, mealLabel, onClose, onSave, onRemove }: 
           {item ? 'Atualizar' : `Adicionar ao ${mealLabel.toLowerCase()}`}{nutr ? ` · ${fmt(nutr.kcal)} kcal` : ''}
         </button>
       </>}>
+      <div className="fs-photo" data-testid="food-photo">
+        <FoodThumb food={{ name: food.name, type: food.type, image: img.image }} size={104} radius={22} />
+        <div className="fs-photo-side">
+          <span className="tiny muted">{img.image ? (img.src ? 'Foto de referência da internet' : 'Sua foto') : 'Sem foto ainda'}</span>
+          <button className="btn btn-soft btn-sm" onClick={ownPick.open}><Camera size={15} /> Sua foto</button>
+          <button className="btn btn-soft btn-sm" disabled={imgBusy} onClick={another} data-testid="food-img-search"><RefreshCw size={15} /> {imgBusy ? 'Buscando…' : img.image && img.src ? 'Outra da internet' : 'Buscar na internet'}</button>
+        </div>
+        {ownPick.el}
+      </div>
       <div className="fs-top">
         <MacroRing n={nutr} />
         <div className="fs-macros" data-testid="food-macros">
