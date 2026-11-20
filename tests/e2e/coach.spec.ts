@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openTrainingItems } from './fixtures/training';
 import path from 'node:path';
 
 test.use({ timezoneId: 'America/Sao_Paulo' });
@@ -44,6 +45,7 @@ test('treinadora cria regra pela conversa e reclassifica o treino', async ({ pag
   await page.goBack();
   await page.getByRole('button', { name: /^ter, 20\/10/ }).click();
   await expect(page.getByTestId('workout-card')).toContainText('LPO');
+  await openTrainingItems(page);
   await expect(page.getByTestId('reclassified')).toContainText('pela sua regra');
   // desfazer volta a musculação
   await page.getByTestId('coach-open').click();

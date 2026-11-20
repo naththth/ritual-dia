@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openTrainingItems } from './fixtures/training';
 import path from 'node:path';
 
 test.use({ timezoneId: 'America/Sao_Paulo', viewport: { width: 360, height: 780 } });
@@ -28,6 +29,7 @@ test('card da corrida mostra pace e ppm, sem rpm, e os números ficam alinhados'
   await page.goto('./#/treino');
   const card = page.getByTestId('workout-card');
   await expect(card).toHaveCount(1, { timeout: 10000 });
+  await openTrainingItems(page);
   await expect(card).toContainText('Pace');
   await expect(card).toContainText('9:56 /km');
   await expect(card).toContainText('121 ppm');

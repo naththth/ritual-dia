@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { metricCells, showsPowerZones, weekDistances } from '../domain/workoutMetrics';
+import { metricCells, showsPowerZones, weekDistances, shortLine } from '../domain/workoutMetrics';
 import { useNavigate } from 'react-router-dom';
-import { Upload, Plus, Sparkles, Trash2, ChevronLeft, ChevronRight, Check as CheckIcon, Activity } from 'lucide-react';
+import { Upload, Plus, Sparkles, Trash2, ChevronLeft, ChevronRight, ChevronDown, Check as CheckIcon, Activity } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { Fold } from '../ui/ui';
 import { TopBar } from './common';
 import { AreaNav } from './areas';
@@ -9,7 +10,7 @@ import { useAll, useByRange, useSettings } from '../db/hooks';
 import { useApp, toast } from '../state/store';
 import { planFor, slotCounts, trainingDay } from '../domain/rules';
 import { addDays, isoWeekday, shortLabel, todayKey, weekStart, WEEKDAY_LETTER, WEEKDAY_SHORT, dayNum, type DateKey } from '../lib/dates';
-import { workoutFromTemplate, skipPlanned, deleteRecord, savePlan, undoMove } from '../domain/actions';
+import { workoutFromTemplate, skipPlanned, skipTraining, deleteRecord, savePlan, undoMove } from '../domain/actions';
 import { StepsView } from './ai-ui';
 import { POWER_ZONES } from '../domain/fit';
 import { importFitFiles } from '../domain/fitImport';
@@ -65,6 +66,8 @@ export function TrainingTab() {
   const [busy, setBusy] = useState(false);
   const [review, setReview] = useState<{ analise: string; proposta?: any } | null>(null);
   const syncing = useIntervalsOnOpen(settings?.intervals?.connected);
+  // Itens do dia abertos. A chave do planejado é o modelo; o feito herda a do modelo, então abrir e marcar "Feito" mantém aberto.
+  const [openSet, setOpenSet] = useState<Set<string>>(() => new Set());
   if (!workouts || !plans || !tmpls || !mods || !skips) return <div className="screen"><TopBar /></div>;
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(ws, i));
@@ -115,6 +118,9 @@ export function TrainingTab() {
   const daySlots = slotsOf(date);
   const dayPlanned = plannedOf(date);
   const dayDone = doneOf(date);
+  const pending = daySlots.filter((s) => s.status === 'pendente').map((s) => tplOf(s.id)).filter((t): t is WorkoutTemplate => !!t);
+  const outSlots = daySlots.filter((s) => s.status === 'trocado' || s.status === 'pulado').map((slot) => ({ slot, t: tplOf(slot.id) })).filter((x): x is { slot: typeof x.slot; t: WorkoutTemplate } => !!x.t);
+  const toggle = (k: string) => setOpenSet((cur) => { const n = new Set(cur); if (n.has(k)) n.delete(k); else n.add(k); return n; });
   const nameOfSub = (s: { byTemplate?: string; byWorkout?: string }) => {
     if (s.byTemplate) return tplOf(s.byTemplate)?.name;
     const w = dayDone.find((x) => x.id === s.byWorkout);
@@ -163,64 +169,69 @@ export function TrainingTab() {
         </div>
       )}
 
-      <section className="block b-blue" style={{ marginTop: 12 }} data-testid="training-day">
-        <div className="bh"><h2 style={{ fontSize: 20 }}>{date === todayKey() ? 'Hoje' : shortLabel(date)}</h2></div>
+      <section className="block b-blue tday-block" style={{ marginTop: 12 }} data-testid="training-day">
+        <div className="bh row between" style={{ alignItems: 'baseline', gap: 8 }}>
+          <h2 style={{ fontSize: 20 }}>{date === todayKey() ? 'Hoje' : shortLabel(date)}</h2>
+          {(dayDone.length > 0 || pending.length > 0) && <span className="small" data-testid="training-day-count">{[dayDone.length ? `${dayDone.length} ${dayDone.length === 1 ? 'feito' : 'feitos'}` : '', pending.length ? `${pending.length} ${pending.length === 1 ? 'planejado' : 'planejados'}` : ''].filter(Boolean).join(', ')}</span>}
+        </div>
 
-        {/* 1) O que foi feito vem primeiro, como registro do dia. */}
-        {dayDone.length > 0 && <span className="label" style={{ marginTop: 0 }}>Feito</span>}
-        {dayDone.map((w) => {
-          const tpl = isMuscle(w.modalityId) ? (dayPlanned.find((t) => t.id === w.templateId) ?? dayPlanned.find((t) => t.modalityId === w.modalityId)) : undefined;
-          const strength = isMuscle(w.modalityId) ? { program: tpl ? programFor(tpl, history ?? [], w.date).exercises : [] }
-            : isLpo(w.modalityId) ? { program: lpoProgram(w, history ?? []), firstGroup: LPO_GROUP, hint: lpoFromText(w.feeling).length ? 'Comecei pelo que você escreveu no comentário. Confira séries e repetições.' : undefined } : undefined;
-          return <WorkoutCard key={w.id} w={w} name={modName(w.modalityId)} ftp={settings?.ftp} strength={strength} />;
-        })}
+        <div className="tday-list">
+          {/* 1) O que foi feito vem primeiro, como registro do dia. Fechado mostra o essencial; aberto, tudo. */}
+          {dayDone.map((w) => {
+            const tpl = isMuscle(w.modalityId) ? (dayPlanned.find((t) => t.id === w.templateId) ?? dayPlanned.find((t) => t.modalityId === w.modalityId)) : undefined;
+            const strength = isMuscle(w.modalityId) ? { program: tpl ? programFor(tpl, history ?? [], w.date).exercises : [] }
+              : isLpo(w.modalityId) ? { program: lpoProgram(w, history ?? []), firstGroup: LPO_GROUP, hint: lpoFromText(w.feeling).length ? 'Comecei pelo que você escreveu no comentário. Confira séries e repetições.' : undefined } : undefined;
+            const k = w.templateId ?? w.id;
+            return <WorkoutCard key={w.id} w={w} name={modName(w.modalityId)} ftp={settings?.ftp} strength={strength} open={openSet.has(k)} onToggle={() => toggle(k)} />;
+          })}
 
-        {/* 2) O planejado: completo só enquanto está pendente; trocado ou pulado vira uma linha. */}
-        {daySlots.map((slot) => {
-          const t = tplOf(slot.id);
-          if (!t || slot.status === 'feito') return null;
-          if (slot.status === 'trocado') {
-            const by = nameOfSub(slot);
+          {/* 2) O planejado que ainda vale. */}
+          {pending.map((t) => {
+            const swapped = dayDone.find((w) => !daySlots.some((x) => x.workoutId === w.id));
             return (
-              <div key={t.id} className="row between" style={{ marginTop: 10, gap: 8 }} data-testid="planned-replaced">
-                <span className="small muted">{t.name} · {slot.movedTo ? `foi para ${WEEKDAY_SHORT[isoWeekday(slot.movedTo)]} ${slot.movedTo.slice(8, 10)}/${slot.movedTo.slice(5, 7)}` : `trocado${by ? ` por ${by}` : ''}`}</span>
-                <button className="link" onClick={() => slot.movedTo ? undoMove(date, t.id, slot.movedTo) : deleteRecord(`skip:${date}:training:${t.id}`, 'Planejado de volta')}>Desfazer</button>
-              </div>
-            );
-          }
-          if (slot.status === 'pulado') {
-            return (
-              <div key={t.id} className="row between" style={{ marginTop: 10, gap: 8 }} data-testid="planned-skipped">
-                <span className="small"><s>{t.name}</s> · não realizado</span>
-                <button className="link" onClick={() => deleteRecord(`skip:${date}:training:${t.id}`, 'Planejado de volta')}>Desfazer</button>
-              </div>
-            );
-          }
-          const swapped = dayDone.find((w) => !daySlots.some((x) => x.workoutId === w.id));
-          return (
-            <div key={t.id} style={{ marginTop: dayDone.length ? 14 : 0 }}>
-              <span className="label" style={{ marginTop: 0 }}>Planejado</span>
-              {swapped && (
-                <div className="swap-ask" data-testid="swap-ask">
-                  <span className="small">Você fez {modName(swapped.modalityId).toLowerCase()} no lugar de {t.name.toLowerCase()}?</span>
-                  <button className="pill-act pa-blue" onClick={() => skipPlanned(date, 'training', t.id, `${t.name} trocado por ${modName(swapped.modalityId).toLowerCase()}`)} data-testid="swap-yes">Sim, troquei</button>
+              <TItem key={t.id} kind="planned" testId="planned-item" open={openSet.has(t.id)} onToggle={() => toggle(t.id)}
+                title={t.name} meta={[modName(t.modalityId), `${t.duration} min`, t.intensity].join(' · ')} time={t.time}
+                preview={<>
+                  {swapped && (
+                    <div className="swap-ask" data-testid="swap-ask">
+                      <span className="small">Você fez {modName(swapped.modalityId).toLowerCase()} no lugar de {t.name.toLowerCase()}?</span>
+                      <button className="pill-act pa-blue" onClick={() => skipPlanned(date, 'training', t.id, `${t.name} trocado por ${modName(swapped.modalityId).toLowerCase()}`)} data-testid="swap-yes">Sim, troquei</button>
+                    </div>
+                  )}
+                  {t.steps?.length && !openSet.has(t.id) ? <StepsView steps={t.steps} bars /> : null}
+                </>}>
+                {t.note && !isMuscle(t.modalityId) ? <div className="small wt-note">{t.note}</div> : null}
+                {t.muscles?.length ? <div className="small" style={{ marginTop: 6 }}>Foco: {t.muscles.join(', ').toLowerCase()}</div> : null}
+                {isMuscle(t.modalityId) && <PlannedStrength t={t} history={history ?? []} date={date} onDone={(exs) => workoutFromTemplate(t, date, true, exs)} />}
+                {t.steps?.length ? <StepsView steps={t.steps} /> : null}
+                <div className="row wrap" style={{ gap: 8, marginTop: 12 }}>
+                  {!isMuscle(t.modalityId) && <button className="pill-act pa-blue" data-testid="train-done" onClick={() => workoutFromTemplate(t, date, true)}>Feito</button>}
+                  <button className="pill-act pa-ghost" onClick={() => fileRef.current?.click()}>Importar o arquivo</button>
+                  <button className="pill-act pa-ghost" data-testid="train-skip" onClick={() => skipTraining(date, t)}>Hoje não</button>
                 </div>
-              )}
-              <div className="row between"><span className="t" style={{ fontWeight: 700, fontSize: 18 }}>{t.name}</span>{t.time && <span className="small" style={{ fontWeight: 700 }}>{t.time}</span>}</div>
-              <div className="small">{modName(t.modalityId)}, {t.duration} min, {t.intensity}</div>
-              {t.note && !isMuscle(t.modalityId) ? <div className="small wt-note">{t.note}</div> : null}
-              {t.muscles?.length ? <div className="small">Foco: {t.muscles.join(', ').toLowerCase()}</div> : null}
-              {isMuscle(t.modalityId) && <PlannedStrength t={t} history={history ?? []} date={date} onDone={(exs) => workoutFromTemplate(t, date, true, exs)} />}
-              {t.steps?.length ? <StepsView steps={t.steps} /> : null}
-              <div className="row wrap" style={{ gap: 8, marginTop: 10 }}>
-                {!isMuscle(t.modalityId) && <button className="pill-act pa-blue" data-testid="train-done" onClick={() => workoutFromTemplate(t, date, true)}>Feito</button>}
-                <button className="pill-act pa-ghost" onClick={() => fileRef.current?.click()}>Importar o arquivo</button>
-                <button className="pill-act pa-ghost" onClick={() => skipPlanned(date, 'training', t.id, 'Treino marcado como não realizado')}>Hoje não</button>
-              </div>
-            </div>
-          );
-        })}
-        {!dayPlanned.length && !dayDone.length && <p className="small" style={{ margin: 0 }}>Sem treino planejado. Não registrado.</p>}
+              </TItem>
+            );
+          })}
+        </div>
+
+        {/* 3) O que saiu do dia (trocado, mudou de dia ou não feito): uma linha cada, com desfazer. */}
+        {outSlots.length > 0 && (
+          <div className="tday-out" data-testid="training-out">
+            {outSlots.map(({ slot, t }) => {
+              const by = slot.status === 'trocado' ? nameOfSub(slot) : undefined;
+              const what = slot.status === 'pulado' ? 'não realizado'
+                : slot.movedTo ? `foi para ${WEEKDAY_SHORT[isoWeekday(slot.movedTo)]} ${slot.movedTo.slice(8, 10)}/${slot.movedTo.slice(5, 7)}`
+                : `trocado${by ? ` por ${by}` : ''}`;
+              return (
+                <div key={t.id} className="tday-out-row" data-testid={slot.status === 'pulado' ? 'planned-skipped' : 'planned-replaced'}>
+                  <span className="small">{slot.status === 'pulado' ? <s>{t.name}</s> : <span className="muted">{t.name}</span>}<span className="muted"> · {what}</span></span>
+                  <button className="link" onClick={() => slot.movedTo ? undoMove(date, t.id, slot.movedTo) : deleteRecord(`skip:${date}:training:${t.id}`, 'Planejado de volta')}>Desfazer</button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {!pending.length && !dayDone.length && !outSlots.length && <p className="small" style={{ margin: 0 }}>Sem treino planejado. Não registrado.</p>}
       </section>
 
       <div className="row wrap" style={{ gap: 8 }}>
@@ -299,18 +310,42 @@ export function TrainingTab() {
   );
 }
 
-export function WorkoutCard({ w, name, ftp, strength }: { w: Workout; name: string; ftp?: number; strength?: { program: StrengthExercise[]; firstGroup?: string; hint?: string } }) {
+/** Item do dia: fechado mostra nome, o essencial e uma prévia; tocar abre os detalhes e as ações. */
+function TItem({ kind, title, meta, time, open, onToggle, preview, children, testId }: {
+  kind: 'done' | 'planned'; title: ReactNode; meta?: string; time?: string; open: boolean; onToggle: () => void; preview?: ReactNode; children: ReactNode; testId: string;
+}) {
+  return (
+    <article className={`titem ${kind} ${open ? 'open' : ''}`} data-testid={testId}>
+      <button className="titem-head" aria-expanded={open} onClick={onToggle} data-testid="titem-head">
+        <span className="titem-ic" aria-hidden>{kind === 'done' ? <CheckIcon size={15} strokeWidth={3} /> : null}</span>
+        <span className="titem-main">
+          <b className="titem-t">{title}</b>
+          {meta ? <span className="titem-meta">{meta}</span> : null}
+        </span>
+        <span className="titem-side">
+          {time ? <span className="titem-time num">{time}</span> : null}
+          <ChevronDown size={18} className="titem-chev" aria-label={open ? 'Fechar detalhes' : 'Ver detalhes'} />
+        </span>
+      </button>
+      {preview}
+      {open && <div className="titem-body">{children}</div>}
+    </article>
+  );
+}
+
+export function WorkoutCard({ w, name, ftp, strength, open, onToggle }: { w: Workout; name: string; ftp?: number; strength?: { program: StrengthExercise[]; firstGroup?: string; hint?: string }; open: boolean; onToggle: () => void }) {
   const m = w.metrics;
   const cells = metricCells(w);
   const zones = showsPowerZones(w) ? m?.zones : undefined;
   const zTotal = zones ? Object.values(zones).reduce((a, b) => a + b, 0) : 0;
+  const meta = [w.duration ? `${w.duration} min` : '', ...shortLine(w), w.rpe ? `esforço ${w.rpe}` : ''].filter(Boolean).join(' · ');
+  useAutoCoachRead(w);
+  const read = w.aiFeedback?.titulo;
   return (
-    <div className="wcard" data-testid="workout-card">
-      <div className="row between">
-        <span style={{ fontWeight: 700, fontSize: 17 }}><CheckIcon size={16} strokeWidth={3} style={{ verticalAlign: '-2px', marginRight: 6 }} />{name}{w.startTime ? `, ${new Date(w.startTime).toTimeString().slice(0, 5)}` : ''}</span>
-        <button className="icon-btn" aria-label="Excluir treino" onClick={() => deleteRecord(w.id, 'Treino excluído')}><Trash2 size={17} /></button>
-      </div>
-      {w.reclassifiedFrom && <p className="small" style={{ margin: '2px 0 6px' }} data-testid="reclassified">{w.reclassifiedBy === 'conversa' ? `Corrigido na conversa com a treinadora: contei como ${name}.` : w.reclassifiedBy === 'regra' ? `O relógio gravou de outro jeito; pela sua regra, contei como ${name}.` : `O relógio gravou como musculação; pelo horário da aula, contei como ${name}.`}</p>}
+    <TItem kind="done" testId="workout-card" open={open} onToggle={onToggle} title={name} meta={meta || undefined}
+      time={w.startTime ? new Date(w.startTime).toTimeString().slice(0, 5) : undefined}
+      preview={read && !open ? <button className="titem-read" onClick={onToggle} data-testid="wfb-preview"><Sparkles size={13} />{read}</button> : null}>
+      {w.reclassifiedFrom && <p className="small" style={{ margin: '0 0 8px' }} data-testid="reclassified">{w.reclassifiedBy === 'conversa' ? `Corrigido na conversa com a treinadora: contei como ${name}.` : w.reclassifiedBy === 'regra' ? `O relógio gravou de outro jeito; pela sua regra, contei como ${name}.` : `O relógio gravou como musculação; pelo horário da aula, contei como ${name}.`}</p>}
       {cells.length > 0 && (
         <div className="metric-grid">
           {cells.map(([l, v]) => <div key={l}><span className="ml">{l}</span><span className="mv num">{v}</span></div>)}
@@ -328,11 +363,14 @@ export function WorkoutCard({ w, name, ftp, strength }: { w: Workout; name: stri
           ))}
         </div>
       )}
-      {!m && <div className="small">{[w.intensity, w.muscles?.join(', ')].filter(Boolean).join(', ')}</div>}
+      {!m && [w.intensity, w.muscles?.join(', ')].filter(Boolean).length ? <div className="small">{[w.intensity, w.muscles?.join(', ')].filter(Boolean).join(', ')}</div> : null}
       {strength && <LogExercises w={w} program={strength.program} firstGroup={strength.firstGroup} hint={strength.hint} onSave={(exercises) => update<'workout'>(w.id, { exercises }).then(() => toast('Exercícios salvos no treino'))} />}
       <WorkoutFeedback w={w} />
       <CoachRead w={w} />
-    </div>
+      <div className="titem-foot">
+        <button className="link small titem-del" aria-label="Excluir treino" onClick={() => deleteRecord(w.id, 'Treino excluído')}><Trash2 size={15} />Excluir treino</button>
+      </div>
+    </TItem>
   );
 }
 
@@ -429,21 +467,25 @@ function PlannedStrength({ t, history, date, onDone }: { t: WorkoutTemplate; his
 }
 
 /** Leitura da treinadora: gerada sozinha para treinos dos últimos 2 dias, uma vez; dá para refazer depois de lançar esforço, comentário ou cargas. */
+/** A leitura sai sozinha mesmo com o item fechado; o título aparece na prévia. */
+function useAutoCoachRead(w: Workout) {
+  const fb = w.aiFeedback;
+  useEffect(() => {
+    if (fb || w.date < addDays(todayKey(), -2) || !aiAvailable()) return;
+    const k = `wfb:${w.id}`;
+    try { if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, '1'); } catch { /* */ }
+    aiWorkoutFeedback(w).catch(() => undefined);
+  }, [w.id, !!fb]);
+}
+
 function CoachRead({ w }: { w: Workout }) {
   const [busy, setBusy] = useState(false);
   const fb = w.aiFeedback;
-  const recent = w.date >= addDays(todayKey(), -2);
   const run = async (silent: boolean) => {
     setBusy(true);
     try { await aiWorkoutFeedback(w); }
     catch (e: any) { if (!silent) toast(e.message, undefined, 'error'); } finally { setBusy(false); }
   };
-  useEffect(() => {
-    if (fb || !recent || !aiAvailable()) return;
-    const k = `wfb:${w.id}`;
-    try { if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, '1'); } catch { /* */ }
-    void run(true);
-  }, [w.id, !!fb]);
   if (!fb) {
     if (!aiAvailable()) return null;
     return <button className="link small" style={{ marginTop: 6 }} onClick={() => run(false)} disabled={busy} data-testid="wfb-ask"><Sparkles size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />{busy ? 'Lendo o treino…' : 'Pedir a leitura da treinadora'}</button>;

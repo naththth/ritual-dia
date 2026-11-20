@@ -8,11 +8,17 @@ import { toast } from '../state/store';
 import { todayKey, type DateKey } from '../lib/dates';
 
 /** Blocos do treino de pedal, em watts a partir do FTP. */
-export function StepsView({ steps }: { steps: WorkoutStep[] }) {
+export function StepsView({ steps, bars }: { steps: WorkoutStep[]; bars?: boolean }) {
   const settings = useSettings();
   const ftp = settings?.ftp;
   const max = Math.max(...steps.map((s) => s.pct), 100);
   const total = steps.reduce((a, s) => a + s.minutes, 0);
+  // Só o desenho dos blocos: prévia do treino fechado.
+  if (bars) return (
+    <div className="steps-bars" aria-hidden data-testid="steps-preview">
+      {steps.map((s, i) => <i key={i} style={{ flex: s.minutes / total, height: `${(s.pct / max) * 100}%`, opacity: 0.25 + 0.75 * Math.min(1, s.pct / 100) }} />)}
+    </div>
+  );
   return (
     <div style={{ marginTop: 10 }} data-testid="steps">
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 46 }} aria-hidden>

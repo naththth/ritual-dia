@@ -7,7 +7,7 @@ import { useApp, toast } from '../state/store';
 import { useAll, useByDate, useSettings } from '../db/hooks';
 import { PageHead, useBack } from './common';
 import { Chip, Seg, Stepper, ArtShoe, Empty } from '../ui/ui';
-import { saveWorkout, workoutFromTemplate, deleteRecord, skipPlanned } from '../domain/actions';
+import { saveWorkout, workoutFromTemplate, deleteRecord, skipTraining } from '../domain/actions';
 import { planFor, plannedTraining } from '../domain/rules';
 import { MUSCLE_GROUPS, REST_TYPES } from '../domain/defaults';
 import { create, db } from '../db/db';
@@ -89,7 +89,7 @@ export function TrainingScreen() {
                     {done ? <span className="small" style={{ fontWeight: 700 }}>Feito</span> : skipped ? <span className="small muted">Não hoje</span> : (
                       <>
                         <button className="btn btn-ink btn-sm" onClick={() => workoutFromTemplate(t, date, true)}>Feito</button>
-                        <button className="btn btn-soft btn-sm" onClick={() => skipPlanned(date, 'training', t.id, 'Treino marcado como não realizado')}>Não hoje</button>
+                        <button className="btn btn-soft btn-sm" onClick={() => skipTraining(date, t)}>Não hoje</button>
                       </>
                     )}
                   </div>

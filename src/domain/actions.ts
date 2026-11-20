@@ -86,6 +86,14 @@ export async function skipPlanned(date: DateKey, domain: PlanDomain, ref: string
   await withUndo(id, text, () => upsert('skip', id, { date, domain, ref }));
 }
 
+/** "Hoje não" num treino: o avulso montado só para aquele dia sai de vez (não vira falta nem infla a semana);
+ *  o do plano, ou trazido de outro dia, fica como não realizado. */
+export async function skipTraining(date: DateKey, t: WorkoutTemplate) {
+  const extraId = `extra:${date}:training:${t.id}`;
+  if (t.oneOff && (await get(extraId))) { await deleteRecord(extraId, `${t.name} saiu do dia`); return; }
+  await skipPlanned(date, 'training', t.id, 'Treino marcado como não realizado');
+}
+
 /* ---------- Pele ---------- */
 export const skinId = (date: DateKey, period: SkinPeriod) => `skin:${date}:${period}`;
 

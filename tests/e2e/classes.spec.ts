@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openTrainingItems } from './fixtures/training';
 import path from 'node:path';
 
 test.use({ timezoneId: 'America/Sao_Paulo' });
@@ -31,6 +32,7 @@ test('musculação no horário do LPO vira LPO e o comentário tem botão de sal
   await page.goto('./#/treino');
   await expect(page.getByTestId('workout-card')).toHaveCount(1, { timeout: 10000 });
   await expect(page.getByTestId('workout-card')).toContainText('LPO');
+  await openTrainingItems(page);
   await expect(page.getByTestId('workout-card')).toContainText('156');
   await expect(page.getByTestId('reclassified')).toBeVisible();
   // comentário: aparece "Salvar" enquanto há texto novo; depois, "Salvo"

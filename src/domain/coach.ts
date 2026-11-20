@@ -8,6 +8,7 @@ import { portionText, totals } from './nutrition';
 import { wellnessForAI } from './wellness';
 import { askAI } from './ai';
 import { exerciseVolume, repsPerSet, topLoad } from './strength';
+import { clashes, existingSession } from './trainingOps';
 import type { AnyRecord, Intensity, TrainingRule, Workout, WorkoutStep } from '../db/types';
 
 /** Treino que a treinadora montou para um dia e espera o aprovo dela antes de entrar no app e no MyWhoosh. */
@@ -196,18 +197,47 @@ export async function askCoach(text: string, history: CoachMsg[]): Promise<Coach
   const isDate = (d: unknown): d is DateKey => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
   /** O que vale de fato no dia: plano da semana + avulsos, com os registros mais recentes. */
   const plannedOn = async (d: DateKey) => plannedTraining(planFor(await all('plan'), 'training', d), d, await byDateRange('extra', d, d));
+  /** O que está valendo no dia: planejado menos o que ficou como "não hoje" ou mudou de dia. */
+  const activeOn = async (d: DateKey) => {
+    const sk = (await byDateRange('skip', d, d)).filter((x) => x.domain === 'training');
+    return (await plannedOn(d)).filter((id) => !sk.some((x) => x.ref === id));
+  };
   /** Tira um planejado do dia como "não hoje" (ou, se ele mudou de dia, marcando para onde foi). Avulso do dia sai em vez de ganhar pulo. */
   const takeOut = async (date: DateKey, ref: string, movedTo?: DateKey) => {
     const extraId = `extra:${date}:training:${ref}`;
     if (await get(extraId)) {
       await snap(extraId); await remove(extraId);
-      // Já tinha vindo de outro dia: o pulo da origem passa a apontar para o dia novo.
-      if (movedTo) for (const sk of await all('skip')) if (sk.domain === 'training' && sk.ref === ref && sk.movedTo === date) { await snap(sk.id); await update<'skip'>(sk.id, { movedTo }); }
+      // Já tinha vindo de outro dia: o pulo da origem passa a apontar para o dia novo; se só saiu, a origem fica como não feito.
+      for (const sk of await all('skip')) if (sk.domain === 'training' && sk.ref === ref && sk.movedTo === date) { await snap(sk.id); await update<'skip'>(sk.id, { movedTo }); }
       return;
     }
     const id = `skip:${date}:training:${ref}`;
     await snap(id);
     await upsert('skip', id, movedTo ? { date, domain: 'training', ref, movedTo } : { date, domain: 'training', ref });
+  };
+  /** Põe de volta no dia um treino que já existe: tira o "não hoje" (desfazendo a mudança de dia, se houver) ou acrescenta o avulso. Nunca cria cópia. */
+  const bringBack = async (date: DateKey, ref: string) => {
+    const skipId = `skip:${date}:training:${ref}`;
+    const sk = await get<'skip'>(skipId);
+    if (sk) {
+      if (sk.movedTo) { const away = `extra:${sk.movedTo}:training:${ref}`; if (await get(away)) { await snap(away); await remove(away); } }
+      await snap(skipId); await remove(skipId);
+    }
+    if (!(await plannedOn(date)).includes(ref)) {
+      const extraId = `extra:${date}:training:${ref}`;
+      await snap(extraId);
+      await upsert('extra', extraId, { date, domain: 'training', ref, by: 'treinadora' });
+    }
+  };
+  /** Musculação e LPO não convivem no mesmo dia: o que já estava lá sai ("trocado", sem contar como falta). */
+  const dropClashes = async (date: DateKey, ref: string) => {
+    const tmpls = await all('wtemplate');
+    const t = tmpls.find((x) => x.id === ref);
+    if (!t) return;
+    for (const id of await activeOn(date)) {
+      const o = tmpls.find((x) => x.id === id);
+      if (o && clashes(t, o)) { await takeOut(date, o.id); done.push(`${o.name} saiu de ${ddmm(date)}: não convive com ${t.name} no mesmo dia.`); }
+    }
   };
 
   for (const a of Array.isArray(r?.acoes) ? r.acoes : []) {
@@ -292,6 +322,23 @@ export async function askCoach(text: string, history: CoachMsg[]): Promise<Coach
         const minutes = steps.length ? Math.round(steps.reduce((t, b) => t + b.minutes, 0)) : Math.round(Number(a.minutos) || 0);
         if (!minutes) { failed.push('A proposta veio sem duração.'); continue; }
         const tmpls = await all('wtemplate');
+        // Pediu uma sessão que já existe no plano (ex.: "puxa a musculação de volta"): reativa a original em vez de criar cópia.
+        const dayBase = planFor(await all('plan'), 'training', date)?.training?.[isoWeekday(date)] ?? [];
+        const same = existingSession({ name: String(a.nome ?? ''), modalityId, steps: steps.length ? steps : undefined }, dayBase, tmpls);
+        if (same) {
+          const day = await plannedOn(date);
+          for (const id of (Array.isArray(a.substitui_template_ids) ? a.substitui_template_ids : []).map(String)) if (id !== same.id && day.includes(id)) {
+            await takeOut(date, id); done.push(`${tmpls.find((t) => t.id === id)?.name ?? 'Treino'} saiu de ${ddmm(date)}.`);
+          }
+          if ((await activeOn(date)).includes(same.id)) { done.push(`${same.name} já está em ${ddmm(date)}.`); continue; }
+          await bringBack(date, same.id);
+          // Cópia avulsa da mesma sessão no dia sai: fica uma só.
+          for (const id of await activeOn(date)) { const o = tmpls.find((t) => t.id === id); if (o && o.id !== same.id && o.oneOff && o.modalityId === same.modalityId && o.name.trim().toLowerCase() === same.name.trim().toLowerCase()) await takeOut(date, o.id); }
+          await dropClashes(date, same.id);
+          done.push(`${same.name} voltou para ${ddmm(date)}.`);
+          planMoved = true;
+          continue;
+        }
         proposal = {
           date, modalityId, minutes, steps: steps.length ? steps : undefined,
           name: String(a.nome ?? '').trim() || `${modName(modalityId)} ${minutes} min`,
@@ -324,15 +371,29 @@ export async function askCoach(text: string, history: CoachMsg[]): Promise<Coach
         if (!isDate(de) || !isDate(para) || de === para || para < todayKey()) { failed.push('A mudança de dia veio sem datas válidas.'); continue; }
         if (!tpl) { failed.push('Não achei o treino planejado citado.'); continue; }
         if (!(await plannedOn(de)).includes(tpl.id)) { failed.push(`${tpl.name} não está planejado em ${ddmm(de)}.`); continue; }
-        if ((await plannedOn(para)).includes(tpl.id)) { failed.push(`${tpl.name} já está em ${ddmm(para)}.`); continue; }
+        if ((await activeOn(para)).includes(tpl.id)) { failed.push(`${tpl.name} já está em ${ddmm(para)}.`); continue; }
         await takeOut(de, tpl.id, para);
-        const extraId = `extra:${para}:training:${tpl.id}`;
-        await snap(extraId);
-        await upsert('extra', extraId, { date: para, domain: 'training', ref: tpl.id, by: 'treinadora' });
-        // Um pulo antigo do mesmo treino no destino não pode escondê-lo.
+        // No destino: se ele já era do plano daquele dia (e estava como "não hoje"), só volta; senão entra como avulso.
         const old = `skip:${para}:training:${tpl.id}`;
         if (await get(old)) { await snap(old); await remove(old); }
+        if (!(await plannedOn(para)).includes(tpl.id)) {
+          const extraId = `extra:${para}:training:${tpl.id}`;
+          await snap(extraId);
+          await upsert('extra', extraId, { date: para, domain: 'training', ref: tpl.id, by: 'treinadora' });
+        }
+        await dropClashes(para, tpl.id);
         done.push(`${tpl.name} foi de ${ddmm(de)} para ${ddmm(para)}.`);
+        planMoved = true;
+      } else if (a?.tipo === 'reativar_planejado') {
+        // Volta um treino que já existe (estava como "não hoje", foi para outro dia ou é do plano de outro dia), sem criar cópia.
+        const date = a.data;
+        const tpl = await getKind('wtemplate', a.template_id);
+        if (!isDate(date) || date < todayKey()) { failed.push('A volta do treino veio sem uma data válida.'); continue; }
+        if (!tpl) { failed.push('Não achei o treino planejado citado.'); continue; }
+        if ((await activeOn(date)).includes(tpl.id)) { done.push(`${tpl.name} já está em ${ddmm(date)}.`); continue; }
+        await bringBack(date, tpl.id);
+        await dropClashes(date, tpl.id);
+        done.push(`${tpl.name} voltou para ${ddmm(date)}.`);
         planMoved = true;
       }
     } catch (e) { failed.push(await rollbackAction(undo, mark, e)); }
@@ -367,7 +428,9 @@ export async function askCoach(text: string, history: CoachMsg[]): Promise<Coach
 
   return {
     from: 'ai', at: Date.now(),
-    text: String(r?.mensagem ?? '').trim() || (done.length || proposal ? 'Feito.' : 'Não entendi o que mudar. Pode contar de outro jeito?'),
+    // Se nada do que ela pediu deu certo, a resposta não pode dizer que deu: o app fala por si.
+    text: failed.length && !done.length && !proposal ? 'Não consegui fazer essa mudança no app. Veja o motivo abaixo e me conte de novo, se quiser.'
+      : String(r?.mensagem ?? '').trim() || (done.length || proposal ? 'Feito.' : 'Não entendi o que mudar. Pode contar de outro jeito?'),
     proposal,
     done: done.length ? done : undefined,
     failed: failed.length ? failed : undefined,
@@ -387,6 +450,17 @@ export async function approveProposal(p: CoachProposal): Promise<{ undo: { id: s
   const snap = async (id: string) => { if (!undo.some((u) => u.id === id)) undo.push({ id, before: await db.records.get(id) }); };
   const done: string[] = [];
   const day = `${DAY[isoWeekday(p.date)]} ${p.date.slice(8, 10)}/${p.date.slice(5, 7)}`;
+  // Uma versão nova de uma proposta já aprovada no mesmo dia substitui a anterior, mesmo que a IA esqueça de dizer; e musculação e LPO não ficam juntas.
+  const tmplsNow = await all('wtemplate');
+  const dayExtras = (await byDateRange('extra', p.date, p.date)).filter((e) => (e.domain ?? 'training') === 'training');
+  const daySkips = (await byDateRange('skip', p.date, p.date)).filter((x) => x.domain === 'training');
+  const active = plannedTraining(planFor(await all('plan'), 'training', p.date), p.date, dayExtras).filter((id) => !daySkips.some((x) => x.ref === id));
+  for (const id of active) {
+    const o = tmplsNow.find((t) => t.id === id);
+    if (!o || p.replaces.includes(id)) continue;
+    const sameOneOff = !!o.oneOff && o.modalityId === p.modalityId && o.name.trim().toLowerCase() === p.name.trim().toLowerCase();
+    if (sameOneOff || clashes({ id: 'novo', modalityId: p.modalityId }, o)) p = { ...p, replaces: [...p.replaces, id] };
+  }
   for (const ref of p.replaces) {
     const t = await get<'wtemplate'>(ref);
     const extraId = `extra:${p.date}:training:${ref}`;

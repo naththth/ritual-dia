@@ -223,3 +223,40 @@ describe('treino trocado não é treino pulado', () => {
     expect(st(r)).toEqual({ musc: 'trocado', pedal: 'pendente', lpo: 'pulado' });
   });
 });
+
+describe('avulso cancelado sai de vez', () => {
+  const plan = { ...base, id: 'p', kind: 'plan', domain: 'training', validFrom: '2026-01-01', training: { 6: ['musc'] } } as unknown as Plan;
+  const tmpls = [{ id: 'musc', modalityId: 'mod:musculacao' }, { id: 'tiros', modalityId: 'mod:ciclismo', oneOff: '2026-11-07' }, { id: 'pedal', modalityId: 'mod:ciclismo' }];
+  const d = '2026-11-07';
+  const ex = (ref: string) => ({ date: d, domain: 'training', ref });
+  const sk = (ref: string) => ({ date: d, domain: 'training', ref });
+
+  it('treino montado só para o dia e depois cancelado não aparece nem conta na semana', () => {
+    const r = trainingDay(plan, d, [ex('tiros')], [sk('tiros')], [], tmpls);
+    expect(r.map((x) => x.id)).toEqual(['musc']);
+    expect(r.filter(slotCounts)).toHaveLength(1);
+  });
+
+  it('treino do plano trazido de outro dia e cancelado continua como não realizado', () => {
+    const r = trainingDay(plan, d, [ex('pedal')], [sk('pedal')], [], tmpls);
+    expect(r.find((x) => x.id === 'pedal')!.status).toBe('pulado');
+  });
+});
+
+import { sameSession, existingSession, clashes } from '../../src/domain/trainingOps';
+describe('não duplicar treino que já existe', () => {
+  const musc = { id: 'musc-b', name: 'Musculação B · Corpo todo', modalityId: 'mod:musculacao' };
+  const copia = { id: 'copia', name: 'Musculação B · Corpo todo', modalityId: 'mod:musculacao', oneOff: '2026-11-20', archived: true };
+  const tiros = { id: 'tiros', name: 'Tiros', modalityId: 'mod:ciclismo', steps: [{ label: 'a', minutes: 5, pct: 60 }] };
+  it('pedido da mesma musculação reaproveita o modelo do plano, não a cópia', () => {
+    expect(existingSession({ name: 'musculação b · corpo  todo', modalityId: 'mod:musculacao' }, ['musc-b'], [copia, musc])?.id).toBe('musc-b');
+  });
+  it('pedal com blocos diferentes é outra sessão', () => {
+    expect(sameSession({ ...tiros, steps: [{ label: 'a', minutes: 6, pct: 60 }] }, tiros)).toBe(false);
+    expect(sameSession({ ...tiros }, tiros)).toBe(true);
+  });
+  it('musculação e LPO no mesmo dia se chocam; pedal e LPO não', () => {
+    expect(clashes({ id: 'a', modalityId: 'mod:lpo' }, { id: 'b', modalityId: 'mod:musculacao' })).toBe(true);
+    expect(clashes({ id: 'a', modalityId: 'mod:lpo' }, { id: 'b', modalityId: 'mod:ciclismo' })).toBe(false);
+  });
+});

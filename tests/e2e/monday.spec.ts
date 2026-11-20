@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import path from 'node:path';
 import fs from 'node:fs';
+import { openTrainingItems } from './fixtures/training';
 
 const FIXTURE = path.resolve('tests/e2e/fixtures/sample.json');
 const MONDAY = new Date('2026-10-19T07:10:00-03:00');
@@ -272,6 +273,7 @@ test('importar treino .FIT e ver potência, FC e zonas', async ({ page }) => {
   await page.getByTestId('fit-input').setInputFiles(path.resolve('tests/e2e/fixtures/pedal.fit'));
   const card = page.getByTestId('workout-card');
   await expect(card).toContainText('Ciclismo');
+  await openTrainingItems(page);
   await expect(card).toContainText('229 W');
   await expect(card).toContainText('24,79 km');
   await expect(card).toContainText('Tempo por zona');

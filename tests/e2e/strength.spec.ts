@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openTrainingItems } from './fixtures/training';
 import path from 'node:path';
 
 test.use({ timezoneId: 'America/Sao_Paulo' });
@@ -29,6 +30,7 @@ test('musculação programada com carga, variações e lançamento do que foi fe
   await page.goto('./#/');
   await page.reload();
   await page.goto('./#/treino');
+  await openTrainingItems(page);
   await page.getByTestId('strength-edit').click();
 
   const rows = page.getByTestId('exercise-row');
@@ -126,6 +128,7 @@ test('o roteiro escrito no treino vira os exercícios do dia', async ({ page }) 
   await page.reload();
   await page.goto('./#/treino');
   await page.getByRole('button', { name: /^dom, 25\/10/ }).click();
+  await openTrainingItems(page);
   const note = page.getByTestId('strength-note');
   await expect(note).toContainText('1. Agachamento goblet ou livre 3x6-10');
   // a edição acontece dentro do treino e, ao concluir, o texto do treino muda
@@ -145,6 +148,7 @@ test('o roteiro escrito no treino vira os exercícios do dia', async ({ page }) 
   await expect(note).not.toContainText('Mesa flexora');
   await page.reload();
   await page.getByRole('button', { name: /^dom, 25\/10/ }).click();
+  await openTrainingItems(page);
   await expect(page.getByTestId('strength-note')).toContainText(`3. ${alt} 3x12 · 25 kg`);
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/strength-after.png', fullPage: true });
 });
@@ -173,6 +177,7 @@ test('exercícios gravados que não batem com o roteiro dão lugar ao roteiro', 
   await page.reload();
   await page.goto('./#/treino');
   await page.getByRole('button', { name: /^dom, 25\/10/ }).click();
+  await openTrainingItems(page);
   await page.getByTestId('strength-edit').click();
   await expect(page.getByTestId('exercise-select').first()).toHaveValue('Agachamento goblet');
   await expect(page.getByTestId('exercise-row')).toHaveCount(2);

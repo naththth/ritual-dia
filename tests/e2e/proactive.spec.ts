@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openTrainingItems } from './fixtures/training';
 import path from 'node:path';
 
 test.use({ timezoneId: 'America/Sao_Paulo' });
@@ -70,6 +71,8 @@ test('app propositivo: radar, ideal da refeição, leitura do treino e indicador
 
   // Treino: leitura da treinadora gerada sozinha
   await page.goto('./#/treino');
+  await expect(page.getByTestId('wfb-preview')).toContainText('Sweet spot bem executado');
+  await openTrainingItems(page);
   await expect(page.getByTestId('wfb')).toContainText('Sweet spot bem executado');
   await expect(page.getByTestId('wfb')).toContainText('Comer agora.');
 
@@ -80,7 +83,7 @@ test('app propositivo: radar, ideal da refeição, leitura do treino e indicador
   if (process.env.SHOTS) {
     await page.waitForTimeout(300); await page.screenshot({ path: '/tmp/claude-0/shots/indicadores.png', fullPage: true });
     await page.goto('./#/'); await expect(page.getByTestId('radar')).toBeVisible(); await expect(page.getByTestId('timeline')).toBeVisible(); await page.waitForTimeout(400); await page.screenshot({ path: '/tmp/claude-0/shots/hoje-radar.png', fullPage: true });
-    await page.goto('./#/treino'); await expect(page.getByTestId('wfb')).toBeVisible(); await page.getByTestId('wfb').scrollIntoViewIfNeeded(); await page.screenshot({ path: '/tmp/claude-0/shots/treino-leitura.png' });
+    await page.goto('./#/treino'); await openTrainingItems(page); await expect(page.getByTestId('wfb')).toBeVisible(); await page.getByTestId('wfb').scrollIntoViewIfNeeded(); await page.screenshot({ path: '/tmp/claude-0/shots/treino-leitura.png' });
     await page.goto('./#/alimentacao/refeicao?m=ceia'); await expect(page.getByTestId('plate-coach')).toBeVisible(); await page.screenshot({ path: '/tmp/claude-0/shots/prato-ideal.png', fullPage: true });
     await page.goto('./#/alimentacao/refeicao?m=lanche'); await expect(page.getByTestId('plate-coach')).toBeVisible(); await page.screenshot({ path: '/tmp/claude-0/shots/prato-ideal-vazio.png' });
   }

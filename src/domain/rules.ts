@@ -72,13 +72,15 @@ export function trainingDay(
   extras: { date: DateKey; domain?: string; ref: string; deleted?: 0 | 1 }[] | undefined,
   skips: { date: DateKey; domain: string; ref: string; deleted?: 0 | 1; movedTo?: DateKey }[] | undefined,
   workouts: { id: string; date: DateKey; templateId?: string; modalityId: string; deleted?: 0 | 1 }[] | undefined,
-  tmpls: { id: string; modalityId: string }[]
+  tmpls: { id: string; modalityId: string; oneOff?: string }[]
 ): TrainingSlot[] {
-  const base = (plan?.training?.[isoWeekday(date)] ?? []).filter((id) => tmpls.some((t) => t.id === id));
-  const added = (extras ?? []).filter((e) => e.date === date && !e.deleted && (e.domain ?? 'training') === 'training').map((e) => e.ref)
-    .filter((id, i, a) => a.indexOf(id) === i && !base.includes(id) && tmpls.some((t) => t.id === id));
-  const ids = [...base, ...added];
   const skipped = new Set((skips ?? []).filter((x) => x.date === date && !x.deleted && x.domain === 'training').map((x) => x.ref));
+  const base = (plan?.training?.[isoWeekday(date)] ?? []).filter((id) => tmpls.some((t) => t.id === id));
+  // Avulso montado só para aquele dia e depois cancelado sai de vez: não vira "não realizado" nem conta na semana.
+  const added = (extras ?? []).filter((e) => e.date === date && !e.deleted && (e.domain ?? 'training') === 'training').map((e) => e.ref)
+    .filter((id, i, a) => a.indexOf(id) === i && !base.includes(id) && tmpls.some((t) => t.id === id))
+    .filter((id) => !(skipped.has(id) && tmpls.find((t) => t.id === id)?.oneOff));
+  const ids = [...base, ...added];
   const dayW = (workouts ?? []).filter((w) => w.date === date && !w.deleted);
   const used = new Set<string>();
   const slots: TrainingSlot[] = ids.map((id) => ({ id, status: 'pendente' }));
