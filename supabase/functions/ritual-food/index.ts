@@ -62,9 +62,10 @@ async function thumbFrom(url: string, cover = false): Promise<string | null> {
     if (!r.ok || !/image\/(jpeg|jpg|png)/.test(type)) return null;
     const buf = new Uint8Array(await r.arrayBuffer());
     // Imagem grande demais estoura a memória da função ao decodificar: passa para a próxima.
-    if (buf.length > 2_500_000) return null;
+    // Foto de prato costuma vir enorme e só precisa de 256 px: o limite é mais curto.
+    if (buf.length > (cover ? 1_200_000 : 2_500_000)) return null;
     const img = await Image.decode(buf);
-    if (img.width * img.height > 9_000_000) return null;
+    if (img.width * img.height > (cover ? 4_000_000 : 9_000_000)) return null;
     if (cover) {
       const side = Math.min(img.width, img.height);
       img.crop(Math.round((img.width - side) / 2), Math.round((img.height - side) / 2), side, side);
