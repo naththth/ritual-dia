@@ -255,7 +255,7 @@ export function WorkoutTemplates() {
     <>
       <p className="small" style={{ margin: '0 0 12px' }} data-testid="wt-intro">Cada sessão é um treino pronto: o que fazer, quanto tempo e em que intensidade. O <button className="link" style={{ minHeight: 0, padding: 0 }} onClick={() => nav('/treino/plano')}>Plano de treino</button> distribui as sessões pelos dias da semana; no dia, a sessão aparece em Treino com os exercícios e você marca como feita com um toque. Aqui você muda o conteúdo; lá, o dia.</p>
       <AddButton label="Nova sessão" onClick={() => setEdit({ name: '', duration: 45, intensity: 'moderada' })} />
-      {(tmpls ?? []).filter((t) => !t.archived).map((t) => {
+      {(tmpls ?? []).filter((t) => !t.archived && !t.weekOf).map((t) => {
         const ds = daysOf(t.id);
         return (
           <button key={t.id} className="lib-item ses-card" onClick={() => setEdit(t)}>

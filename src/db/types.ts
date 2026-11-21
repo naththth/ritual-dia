@@ -17,7 +17,7 @@ export type Kind =
   | 'modality' | 'wtemplate' | 'workout'
   | 'plan' | 'skip' | 'extra' | 'brief' | 'devreq'
   | 'wellness' | 'journal' | 'note' | 'book' | 'readlog' | 'review' | 'healthdoc' | 'cycle'
-  | 'intake' | 'intakelog' | 'mood' | 'caffeine' | 'medchange' | 'chatstore' | 'ritual' | 'post' | 'win' | 'opp' | 'devitem' | 'careerbase' | 'devpick';
+  | 'intake' | 'intakelog' | 'mood' | 'caffeine' | 'medchange' | 'chatstore' | 'ritual' | 'post' | 'win' | 'opp' | 'devitem' | 'careerbase' | 'devpick' | 'macro' | 'tweek';
 
 export type Priority = 'alta' | 'media' | 'baixa';
 export const PRIORITIES: Priority[] = ['alta', 'media', 'baixa'];
@@ -328,7 +328,8 @@ export interface StrengthExercise {
   /** No treino feito: o que estava programado, para comparar. */
   planned?: { name: string; sets: number; reps: number; loadKg?: number; setLoads?: number[]; setReps?: number[] };
 }
-export interface WorkoutStep { label: string; minutes: number; pct: number }
+/** Bloco do treino. No pedal, pct é % do FTP; na corrida, pct só dá a altura do desenho e target diz o alvo (FC, esforço, ritmo de esteira). */
+export interface WorkoutStep { label: string; minutes: number; pct: number; target?: string }
 export interface WorkoutTemplate extends Base {
   kind: 'wtemplate';
   time?: string; // 'HH:MM' quando tem horário fixo (aula)
@@ -336,6 +337,8 @@ export interface WorkoutTemplate extends Base {
   note?: string;
   /** Treino de um dia só (montado na conversa com a treinadora): não aparece nos catálogos nem no plano semanal. */
   oneOff?: DateKey;
+  /** Sessão montada para uma semana da periodização: vale no plano daquela semana e não aparece no catálogo. */
+  weekOf?: DateKey;
   name: string;
   modalityId: string;
   duration: number;
@@ -615,7 +618,7 @@ export type AnyRecord =
   | Settings | Category | Task | SuggestionLog | Habit | HabitLog | Goal | GoalEntry
   | Product | SkinLog | Photo | Food | MealTemplate | Meal | Water
   | Modality | WorkoutTemplate | Workout | Plan | Skip | DayBrief
-  | Wellness | Journal | Note | Book | ReadLog | Review;
+  | Wellness | Journal | Note | Book | ReadLog | Review | MacroCycle | TrainingWeek;
 
 export type KindMap = {
   settings: Settings; category: Category; task: Task; suggestion: SuggestionLog;
@@ -625,7 +628,7 @@ export type KindMap = {
   modality: Modality; wtemplate: WorkoutTemplate; workout: Workout;
   plan: Plan; skip: Skip; extra: PlanExtra; brief: DayBrief; devreq: DevRequest;
   wellness: Wellness; journal: Journal; note: Note; book: Book; readlog: ReadLog; review: Review; healthdoc: HealthDoc; cycle: CycleDay;
-  intake: Intake; intakelog: IntakeLog; mood: MoodCheckin; caffeine: Caffeine; medchange: MedChange; chatstore: ChatStore; ritual: RitualDay; post: Post; careerbase: CareerBase; win: Win; opp: Opp; devitem: DevItem; devpick: DevPick;
+  intake: Intake; intakelog: IntakeLog; mood: MoodCheckin; caffeine: Caffeine; medchange: MedChange; chatstore: ChatStore; ritual: RitualDay; post: Post; careerbase: CareerBase; win: Win; opp: Opp; devitem: DevItem; devpick: DevPick; macro: MacroCycle; tweek: TrainingWeek;
 };
 
 /** Perfil e objetivos. Tudo opcional: a IA usa o que houver e diz o que falta. */
@@ -685,4 +688,55 @@ export interface CycleDay extends Base {
   flow?: Flow;
   symptoms: string[];
   note?: string;
+}
+
+/* ---------- Periodização do treino ---------- */
+export type SlotKey = 'run_main' | 'run_easy' | 'run_long' | 'bike' | 'bike_long' | 'strength' | 'lpo' | 'yoga' | 'yoga_class';
+/** Um lugar fixo na semana-tipo. Sessões fixas (musculação, aula de LPO, aula de yoga) apontam para o modelo que já existe. */
+export interface FrameSlot { key: SlotKey; templateId?: string; minutes?: number }
+export interface MacroEvent { date: DateKey; sport: 'corrida' | 'ciclismo'; label: string; distanceKm: number }
+/** O ciclo inteiro até os desafios: data de início, desafios, semana-tipo e de onde partem e aonde chegam os longos. */
+export interface MacroCycle extends Base {
+  kind: 'macro';
+  title: string;
+  start: DateKey; // segunda da semana 1
+  events: MacroEvent[];
+  /** '1' (segunda) a '7' (domingo) */
+  frame: Record<string, FrameSlot[]>;
+  /** Segundas das semanas leves; sem isso, uma a cada quatro. */
+  deloads?: DateKey[];
+  runLong: [number, number]; // minutos do longo de corrida: começo e pico
+  bikeLong: [number, number]; // minutos do pedal longo: começo e pico
+  active: boolean;
+}
+export interface WeekSession { key: SlotKey; minutes: number; intent: string; templateId?: string; event?: MacroEvent }
+/** Esqueleto calculado pelo app (não pela IA): fase, nível da progressão e alvo de cada sessão. */
+export interface WeekSkeleton {
+  index: number; total: number; start: DateKey;
+  phase: 'base' | 'construcao' | 'especifico' | 'polimento';
+  deload: boolean; level: number; levels: number;
+  days: Record<string, WeekSession[]>;
+}
+export interface ProposedSession {
+  day: number; key: SlotKey; templateId?: string;
+  name: string; modalityId: string; duration: number; intensity: Intensity; time?: string; steps?: WorkoutStep[]; note?: string;
+}
+/** Semana proposta pela treinadora a partir do esqueleto; só entra no plano depois do aprovo. */
+export interface TrainingWeek extends Base {
+  kind: 'tweek';
+  date: DateKey; // segunda
+  status: 'proposta' | 'aprovada' | 'descartada';
+  skeleton: WeekSkeleton;
+  /** Por que a progressão parou ou voltou (vazio se seguiu). */
+  holds: string[];
+  sessions: ProposedSession[];
+  mensagem: string;
+  pedido?: string;
+  provider?: string;
+  /** Depois do aprovo: o plano que recebeu a semana e como ele estava antes, para desfazer. */
+  planId?: string;
+  planCreated?: boolean;
+  prevTraining?: Record<number, string[]>;
+  validFrom?: DateKey;
+  approvedAt?: number;
 }

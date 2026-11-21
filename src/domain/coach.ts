@@ -128,6 +128,8 @@ async function context(text: string, history: CoachMsg[]) {
     plano_da_semana: [1, 2, 3, 4, 5, 6, 7].map((d) => ({ dia: d, nome_dia: DAY[d], treinos: (tp?.training?.[d] ?? []).map((id) => tmpls.find((t) => t.id === id)).filter(Boolean).map((t) => ({ template_id: t!.id, nome: t!.name, modalidade_id: t!.modalityId, horario: t!.time, minutos: t!.duration })) })),
     planejado_hoje: activeTraining(tp, today, extras, skips).map((id) => ({ template_id: id, nome: tname(id) })),
     ftp: settings?.ftp ?? null,
+    // Ciclo periodizado: semana, fase, desafios e alvos da semana (o que dá para mudar com refazer_semana).
+    periodizacao: await (await import('./trainingWeek')).periodizationForAI(today),
     intervals_conectado: !!settings?.intervals?.connected,
     // Hoje e os próximos 6 dias como estão de fato: plano semanal + avulsos combinados, menos o que ela pulou.
     proximos_dias: Array.from({ length: 7 }, (_, i) => addDays(today, i)).map((d) => ({
@@ -348,6 +350,14 @@ export async function askCoach(text: string, history: CoachMsg[]): Promise<Coach
           // Só sai o que está naquele dia; treino de outro dia não é substituído por aqui (para isso há mover_treino).
           replaces: await (async () => { const day = await plannedOn(date); return (Array.isArray(a.substitui_template_ids) ? a.substitui_template_ids : []).map(String).filter((id: string) => tmpls.some((t) => t.id === id) && day.includes(id)); })()
         };
+      } else if (a?.tipo === 'refazer_semana') {
+        const tw = await import('./trainingWeek');
+        if (!(await tw.loadMacro())) { failed.push('Ainda não há um ciclo de treino para refazer a semana.'); continue; }
+        const { weekStart } = await import('../lib/dates');
+        const monday = a.semana === 'proxima' ? addDays(weekStart(todayKey()), 7) : weekStart(todayKey());
+        await snap(tw.tweekId(monday));
+        await tw.proposeWeek(monday, String(a.pedido ?? '').trim() || undefined);
+        done.push(`Refiz a semana de ${ddmm(monday)} a ${ddmm(addDays(monday, 6))}: ela está no alto do Treino para você aprovar.`);
       } else if (a?.tipo === 'atualizar_ftp') {
         // FTP novo dito por ela (ex.: o que ela configurou no MyWhoosh): vale para watts das propostas e vai ao intervals.icu.
         const v = Math.round(Number(a.ftp));

@@ -7,7 +7,7 @@ import { planTask } from '../domain/actions';
 import { toast } from '../state/store';
 import { todayKey, type DateKey } from '../lib/dates';
 
-/** Blocos do treino de pedal, em watts a partir do FTP. */
+/** Blocos do treino: no pedal, em watts a partir do FTP; na corrida, o alvo escrito (FC, esforço, esteira). */
 export function StepsView({ steps, bars }: { steps: WorkoutStep[]; bars?: boolean }) {
   const settings = useSettings();
   const ftp = settings?.ftp;
@@ -28,12 +28,14 @@ export function StepsView({ steps, bars }: { steps: WorkoutStep[]; bars?: boolea
       </div>
       <div style={{ marginTop: 6 }}>
         {steps.map((s, i) => (
-          <div key={i} className="row between small" style={{ minHeight: 26 }}>
-            <span>{s.minutes} min, {s.label.toLowerCase()}</span>
-            <span className="num" style={{ fontWeight: 700 }}>{ftp ? `${watts(s.pct, ftp)} W` : `${s.pct}% FTP`}</span>
+          <div key={i} className="row between small" style={{ minHeight: 26, alignItems: 'baseline', gap: 10 }}>
+            <span style={{ flexShrink: 0 }}>{s.minutes} min, {s.label.toLowerCase()}</span>
+            {s.target
+              ? <span style={{ fontWeight: 700, textAlign: 'right', maxWidth: '58%' }}>{s.target}</span>
+              : <span className="num" style={{ fontWeight: 700 }}>{ftp ? `${watts(s.pct, ftp)} W` : `${s.pct}% FTP`}</span>}
           </div>
         ))}
-        {!ftp && <div className="tiny">Informe seu FTP em Ajustes para ver os watts.</div>}
+        {!ftp && steps.some((s) => !s.target) && <div className="tiny">Informe seu FTP em Ajustes para ver os watts.</div>}
       </div>
     </div>
   );
