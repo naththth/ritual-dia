@@ -216,7 +216,8 @@ export async function periodizationForAI(date: DateKey) {
     fase: tw ? PHASE_LABEL[tw.skeleton.phase] : undefined, semana_leve: tw?.skeleton.deload,
     desafios: countdown(m, date).map((c) => ({ desafio: c.label, data: c.date, faltam_dias: c.days })),
     semana_atual: tw ? { status: tw.status, travas: tw.holds, alvos: Object.fromEntries(Object.entries(tw.skeleton.days).map(([d, ss]) => [DAY[Number(d)], ss.map((s) => `${SLOT_LABEL[s.key]} ${s.minutes} min`)])) } : 'ainda sem proposta',
-    como_mudar_a_semana: 'refazer_semana gera uma proposta nova da semana inteira com o pedido dela; ela aprova no Treino'
+    // A ação também está aqui porque as instruções da treinadora do chat ficam na função ritual-ai.
+    como_mudar_a_semana: 'Pedido que mexe na semana inteira, em vários dias, no volume ou na estrutura (ex.: só consigo 3 dias, troca o longo de dia, quero mais pedal, a semana está pesada) vai em acoes como {"tipo":"refazer_semana","semana":"atual|proxima","pedido":"o pedido dela numa frase"}: o app refaz a semana pela periodização e ela aprova no alto do Treino. Para isso não use propor_treino nem vários mover_treino.'
   };
 }
 

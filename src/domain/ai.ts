@@ -78,8 +78,8 @@ export async function askAI<T = any>(task: AITask, context: unknown, images?: { 
     ctx = { ...extra, ...(ctx as object) };
   }
   const { data, error } = await Promise.race([
-    supabase.functions.invoke(task === 'mind_coach' || task === 'mind_care' || task === 'week_cross' || task === 'ritual_am' || task === 'ritual_pm' || task === 'career_coach' || task === 'career_picks' ? 'ritual-mind' : 'ritual-ai', { body: { task, context: ctx, images, files } }),
-    new Promise<never>((_, rej) => setTimeout(() => rej(new Error('A IA demorou demais para responder. Tente de novo.')), files?.length || images?.length || task === 'skin_plan' || task === 'plan_chat' ? 150000 : 90000))
+    supabase.functions.invoke(task === 'mind_coach' || task === 'mind_care' || task === 'week_cross' || task === 'ritual_am' || task === 'ritual_pm' || task === 'career_coach' || task === 'career_picks' ? 'ritual-mind' : task === 'training_week' ? 'ritual-plan' : 'ritual-ai', { body: { task, context: ctx, images, files } }),
+    new Promise<never>((_, rej) => setTimeout(() => rej(new Error('A IA demorou demais para responder. Tente de novo.')), files?.length || images?.length || task === 'skin_plan' || task === 'plan_chat' || task === 'training_week' ? 150000 : 90000))
   ]);
   if (error) {
     let msg = error.message;
