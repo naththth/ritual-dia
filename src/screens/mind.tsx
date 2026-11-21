@@ -57,7 +57,7 @@ function AlertCard({ a, compact }: { a: MindAlert; compact?: boolean }) {
 function CupArt({ size }: { size: 1 | 2 | 3 }) {
   const w = [0, 30, 40, 48][size], h = [0, 22, 32, 42][size];
   return (
-    <svg width="64" height="54" viewBox="0 0 64 54" aria-hidden>
+    <svg width="76" height="54" viewBox="0 0 76 54" aria-hidden>
       <g className="art-steam" fill="none" stroke="#C9B691" strokeWidth="2" strokeLinecap="round"><path d={`M${28 - w / 6} ${50 - h - 8} c -3 -4 3 -6 0 -10`} /><path className="s2" d={`M${32 + w / 6} ${50 - h - 8} c -3 -4 3 -6 0 -10`} /></g>
       <path d={`M${32 - w / 2} ${50 - h} h${w} v${h - 8} a8 8 0 0 1 -8 8 h${-(w - 16)} a8 8 0 0 1 -8 -8 z`} fill="#6A3A1E" />
       <rect x={32 - w / 2 + 3} y={50 - h + 3} width={w - 6} height="4" rx="2" fill="#B5643A" />

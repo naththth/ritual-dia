@@ -298,4 +298,11 @@ test('Registrar: Hábito, Nova tarefa e Medida de meta abrem a própria folha; R
   await page.keyboard.press('Escape');
   await open('Remédios e vitaminas');
   await expect(page).toHaveURL(/#\/mente\/tomo/);
+  // Refeição pergunta qual; Água abre a folha de água
+  await open('Refeição');
+  await expect(page.getByTestId('meal-pick')).toBeVisible();
+  await page.getByTestId('pick-almoco').click();
+  await expect(page).toHaveURL(/refeicao\?m=almoco/);
+  await open('Água');
+  await expect(page.locator('.sheet .sh-head h3').filter({ hasText: 'Água' })).toBeVisible();
 });

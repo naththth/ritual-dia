@@ -1,3 +1,4 @@
+import { ActivityArt, activityKind } from '../ui/activity';
 import { useEffect, useState } from 'react';
 import { shortLine } from '../domain/workoutMetrics';
 import { useSearchParams } from 'react-router-dom';
@@ -84,13 +85,20 @@ export function TrainingScreen() {
                 const done = workouts?.some((w) => w.templateId === t.id);
                 const skipped = skips?.some((s) => s.domain === 'training' && s.ref === t.id);
                 return (
-                  <div key={t.id} className="row-item">
-                    <div className="grow"><div className="t">{t.name}</div><div className="s">{modName(t.modalityId)}, {t.duration} min, {t.intensity}</div>{(t.steps ?? t.runSteps)?.length ? <StepsView steps={(t.steps ?? t.runSteps)!} /> : null}</div>
-                    {done ? <span className="small" style={{ fontWeight: 700 }}>Feito</span> : skipped ? <span className="small muted">Não hoje</span> : (
-                      <>
-                        <button className="btn btn-ink btn-sm" onClick={() => workoutFromTemplate(t, date, true)}>Feito</button>
-                        <button className="btn btn-soft btn-sm" onClick={() => skipTraining(date, t)}>Não hoje</button>
-                      </>
+                  <div key={t.id} className={`plan-card ${done ? 'is-done' : ''} ${skipped ? 'is-skip' : ''}`}>
+                    <div className="pc-head">
+                      <ActivityArt thumb kind={activityKind(t.name, modName(t.modalityId))} />
+                      <div className="grow" style={{ minWidth: 0 }}>
+                        <div className="pc-t">{t.name}</div>
+                        <div className="ses-chips"><span className="chip">{modName(t.modalityId)}</span><span className="chip">{t.duration} min</span><span className={`chip int-${t.intensity}`}>{t.intensity}</span></div>
+                      </div>
+                    </div>
+                    {(t.steps ?? t.runSteps)?.length ? <div className="pc-steps"><StepsView steps={(t.steps ?? t.runSteps)!} /></div> : null}
+                    {done ? <div className="pc-state ok">Feito</div> : skipped ? <div className="pc-state">Não hoje</div> : (
+                      <div className="pc-acts">
+                        <button className="btn btn-ink grow" onClick={() => workoutFromTemplate(t, date, true)}>Feito</button>
+                        <button className="btn btn-soft" onClick={() => skipTraining(date, t)}>Não hoje</button>
+                      </div>
                     )}
                   </div>
                 );
@@ -98,8 +106,15 @@ export function TrainingScreen() {
             </>
           )}
           <h2 className="section-title" style={{ margin: '22px 0 10px' }}>Registrar com um toque</h2>
-          <div className="chips">
-            {(tmpls ?? []).filter((t) => !t.archived).map((t) => <Chip key={t.id} color="blue" onClick={() => workoutFromTemplate(t, date, false)}>{t.name}</Chip>)}
+          <div className="quick-grid">
+            {(tmpls ?? []).filter((t) => !t.archived).map((t) => (
+              <button key={t.id} className="quick-card tap" onClick={() => workoutFromTemplate(t, date, false)}>
+                <ActivityArt thumb kind={activityKind(t.name, modName(t.modalityId))} />
+                <b>{t.name}</b><span className="small muted">{t.duration} min · {t.intensity}</span>
+              </button>
+            ))}
+          </div>
+          <div className="chips" style={{ marginTop: 10 }}>
             {last && <Chip onClick={() => setDraft({ modalityId: last.modalityId, duration: last.duration, intensity: last.intensity, distanceKm: last.distanceKm, muscles: last.muscles })}><Repeat size={15} />Repetir último ({modName(last.modalityId)})</Chip>}
           </div>
           {(tmpls ?? []).length === 0 && !last && <Empty art={<ArtShoe />} text="Cadastre treinos-modelo para registrar com um toque." />}

@@ -1,6 +1,6 @@
 import { FoodStack, FoodThumb } from '../food-ui';
 import { ActivityArt, activityKind } from '../../ui/activity';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { planFor } from '../../domain/rules';
 import { Plus, Search, Star, Trash2, Archive, ArchiveRestore, Sparkles, Image as ImageIcon } from 'lucide-react';
@@ -353,6 +353,8 @@ export function Goals() {
   const goals = useAll('goal');
   const entries = useAll('gentry');
   const [edit, setEdit] = useState<Partial<Goal> | null>(null);
+  // Vindo de "Criar uma meta" (Registrar › Medida de meta): já abre a meta nova.
+  useEffect(() => { if (/[?&]nova=meta/.test(window.location.hash)) setEdit({ title: '', type: 'quantitativa', milestones: [], status: 'ativa' } as any); }, []);
   const [ms, setMs] = useState('');
   const [delEl, del] = useDelete();
   const save = async () => {
