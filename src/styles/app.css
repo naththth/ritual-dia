@@ -2232,3 +2232,24 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea
 .wp-pulse { color: var(--wine); animation: wp-pulse 1.2s ease-in-out infinite; flex-shrink: 0; }
 @keyframes wp-pulse { 50% { opacity: .35; transform: scale(.88); } }
 @media (prefers-reduced-motion: reduce) { .wp-pulse, .wp-s-body { animation: none; } .wp-bar i { transition: none; } }
+
+/* Cabeçalho das páginas sem faixa: os botões flutuam em círculos sobre o brilho, sem cortar o fundo */
+.page-head { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.page-head .icon-btn { background: rgba(250,246,236,.88); box-shadow: 0 4px 14px rgba(42,26,16,.08); }
+.page-head .icon-btn + .icon-btn { margin-left: 6px; }
+.page-head .spec-btn, .page-head > :last-child:not(.icon-btn) { margin-left: 8px; }
+
+/* Rotina de pele: o "não vou usar hoje" vira um X discreto dentro do card do produto */
+.pick-wrap { position: relative; display: block !important; }
+.pick-wrap .pick { padding-right: 48px; border-radius: 22px; }
+.pick-out { position: absolute; top: 10px; right: 10px; width: 32px !important; height: 32px; min-height: 0; border-radius: 50% !important; border: 0 !important; background: var(--paper-2) !important; color: var(--ink-2) !important; display: grid; place-items: center; }
+.pick-out:active { background: var(--line) !important; }
+
+/* Seletor único de dia (semana em pílulas) em todas as telas */
+.daystrip { margin: 4px 0 14px; }
+.daystrip .ws2 { margin-top: 0; }
+.daystrip .ws2 .wd .dots { align-items: center; }
+.daystrip .ws2 .wd .dots svg { display: block; }
+.ds-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; min-height: 0; }
+.ds-foot .today-pill { margin-left: auto; }
+.week-train { display: none; }

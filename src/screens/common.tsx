@@ -4,7 +4,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Dumbbell, House, LayoutGrid, Plus
 import { useLocation } from 'react-router-dom';
 import { useSettings } from '../db/hooks';
 import { useApp } from '../state/store';
-import { addDays, isoWeekday, longDate, shortLabel, todayKey, weekDays, WEEKDAY_LETTER, WEEKDAY_LONG, dayNum } from '../lib/dates';
+import { addDays, isoWeekday, longDate, shortLabel, todayKey, weekDays, WEEKDAY_LETTER, WEEKDAY_LONG, dayNum, type DateKey } from '../lib/dates';
 import { factDots, useFacts } from '../domain/facts';
 import { useSync } from '../sync/sync';
 import { whenHistoryIdle } from '../ui/ui';
@@ -80,10 +80,36 @@ export function TopBar({ right }: { right?: ReactNode }) {
   );
 }
 
+/** O único jeito de mudar de dia no app: a semana em pílulas, com setas de semana nas pontas.
+ *  Cada tela pode pôr uma marca embaixo do número (feito, planejado, registros) e um rótulo acessível. */
+export function DayStrip({ mark, aria, note }: { mark?: (d: DateKey, sel: boolean) => ReactNode; aria?: (d: DateKey) => string; note?: ReactNode }) {
+  const { date, setDate } = useApp();
+  const today = todayKey();
+  const days = weekDays(date);
+  return (
+    <div className="daystrip">
+      <div className="weekstrip ws2" role="group" aria-label="Semana">
+        <button className="nav" aria-label="Semana anterior" onClick={() => setDate(addDays(date, -7))}><ChevronLeft size={18} /></button>
+        {days.map((d) => (
+          <button key={d} className={`wd ${d === date ? 'sel' : ''} ${d === today ? 'today' : ''}`} onClick={() => setDate(d)} aria-label={aria ? aria(d) : shortLabel(d)} aria-pressed={d === date}>
+            <span className="n num">{dayNum(d)}</span>
+            {WEEKDAY_LETTER[isoWeekday(d)]}
+            <span className="dots">{mark?.(d, d === date)}</span>
+          </button>
+        ))}
+        <button className="nav" aria-label="Próxima semana" onClick={() => setDate(addDays(date, 7))}><ChevronRight size={18} /></button>
+      </div>
+      {(date !== today || note) && (
+        <div className="ds-foot">{note}{date !== today && <button className="today-pill" onClick={() => setDate(today)}>Voltar para hoje</button>}</div>
+      )}
+    </div>
+  );
+}
+
 export function greeting(h = new Date().getHours()) { return h >= 4 && h < 12 ? 'Bom dia' : h >= 12 && h < 18 ? 'Boa tarde' : 'Boa noite'; }
 
 export function DateHeader() {
-  const { date, setDate } = useApp();
+  const { date } = useApp();
   const settings = useSettings();
   const today = todayKey();
   const days = weekDays(date);
@@ -99,19 +125,8 @@ export function DateHeader() {
       </h1>
       <div className="dh-sub">
         <span>{WEEKDAY_LONG[isoWeekday(date)][0].toUpperCase() + WEEKDAY_LONG[isoWeekday(date)].slice(1)}, {longDate(date).replace(/ de \d{4}$/, '')}</span>
-        {!isToday && <button className="today-pill" onClick={() => setDate(today)}>Voltar para hoje</button>}
       </div>
-      <div className="weekstrip ws2" role="group" aria-label="Semana">
-        <button className="nav" aria-label="Semana anterior" onClick={() => setDate(addDays(date, -7))}><ChevronLeft size={18} /></button>
-        {days.map((d) => (
-          <button key={d} className={`wd ${d === date ? 'sel' : ''} ${d === today ? 'today' : ''}`} onClick={() => setDate(d)} aria-label={shortLabel(d)} aria-pressed={d === date}>
-            <span className="n num">{dayNum(d)}</span>
-            {WEEKDAY_LETTER[isoWeekday(d)]}
-            <span className="dots">{factDots(facts?.[d]).slice(0, 3).map((c, i) => <i key={i} style={{ background: d === date ? 'var(--paper)' : c }} />)}</span>
-          </button>
-        ))}
-        <button className="nav" aria-label="Próxima semana" onClick={() => setDate(addDays(date, 7))}><ChevronRight size={18} /></button>
-      </div>
+      <DayStrip mark={(d, sel) => factDots(facts?.[d]).slice(0, 3).map((c, i) => <i key={i} style={{ background: sel ? 'var(--paper)' : c }} />)} />
     </div>
   );
 }
@@ -119,24 +134,19 @@ export function DateHeader() {
 /** Cabeçalho das páginas de detalhe: sempre mostra a data em que se está registrando. */
 export function PageHead({ title, withDate = true, right, back }: { title: string; withDate?: boolean; right?: ReactNode; back?: () => void }) {
   const goBack = useBack();
-  const { date, setDate } = useApp();
+  const { date } = useApp();
   // Barra fina e translúcida (voltar, dia, ações) e, abaixo, o título grande na linguagem do app.
   return (
     <>
       <div className="page-head ph2">
         <button className="icon-btn" aria-label="Voltar" onClick={() => (back ? back() : goBack())}><ArrowLeft size={22} /></button>
         <span className="grow" />
-        {withDate && (
-          <>
-            <button className="icon-btn" aria-label="Dia anterior" onClick={() => setDate(addDays(date, -1))}><ChevronLeft size={22} /></button>
-            <button className="icon-btn" aria-label="Próximo dia" onClick={() => setDate(addDays(date, 1))}><ChevronRight size={22} /></button>
-          </>
-        )}
         {right}
       </div>
       {title && (
         <h1 className="page-big ph-title">{title}{withDate && <span className="sub" data-testid="page-date">{date === todayKey() ? `Hoje, ${shortLabel(date)}` : shortLabel(date)}</span>}</h1>
       )}
+      {withDate && <DayStrip />}
     </>
   );
 }

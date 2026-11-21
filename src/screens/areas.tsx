@@ -5,13 +5,13 @@ import { aiAvailable } from '../domain/ai';
 import { toast } from '../state/store';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ChevronRight, ListOrdered, Moon, Sunrise, ShoppingBag, Check } from 'lucide-react';
-import { TopBar } from './common';
+import { TopBar , DayStrip } from './common';
 import { useAll, useByDate, useRecord } from '../db/hooks';
 import { planFor, plannedSkin } from '../domain/rules';
 import { update } from '../db/db';
 import { ProductThumb } from '../ui/ProductThumb';
 import { useApp } from '../state/store';
-import { shortLabel, todayKey } from '../lib/dates';
+import { todayKey } from '../lib/dates';
 import { SkinPlan, TrainingPlan, FoodPlan } from './PlanScreen';
 import { Products, Foods, MealTemplates, Modalities, WorkoutTemplates, Habits, Goals } from './library/LibraryScreen';
 import { SpecialistCard } from './specialist';
@@ -114,7 +114,7 @@ export function CareTodayPage() {
   };
   return (
     <AreaPage area="cuidados" testId="area-cuidados">
-      <p className="small muted" style={{ margin: '0 0 10px' }}>{date === todayKey() ? `Hoje, ${shortLabel(date)}` : shortLabel(date)}</p>
+      <DayStrip />
       <div className="care-cards">{hero === 'pm' ? <>{card('pm')}{card('am')}</> : <>{card('am')}{card('pm')}</>}</div>
       <button className="lib-item" onClick={() => nav('/cuidados/rotina')}>
         <span className="lib-icon" style={{ background: 'var(--rose)' }}><ListOrdered size={20} /></span>

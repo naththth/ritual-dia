@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { metricCells, showsPowerZones, weekDistances, shortLine } from '../domain/workoutMetrics';
 import { useNavigate } from 'react-router-dom';
-import { Upload, Plus, Sparkles, Trash2, ChevronLeft, ChevronRight, ChevronDown, Check as CheckIcon, Activity } from 'lucide-react';
+import { Upload, Plus, Sparkles, Trash2, ChevronRight, ChevronDown, Check as CheckIcon, Activity } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Fold } from '../ui/ui';
-import { TopBar } from './common';
+import { TopBar , DayStrip } from './common';
 import { AreaNav } from './areas';
 import { useAll, useByRange, useSettings } from '../db/hooks';
 import { useApp, toast } from '../state/store';
@@ -141,25 +141,11 @@ export function TrainingTab() {
       <AreaNav area="treino" />
       <div style={{ height: 12 }} />
 
-      <div className="row between" style={{ margin: '0 -8px' }}>
-        <button className="icon-btn" aria-label="Semana anterior" onClick={() => setDate(addDays(date, -7))}><ChevronLeft size={20} /></button>
-        <span className="small" style={{ fontWeight: 700, textAlign: 'center' }}>{shortLabel(ws)} a {shortLabel(we)}{syncing && <><br /><span className="tiny muted" data-testid="intervals-syncing">Buscando treinos novos…</span></>}</span>
-        <button className="icon-btn" aria-label="Próxima semana" onClick={() => setDate(addDays(date, 7))}><ChevronRight size={20} /></button>
-      </div>
-      <div className="week-train" role="group" aria-label="Dias da semana">
-        {days.map((d) => {
-          const p = plannedOf(d);
-          const dn = doneOf(d);
-          const state = dn.length ? 'done' : p.length && d < todayKey() ? 'missed' : p.length ? 'planned' : 'rest';
-          return (
-            <button key={d} className={`wt-day ${d === date ? 'sel' : ''} ${state}`} onClick={() => setDate(d)} aria-label={`${shortLabel(d)}: ${dn.length ? 'feito' : p.map((t) => t.name).join(', ') || 'sem treino'}`}>
-              <span className="tiny">{WEEKDAY_LETTER[isoWeekday(d)]}</span>
-              <span className="n">{dayNum(d)}</span>
-              <span className="wt-mark">{dn.length ? <CheckIcon size={14} strokeWidth={3} /> : p.length ? '•' : ''}</span>
-            </button>
-          );
-        })}
-      </div>
+      <DayStrip
+        aria={(d) => `${shortLabel(d)}: ${doneOf(d).length ? 'feito' : plannedOf(d).map((t) => t.name).join(', ') || 'sem treino'}`}
+        mark={(d, sel) => { const dn = doneOf(d).length, p = plannedOf(d).length; return dn ? <CheckIcon size={12} strokeWidth={3.4} style={{ color: sel ? 'var(--paper)' : 'var(--blue-ink)' }} /> : p ? <i style={{ background: sel ? 'var(--paper)' : d < todayKey() ? 'var(--wine)' : 'var(--ink-3)' }} /> : null; }}
+        note={syncing ? <span className="tiny muted" data-testid="intervals-syncing">Buscando treinos novos…</span> : undefined}
+      />
 
       <div className="mini-stats" data-testid="training-week">
         <div className="ms t-teal"><span className="v num">{weekDone}{weekPlanned ? <small>/{weekPlanned}</small> : null}</span><span className="l">treinos</span></div>

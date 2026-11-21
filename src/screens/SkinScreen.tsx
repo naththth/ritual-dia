@@ -4,6 +4,7 @@ import { Plus, Search, ScanFace, Camera, X, RotateCcw, ListOrdered } from 'lucid
 import { useApp } from '../state/store';
 import { useAll, useByDate } from '../db/hooks';
 import { PageHead , useBack } from './common';
+import { SpecialistButton } from './specchat';
 import { Chip, Seg, Sheet, Empty, Fold } from '../ui/ui';
 import { GROUPS, SKIN_CONDITIONS, SKIN_SIGNALS, INTENSITY_LABEL, BODY_SIGNALS, HAIR_SIGNALS, PERIOD_LABEL } from '../domain/defaults';
 import { activesTogether, planFor, plannedSkin, plannedTraining } from '../domain/rules';
@@ -138,7 +139,7 @@ export function SkinScreen() {
 
   return (
     <div className="screen no-nav with-save-bar" data-testid="skin-screen">
-      <PageHead title={period === 'am' ? 'Rotina da manhã' : 'Rotina da noite'} />
+      <PageHead title={period === 'am' ? 'Rotina da manhã' : 'Rotina da noite'} right={<SpecialistButton domain="skin" />} />
       <Seg value={period} onChange={(p) => setPeriod(p)} options={[{ id: 'am', label: 'Manhã' }, { id: 'pm', label: 'Noite' }]} label="Período" />
 
       {adjust && choice !== 'kept' && !(choice === 'applied' && adjust.kind === 'swap') && (
@@ -198,7 +199,7 @@ export function SkinScreen() {
                   ) : (
                     <div key={id} className="pick-wrap">
                       <ProductPick p={byId.get(id)!} num={k + 1} on={used.includes(id)} onClick={() => toggle(id)} tag={!planned.includes(id) ? 'fora do plano' : byDerm.has(id) ? 'da dermato, hoje' : undefined} />
-                      {planned.includes(id) && <button className="pick-out" aria-label={`Não vou usar ${byId.get(id)!.name} hoje`} title="Não vou usar hoje" onClick={() => leaveOut(id)} data-testid="skin-leave-out"><X size={18} /></button>}
+                      {planned.includes(id) && <button className="pick-out" aria-label={`Não vou usar ${byId.get(id)!.name} hoje`} title="Não vou usar hoje" onClick={() => leaveOut(id)} data-testid="skin-leave-out"><X size={15} strokeWidth={2.4} /></button>}
                     </div>
                   ))}
                   <button className="add-in" onClick={() => setPicker({ step: st.id, area: a.id })} data-testid={`skin-add-${st.id}-${a.id}`}><Plus size={16} />{list.length ? `Outro produto de ${a.label.toLowerCase()}` : `Adicionar produto de ${a.label.toLowerCase()}`}</button>

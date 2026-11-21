@@ -1,8 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { Plus, ChevronLeft, ChevronRight, ChevronDown, Undo2, Repeat2, Droplets, Pencil } from 'lucide-react';
+import { Plus, ChevronRight, ChevronDown, Undo2, Repeat2, Droplets, Pencil } from 'lucide-react';
 import { AreaNav } from './areas';
-import { TopBar } from './common';
+import { TopBar , DayStrip } from './common';
 import { useAll, useByDate, useByRange, useSettings } from '../db/hooks';
 import { useApp, toast } from '../state/store';
 import { planFor, plannedFood } from '../domain/rules';
@@ -50,7 +50,7 @@ function DayRing({ eaten, goal, size = 128, stroke = 12 }: { eaten: Nutr; goal: 
 }
 
 export function FoodTab() {
-  const { date, setDate } = useApp();
+  const { date } = useApp();
   const nav = useNavigate();
   const settings = useSettings();
   const meals = useByDate('meal', date);
@@ -93,11 +93,7 @@ export function FoodTab() {
       </div>
       <AreaNav area="alimentacao" />
       <div style={{ height: 10 }} />
-      <div className="row between" style={{ margin: '0 -8px 6px' }}>
-        <button className="icon-btn" aria-label="Dia anterior" onClick={() => setDate(addDays(date, -1))}><ChevronLeft size={20} /></button>
-        <span style={{ fontWeight: 700 }}>{date === todayKey() ? `Hoje, ${shortLabel(date)}` : shortLabel(date)}</span>
-        <button className="icon-btn" aria-label="Próximo dia" onClick={() => setDate(addDays(date, 1))}><ChevronRight size={20} /></button>
-      </div>
+      <DayStrip />
 
       {showN && (
         <section className="food-hero" data-testid="food-summary">

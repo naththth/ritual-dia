@@ -125,7 +125,8 @@ test('dermatologista muda a noite de hoje e a semana; nutricionista troca o jant
   await page.getByTestId('spec-approve').click();
   await expect(page.getByTestId('spec-done').last()).toContainText('vale a partir de hoje');
   await page.getByRole('button', { name: 'Fechar' }).click();
-  await page.getByRole('button', { name: 'Próximo dia' }).click();
+  await page.getByRole('button', { name: 'Próxima semana' }).click();
+  await page.getByRole('button', { name: 'seg, 26/10', exact: true }).click();
   await expect(page.getByTestId('skin-sec-pos-cabelo')).toContainText('Óleo de pontas');
   await expect(page.getByTestId('skin-sec-pos-rosto')).toContainText('Retinol 0.3');
 
@@ -142,7 +143,8 @@ test('dermatologista muda a noite de hoje e a semana; nutricionista troca o jant
   await page.getByTestId('spec-approve').click();
   await expect(page.getByTestId('spec-done').last()).toContainText('Frango com salada');
   await page.getByRole('button', { name: 'Fechar' }).click();
-  await page.getByRole('button', { name: 'Dia anterior' }).click(); // a rotina ficou no dia seguinte
+  await page.getByRole('button', { name: 'Semana anterior' }).click(); // a rotina ficou no dia seguinte
+  await page.getByRole('button', { name: 'dom, 25/10', exact: true }).click();
   await expect(page.getByTestId('meal-sec-jantar')).toContainText('Frango grelhado');
   if (process.env.SHOTS) { await page.getByTestId('meal-sec-jantar').scrollIntoViewIfNeeded(); await page.screenshot({ path: '/tmp/claude-0/shots/nutri-jantar.png' }); }
 
