@@ -16,6 +16,8 @@ export function prioLabel(cats: Category[] | undefined, t: Pick<Task, 'categoryI
   return c?.labels[t.priority] ?? { alta: 'Alta', media: 'Média', baixa: 'Baixa' }[t.priority];
 }
 
+const CAT_COLORS = ['#EDC15A', '#B3CEC6', '#EBBFC2', '#CFC1DF', '#CACC92', '#F2B48C', '#8DB6AC'];
+
 export function TaskRow({ t, cats, date, onOpen, showPlan }: { t: Task; cats?: Category[]; date: DateKey; onOpen: () => void; showPlan?: boolean }) {
   const [confirmEl, ask] = useConfirm();
   const done = t.status === 'concluida';
@@ -28,7 +30,7 @@ export function TaskRow({ t, cats, date, onOpen, showPlan }: { t: Task; cats?: C
     await toggleTaskDone(t, date);
   };
   return (
-    <div className={`row-item ${done ? 'done' : ''}`} data-testid="task-row">
+    <div className={`row-item task-card ${done ? 'done' : ''}`} data-testid="task-row" style={{ ['--cat' as string]: CAT_COLORS[(cat?.order ?? 0) % CAT_COLORS.length] }}>
       <Check on={done} label={`Concluir ${t.title}`} onToggle={toggle} />
       <button className="grow tap" onClick={onOpen}>
         <div className="t">{t.title}</div>

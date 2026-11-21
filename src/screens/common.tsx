@@ -1,6 +1,6 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ChevronLeft, ChevronRight, Dumbbell, House, LayoutGrid, Plus, Settings as Cog, Utensils } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Dumbbell, House, Menu, Plus, Settings as Cog, Sparkles, Utensils } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { useSettings } from '../db/hooks';
 import { useApp } from '../state/store';
@@ -25,44 +25,32 @@ export function SyncDot() {
 
 /** Abre o menu lateral (todas as áreas e telas). */
 export function MenuButton() {
-  return <button className="wordmark-btn" aria-label="Abrir menu" onClick={() => useApp.getState().setMenu(true)} data-testid="nav-menu"><span className="wordmark">Ritual<i>.</i></span></button>;
+  return <button className="icon-btn menu-btn" aria-label="Abrir menu" onClick={() => useApp.getState().setMenu(true)} data-testid="nav-menu"><Menu size={24} /></button>;
 }
 
-/** Barra de baixo, flutuante: Hoje, Treino, o + no centro (abre Registrar), Comida e Mais.
- *  Rolando para baixo ela se recolhe, para não cobrir o conteúdo; rolando para cima, volta. */
+/** Barra de baixo: uma faixa única, presa no rodapé e sempre visível.
+ *  Treino, Dieta, Hoje (no centro, sempre em destaque, para voltar rápido), Pele e o + que abre Registrar. */
 export function AddButton() {
-  const [tuck, setTuck] = useState(false);
   const loc = useLocation();
   const nav = useNavigate();
-  useEffect(() => {
-    let last = window.scrollY;
-    const on = () => {
-      const y = window.scrollY;
-      if (Math.abs(y - last) < 6) return;
-      setTuck(y > last && y > 80);
-      last = y;
-    };
-    window.addEventListener('scroll', on, { passive: true });
-    return () => window.removeEventListener('scroll', on);
-  }, []);
   const p = loc.pathname;
-  const area = p === '/' ? 'hoje' : p.startsWith('/treino') ? 'treino' : p.startsWith('/alimentacao') ? 'comida' : 'mais';
-  const items: { k: string; to: string; label: string; icon: JSX.Element }[] = [
-    { k: 'hoje', to: '/', label: 'Hoje', icon: <House size={21} /> },
-    { k: 'treino', to: '/treino', label: 'Treino', icon: <Dumbbell size={21} /> },
-    { k: 'comida', to: '/alimentacao', label: 'Dieta', icon: <Utensils size={21} /> },
-    { k: 'mais', to: '/mais', label: 'Mais', icon: <LayoutGrid size={21} /> }
-  ];
-  const tab = (i: typeof items[number]) => (
-    <button key={i.k} className={`bn-tab ${area === i.k ? 'on' : ''}`} aria-current={area === i.k ? 'page' : undefined} aria-label={i.label} onClick={() => nav(i.to)} data-testid={`bn-${i.k}`}>
-      {i.icon}{area === i.k && <span>{i.label}</span>}
+  const area = p === '/' ? 'hoje' : p.startsWith('/treino') ? 'treino' : p.startsWith('/alimentacao') ? 'dieta' : p.startsWith('/cuidados') || p.startsWith('/pele') ? 'pele' : '';
+  const tab = (k: string, to: string, label: string, icon: JSX.Element) => (
+    <button key={k} className={`bn-tab ${area === k ? 'on' : ''}`} aria-current={area === k ? 'page' : undefined} onClick={() => nav(to)} data-testid={`bn-${k}`}>
+      {icon}<span>{label}</span>
     </button>
   );
   return (
-    <nav className={`bottomnav2 ${tuck ? 'tuck' : ''}`} aria-label="Navegação principal">
-      {items.slice(0, 2).map(tab)}
-      <button className="fab fab-float" aria-label="Registrar" onClick={() => useApp.getState().setReg(true)} data-testid="fab"><Plus size={26} strokeWidth={2.4} /></button>
-      {items.slice(2).map(tab)}
+    <nav className="bottombar" aria-label="Navegação principal">
+      {tab('treino', '/treino', 'Treino', <Dumbbell size={22} />)}
+      {tab('dieta', '/alimentacao', 'Dieta', <Utensils size={22} />)}
+      <button className={`bn-home ${area === 'hoje' ? 'on' : ''}`} aria-current={area === 'hoje' ? 'page' : undefined} aria-label="Hoje" onClick={() => nav('/')} data-testid="bn-hoje">
+        <span className="bh-c"><House size={24} /></span><span>Hoje</span>
+      </button>
+      {tab('pele', '/cuidados', 'Pele', <Sparkles size={22} />)}
+      <button className="bn-tab bn-add" aria-label="Registrar" onClick={() => useApp.getState().setReg(true)} data-testid="fab">
+        <span className="ba-c"><Plus size={20} strokeWidth={2.6} /></span><span>Registrar</span>
+      </button>
     </nav>
   );
 }
@@ -71,7 +59,7 @@ export function TopBar({ right }: { right?: ReactNode }) {
   const nav = useNavigate();
   return (
     <div className="topbar">
-      <span className="row" style={{ gap: 6 }}><MenuButton /><SyncDot /></span>
+      <span className="row" style={{ gap: 4 }}><MenuButton /><span className="wordmark">Ritual<i>.</i></span><SyncDot /></span>
       <span className="row" style={{ gap: 0 }}>
         {right}
         <button className="icon-btn" aria-label="Ajustes" onClick={() => nav('/ajustes')}><Cog size={22} /></button>

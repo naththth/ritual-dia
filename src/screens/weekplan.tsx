@@ -1,6 +1,6 @@
 // Semana da periodização no alto do Treino: proposta para aprovar ou, depois do aprovo, onde ela está no ciclo.
 import { useEffect, useState } from 'react';
-import { Check, RefreshCw, Sparkles, Undo2, ChevronDown } from 'lucide-react';
+import { Check, RefreshCw, Sparkles, Undo2, ChevronDown, Flag } from 'lucide-react';
 import { useRecord, useSettings } from '../db/hooks';
 import type { MacroCycle, ProposedSession, TrainingWeek } from '../db/types';
 import { addDays, dayNum, isoWeekday, todayKey, weekStart, WEEKDAY_SHORT, type DateKey } from '../lib/dates';
@@ -33,6 +33,39 @@ function Countdown({ m, from }: { m: MacroCycle; from: DateKey }) {
       {c.map((x) => (
         <span key={x.label} className="wp-goal"><b className="num">{x.days}</b><span>{x.days === 1 ? 'dia' : 'dias'} para {x.label}</span></span>
       ))}
+    </div>
+  );
+}
+
+/** Mapa do ciclo: cada fase com as semanas e as datas, as semanas leves e os objetivos com a data. */
+function CycleMap({ m, current }: { m: MacroCycle; current: number }) {
+  const n = macroWeeks(m);
+  const groups: { phase: ReturnType<typeof phaseOf>; from: number; to: number }[] = [];
+  for (let i = 1; i <= n; i++) {
+    const ph = phaseOf(m, i);
+    const g = groups[groups.length - 1];
+    if (g && g.phase === ph) g.to = i; else groups.push({ phase: ph, from: i, to: i });
+  }
+  const wk = (i: number) => addDays(m.start, (i - 1) * 7);
+  const DESC: Record<string, string> = { base: 'Volume leve e técnica: construir o motor sem pressa.', construcao: 'O volume sobe aos poucos; entram os estímulos mais fortes.', especifico: 'Treinos parecidos com a prova, no ritmo do objetivo.', polimento: 'Menos volume, mesma intensidade: chegar descansada.' };
+  return (
+    <div className="cmap" data-testid="cycle-map">
+      {groups.map((g) => {
+        const leves = Array.from({ length: g.to - g.from + 1 }, (_, k) => g.from + k).filter((i) => isDeload(m, i));
+        const on = current >= g.from && current <= g.to;
+        return (
+          <div key={g.phase} className={`cm-row ph-${g.phase} ${on ? 'on' : ''}`}>
+            <span className="cm-dot" />
+            <span className="grow">
+              <b>{PHASE_LABEL[g.phase]}</b> <span className="small muted">semanas {g.from} a {g.to} · {ddmm(wk(g.from))} a {ddmm(addDays(wk(g.to), 6))}</span>
+              <span className="small" style={{ display: 'block' }}>{DESC[g.phase]}{leves.length ? ` Semana leve: ${leves.map((i) => ddmm(wk(i))).join(', ')}.` : ''}</span>
+            </span>
+          </div>
+        );
+      })}
+      {m.events.length > 0 && (
+        <div className="cm-goals">{m.events.map((e) => <span key={e.date + e.label} className="chip"><Flag size={13} /> {e.label} · {ddmm(e.date)}</span>)}</div>
+      )}
     </div>
   );
 }
@@ -182,6 +215,8 @@ export function WeekPlanCard() {
       <Countdown m={active} from={today} />
       {more && (
         <div style={{ marginTop: 10 }}>
+          <CycleMap m={active} current={idx} />
+          {before && !approved && <button className="btn btn-ink btn-block" style={{ marginTop: 12 }} disabled={!aiAvailable()} onClick={() => propose(active.start)} data-testid="week-first"><Sparkles size={17} /> Montar a primeira semana{!aiAvailable() ? ' (entre com Google)' : ''}</button>}
           {approved?.mensagem && <p className="wp-msg">{approved.mensagem}</p>}
           {approved?.holds.map((h) => <p key={h} className="small" style={{ margin: '0 0 6px' }}>{h}</p>)}
           <div className="wp-actions">

@@ -9,7 +9,7 @@ import { TaskRow, TaskSheet } from './tasks';
 import { GTasksStatus } from './career';
 import { matchesSearch } from '../domain/rules';
 import { PRIORITIES, type Priority, type Task, type TaskStatus } from '../db/types';
-import { shortLabel } from '../lib/dates';
+import { shortLabel, todayKey } from '../lib/dates';
 
 type Sort = 'prioridade' | 'recentes' | 'custo' | 'tempo';
 
@@ -49,8 +49,20 @@ function Tasks() {
       if (sort === 'tempo') return (a.minutes ?? Infinity) - (b.minutes ?? Infinity);
       return PRIORITIES.indexOf(a.priority) - PRIORITIES.indexOf(b.priority) || a.title.localeCompare(b.title);
     });
+  // Resumo no topo: o que está aberto, o que está no dia, o que é urgente e o que ficou para trás.
+  const today = todayKey();
+  const open = (tasks ?? []).filter((t) => t.status === 'pendente');
+  const inDay = open.filter((t) => t.plannedDate === date).length;
+  const high = open.filter((t) => t.priority === 'alta').length;
+  const late = open.filter((t) => t.plannedDate && t.plannedDate < today).length;
   return (
     <section style={{ marginTop: 14 }}>
+      <div className="tk-sum" data-testid="tasks-summary">
+        <button className="tk-s t-ink" onClick={() => { setPrio(''); setStatus('pendente'); }}><b className="num">{open.length}</b><span>abertas</span></button>
+        <button className="tk-s t-honey" onClick={() => setSort('prioridade')}><b className="num">{inDay}</b><span>no dia</span></button>
+        <button className={`tk-s t-wine ${prio === 'alta' ? 'on' : ''}`} onClick={() => setPrio(prio === 'alta' ? '' : 'alta')}><b className="num">{high}</b><span>alta prioridade</span></button>
+        <div className={`tk-s ${late ? 't-rose' : 't-paper'}`}><b className="num">{late}</b><span>atrasadas</span></div>
+      </div>
       <div className="row" style={{ gap: 8 }}>
         <div style={{ position: 'relative', flex: 1 }}>
           <Search size={18} style={{ position: 'absolute', left: 14, top: 15, color: 'var(--ink-2)' }} />

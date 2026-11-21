@@ -252,7 +252,7 @@ test('Tarefas e Google Tasks são uma coisa só: o que vem do PC aparece na DBC 
   await expect(page.getByTestId('gtasks-connect')).toBeVisible();
 });
 
-test('o + fica no centro da barra de baixo em qualquer tela, sai onde há barra de salvar, e abre o Registrar', async ({ page }) => {
+test('a barra de baixo fica fixa em qualquer tela, com Hoje no centro e o + na ponta direita; abre o Registrar', async ({ page }) => {
   await seed(page);
   const vp = page.viewportSize()!;
   for (const route of ['./#/', './#/carreira/marca', './#/treino']) {
@@ -261,14 +261,20 @@ test('o + fica no centro da barra de baixo em qualquer tela, sai onde há barra 
     await expect(plus).toBeVisible();
     await expect(page.locator('.topbar').getByTestId('fab')).toHaveCount(0);
     const b = (await plus.boundingBox())!;
-    expect(Math.abs(vp.width / 2 - (b.x + b.width / 2))).toBeLessThan(30);
-    await expect(page.getByTestId('bn-hoje')).toBeVisible();
+    expect(b.x + b.width / 2).toBeGreaterThan(vp.width * 0.75);
+    const h = (await page.getByTestId('bn-hoje').boundingBox())!;
+    expect(Math.abs(vp.width / 2 - (h.x + h.width / 2))).toBeLessThan(30);
+    await page.mouse.wheel(0, 600);
+    await expect(page.getByTestId('bn-hoje')).toBeInViewport();
     expect(vp.height - (b.y + b.height)).toBeLessThan(60);
     if (process.env.SHOTS && route === './#/') await page.screenshot({ path: '/tmp/shots/fab.png' });
   }
   await page.goto('./#/pele');
   await expect(page.locator('.save-bar')).toBeVisible();
-  await expect(page.getByTestId('fab')).toBeHidden();
+  // com barra de salvar, a faixa continua e a barra de salvar fica acima dela
+  const sb = (await page.locator('.save-bar').boundingBox())!;
+  const fb = (await page.getByTestId('fab').boundingBox())!;
+  expect(sb.y + sb.height).toBeLessThanOrEqual(fb.y + 4);
   await page.goto('./#/');
   await page.getByTestId('fab').click();
   await expect(page.getByTestId('reg-coffee')).toBeVisible();
