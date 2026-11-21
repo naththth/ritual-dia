@@ -205,6 +205,8 @@ export interface Product extends Base {
   /** Camada na ordem de aplicação (ex.: rosto_tonico, rosto_serum) e posição dentro dela. Definidas pela dermatologista ou por ela. */
   layer?: string;
   layerPos?: number;
+  /** Textura (aquosa, sérum, gel, leitosa, creme, bálsamo, óleo): decide a ordem dentro da camada, da mais fina à mais densa. */
+  texture?: 'agua' | 'serum' | 'gel' | 'leite' | 'creme' | 'balm' | 'oleo';
   /** Como usar, em 1 a 2 linhas, para aparecer na rotina. */
   howShort?: string;
   /** Miniatura da embalagem (data URL pequena), achada na internet ou tirada por ela, para reconhecer o produto de relance. */

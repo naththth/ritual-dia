@@ -14,7 +14,8 @@ import { Check } from 'lucide-react';
 import { update } from '../db/db';
 import { toast } from '../state/store';
 import { GROUP_RANK } from '../domain/defaults';
-import { applicationOrder } from '../domain/skinSteps';
+import { applicationOrder, layerLabel, layerOf } from '../domain/skinSteps';
+import { auditSkinPlan } from '../domain/skinAudit';
 import { careProgress } from '../domain/care';
 import { ChatButton } from './specialist';
 
@@ -64,11 +65,12 @@ export function SkinPlan({ embedded = false }: { embedded?: boolean } = {}) {
   const faceInUse = inUse.filter((p) => (p.area ?? 'rosto') === 'rosto');
   const byId = new Map(products.map((p) => [p.id, p]));
   const sortIds = (ids: string[]) => applicationOrder(ids, byId as Map<string, Product>);
-  /** Lista em tópicos, separada por área, na ordem de aplicação. */
-  const groups = (ids: string[], suffix = '', tone = '') => AREAS.map((ar) => {
-    const n = sortIds(ids).filter((id) => (byId.get(id)?.area ?? 'rosto') === ar.id).map((id) => byId.get(id)?.name).filter(Boolean) as string[];
-    return n.length ? <div key={ar.id + suffix} className={`dgroup flat ${tone}`}><span className="dg-l">{ar.label}{suffix}</span><ol>{n.map((x, i) => <li key={i}>{x}</li>)}</ol></div> : null;
+  /** Lista em tópicos, separada por área, na ordem de aplicação, com a camada de cada produto para conferir a sequência. */
+  const groups = (ids: string[], suffix = '', tone = '', fresh?: Set<string>) => AREAS.map((ar) => {
+    const n = sortIds(ids).filter((id) => (byId.get(id)?.area ?? 'rosto') === ar.id).map((id) => byId.get(id)!).filter(Boolean);
+    return n.length ? <div key={ar.id + suffix} className={`dgroup flat ${tone}`}><span className="dg-l">{ar.label}{suffix}</span><ol>{n.map((p) => <li key={p.id} className={fresh?.has(p.id) ? 'novo' : undefined}>{p.name} <span className="lyr">· {layerLabel(layerOf(p))}</span>{fresh?.has(p.id) && <span className="tagn">só neste dia</span>}</li>)}</ol></div> : null;
   });
+  const alerts = auditSkinPlan(d, products);
 
   if (inUse.length === 0) {
     return <Empty text="Nenhum produto marcado como em uso. Faça a revisão dos produtos primeiro." action={<button className="btn btn-ink" onClick={() => nav('/revisao')}>Revisar produtos</button>} />;
@@ -98,20 +100,26 @@ export function SkinPlan({ embedded = false }: { embedded?: boolean } = {}) {
       <CareAssessment products={inUse} diagnosis={d.diagnosis} />
       <AIPrefs domain="skin" />
       <ChatButton domain="skin" label="Montar rotina com a dermatologista" />
+      {(d.am.base.length > 0 || d.pm.base.length > 0) && (
+        <section className={`plan-check ${alerts.length ? '' : 'ok'}`} data-testid="plan-check" role="note">
+          <b>{alerts.length ? 'Checagem da dermatologista' : 'Rotina sem conflitos'}</b>
+          {alerts.length ? <><ul>{alerts.map((a) => <li key={a.id}>{a.text}</li>)}</ul><p className="small" style={{ margin: '8px 0 0' }}>Peça o ajuste na conversa com a dermatologista: ela já recebe estes pontos.</p></> : <span className="small">Protetor toda manhã, um ativo forte por aplicação, retinoide longe dos ácidos e noites de descanso para a barreira.</span>}
+        </section>
+      )}
       <Seg value={tab} onChange={setTab} options={[{ id: 'am', label: 'Manhã' }, { id: 'pm', label: 'Noite' }, { id: 'rec', label: 'Recuperação' }]} />
       {pp && (
         <>
           <div className="section"><h2 className="section-title">Todos os dias</h2><button className="link" onClick={() => setBaseOpen(true)} data-testid="edit-base">Editar</button></div>
           <div data-testid="plan-base">{pp.base.length ? groups(pp.base) : <p className="small" style={{ marginTop: 0 }}>Nada ainda. Comece pelo que se repete todo dia: limpeza e hidratante do rosto, protetor, hidratante do corpo.</p>}</div>
           <div className="section"><h2 className="section-title">Por dia da semana</h2></div>
-          <p className="small muted" style={{ marginTop: -6 }}>O que muda em relação a todos os dias: lavar o cabelo, máscara, esfoliação, ativos do rosto. Toque no dia para ajustar.</p>
+          <p className="small muted" style={{ marginTop: -6 }}>A sequência completa de cada dia, na ordem de aplicação. O que entra só naquele dia aparece em destaque. Toque no dia para ajustar.</p>
           {DAYS.map((wd) => {
             const day = pp.days[wd];
             const has = !!(day?.add.length || day?.remove.length);
             return (
               <button key={wd} className="plan-day tap" onClick={() => setDayOpen(wd)} style={{ display: 'block', textAlign: 'left', width: '100%' }} data-testid={`plan-day-${wd}`}>
                 <div className="row between"><span className="dn">{WEEKDAY_LONG[wd]}</span><span className="tiny muted">{has ? `${dayList(pp, wd).length} passos` : 'Igual a todos os dias'}</span></div>
-                {has && <div style={{ marginTop: 6 }}>{groups(day!.add, ' · entra', 'add')}{groups(day!.remove, ' · sai', 'remove')}</div>}
+                {has && <div style={{ marginTop: 6 }} data-testid={`plan-day-seq-${wd}`}>{groups(dayList(pp, wd), '', '', new Set(day!.add))}{groups(day!.remove, ' · sai neste dia', 'remove')}</div>}
               </button>
             );
           })}

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Plus, Search, ScanFace, Camera } from 'lucide-react';
+import { Plus, Search, ScanFace, Camera, X, RotateCcw, ListOrdered } from 'lucide-react';
 import { useApp } from '../state/store';
 import { useAll, useByDate } from '../db/hooks';
 import { PageHead , useBack } from './common';
@@ -11,7 +11,7 @@ import { nightAdjust } from '../domain/skinAdapt';
 import { effectiveSleep } from '../domain/wellness';
 import { cycleInfo } from '../domain/cycle';
 import { useCycle } from './cycle';
-import { saveSkin, skinId, deleteRecord } from '../domain/actions';
+import { saveSkin, skinId, deleteRecord, skipPlanned } from '../domain/actions';
 import { update } from '../db/db';
 import { AREAS, OWNED, STEPS, applicationOrder, layerLabel, layerOf, productStep, shortUse, type Area, type Step } from '../domain/skinSteps';
 import { ArrowDown, ArrowUp } from 'lucide-react';
@@ -90,7 +90,15 @@ export function SkinScreen() {
     decide('applied');
   };
   useEffect(() => { if (choice === 'applied' && adjust?.kind === 'swap' && !recovery && !dropped.length) { if (adjust.useRecovery) setRecovery(true); else setDropped(adjust.remove); } }, [choice, adjust?.kind]);
-  const byId = new Map((products ?? []).map((p) => [p.id, p]));
+  const byId = useMemo(() => new Map((products ?? []).map((p) => [p.id, p])), [products]);
+  // Revisão das camadas (nov/2026): roda uma vez por aparelho e põe cada camada na ordem da regra.
+  useEffect(() => { void import('../domain/skinLayers').then((m) => m.migrateLayerRules()).catch(() => { /* */ }); }, []);
+  /** O que ela tirou de hoje ("não vou usar"): sai da lista e do registro, e pode voltar com um toque. */
+  const outToday = useMemo(() => (skips ?? []).filter((x) => x.domain === 'skin' && !x.deleted && x.ref.startsWith(`${period}:`)).map((x) => ({ skipId: x.id, id: x.ref.slice(period.length + 1) })).filter((x) => byId.has(x.id)), [skips, period, byId]);
+  const leaveOut = (id: string) => {
+    setUsed((u) => u.filter((x) => x !== id));
+    void skipPlanned(date, 'skin', `${period}:${id}`, `${byId.get(id)?.name ?? 'Produto'} fora de hoje`);
+  };
   const extras = used.filter((id) => !planned.includes(id));
   const alert = activesTogether(used, products ?? []);
   const toggle = (id: string) => setUsed((u) => (u.includes(id) ? u.filter((x) => x !== id) : [...u, id]));
@@ -98,7 +106,7 @@ export function SkinScreen() {
   const stepOfId = (id: string) => { const p = byId.get(id); return p ? productStep(p) : 'pos'; };
   // Combinado com a dermatologista para este dia: aparece marcado no produto.
   const byDerm = new Set((dayExtras ?? []).filter((e) => e.domain === 'skin' && e.ref.startsWith(`${period}:`)).map((e) => e.ref.slice(period.length + 1)));
-  const shown = applicationOrder([...planned, ...extras], byId);
+  const shown = useMemo(() => applicationOrder([...planned, ...extras], byId), [planned.join(), extras.join(), byId]);
   const [reorder, setReorder] = useState<string | null>(null);
   /** Sobe ou desce um produto na ordem: passa para a camada do vizinho e as posições da camada são renumeradas. Vale para as próximas rotinas. */
   const move = async (list: string[], i: number, dir: -1 | 1) => {
@@ -106,9 +114,10 @@ export function SkinScreen() {
     if (j < 0 || j >= list.length) return;
     const next = [...list]; [next[i], next[j]] = [next[j], next[i]];
     const layer = layerOf(byId.get(list[j])!);
-    await update<'product'>(list[i], { layer });
     const same = next.filter((id) => id === list[i] || layerOf(byId.get(id)!) === layer);
-    for (let k = 0; k < same.length; k++) await update<'product'>(same[k], { layerPos: (k + 1) * 10 });
+    // Tudo de uma vez: a lista só redesenha quando a nova ordem inteira já está gravada.
+    // Um patch por produto (duas gravações paralelas no mesmo registro se sobrescreveriam).
+    await Promise.all(same.map((id, k) => update<'product'>(id, id === list[i] ? { layer, layerPos: (k + 1) * 10 } : { layerPos: (k + 1) * 10 })));
   };
   const pick = (id: string, target: { step: Step; area: Area }) => {
     const p = byId.get(id);
@@ -186,7 +195,12 @@ export function SkinScreen() {
                       <button className="icon-btn" aria-label="Subir" disabled={k === 0} onClick={() => void move(list, k, -1)}><ArrowUp size={18} /></button>
                       <button className="icon-btn" aria-label="Descer" disabled={k === list.length - 1} onClick={() => void move(list, k, 1)}><ArrowDown size={18} /></button>
                     </div>
-                  ) : <ProductPick key={id} p={byId.get(id)!} num={k + 1} on={used.includes(id)} onClick={() => toggle(id)} tag={!planned.includes(id) ? 'fora do plano' : byDerm.has(id) ? 'da dermato, hoje' : undefined} />)}
+                  ) : (
+                    <div key={id} className="pick-wrap">
+                      <ProductPick p={byId.get(id)!} num={k + 1} on={used.includes(id)} onClick={() => toggle(id)} tag={!planned.includes(id) ? 'fora do plano' : byDerm.has(id) ? 'da dermato, hoje' : undefined} />
+                      {planned.includes(id) && <button className="pick-out" aria-label={`Não vou usar ${byId.get(id)!.name} hoje`} title="Não vou usar hoje" onClick={() => leaveOut(id)} data-testid="skin-leave-out"><X size={18} /></button>}
+                    </div>
+                  ))}
                   <button className="add-in" onClick={() => setPicker({ step: st.id, area: a.id })} data-testid={`skin-add-${st.id}-${a.id}`}><Plus size={16} />{list.length ? `Outro produto de ${a.label.toLowerCase()}` : `Adicionar produto de ${a.label.toLowerCase()}`}</button>
                 </div>
               );
@@ -202,6 +216,21 @@ export function SkinScreen() {
           </section>
         );
       })}
+
+      {outToday.length > 0 && (
+        <div className="out-today" data-testid="skin-out-today">
+          <span className="small muted">Fora de hoje, não entram no registro:</span>
+          <div className="chips">
+            {outToday.map((x) => <button key={x.skipId} className="chip out-chip" onClick={() => void deleteRecord(x.skipId, `${byId.get(x.id)!.name} voltou para hoje`)} aria-label={`Trazer ${byId.get(x.id)!.name} de volta`}><RotateCcw size={14} />{byId.get(x.id)!.name}</button>)}
+          </div>
+        </div>
+      )}
+
+      {shown.some((id) => areaOfId(id) === 'rosto') && (
+        <Fold title="Por que nessa ordem" icon={<ListOrdered size={19} />} testId="skin-order-why" summary="Do que lava ao que sela, do mais fino ao mais denso">
+          <p className="small" style={{ margin: 0 }}>Primeiro o que lava: óleo ou micelar, depois a limpeza. Depois do banho, do preparo ao que sela. O tônico prepara a pele; o pontual na espinha e o ativo de tratamento (ácido, retinol, azelaico) entram com a pele ainda limpa e seca, antes das camadas de hidratação, para agir sem barreira. Em seguida essência e séruns, do mais aquoso ao mais denso, com vitamina C sempre primeiro; olhos; hidratante; o reparador ou óleo; e, de manhã, o protetor por último. Dentro de cada camada vale a mesma regra de textura; se quiser outra ordem, use Mudar ordem.</p>
+        </Fold>
+      )}
 
       <Fold title="Como está a pele" icon={<ScanFace size={19} />} tone="rose" testId="skin-signals"
         summary={[condition ? SKIN_CONDITIONS.find((c) => c.id === condition)?.label : '', nSignals ? `${nSignals} ${nSignals === 1 ? 'sinal' : 'sinais'}: ${Object.keys(signals).map((id) => [...SKIN_SIGNALS, ...BODY_SIGNALS, ...HAIR_SIGNALS].find((x) => x.id === id)?.label.toLowerCase()).filter(Boolean).slice(0, 3).join(', ')}` : 'Sem sinais marcados'].filter(Boolean).join(' · ')}>

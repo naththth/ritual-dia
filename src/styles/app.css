@@ -2168,3 +2168,21 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea
 .lib-item .lib-icon { width: 44px; height: 44px; border-radius: 14px; background: var(--paper-2); display: grid; place-items: center; flex: 0 0 auto; }
 .lib-item .food-stack { flex: 0 0 auto; }
 .lib-thumb { flex: 0 0 auto; width: auto; padding: 0; min-height: 0; }
+/* Rotina de cuidados: tirar de hoje e o que ficou de fora */
+.pick-wrap { display: flex; align-items: stretch; gap: 6px; }
+.pick-wrap + .pick-wrap { margin-top: 8px; }
+.pick-wrap > .pick { flex: 1; min-width: 0; }
+/* Com o botão de tirar ao lado, o nome ganha as linhas que precisar: nunca cortado. */
+.pick-wrap .pick .nm { display: block; -webkit-line-clamp: unset; overflow: visible; overflow-wrap: anywhere; }
+.pick-out { flex: none; width: 44px; border-radius: var(--r-m); border: 1.5px solid var(--line); background: var(--card); color: var(--ink-3); display: grid; place-items: center; }
+.pick-out:active { background: var(--paper-2); color: var(--ink); }
+.out-today { margin-top: 14px; }
+.out-today .chips { margin-top: 6px; }
+.out-chip { display: inline-flex; align-items: center; gap: 6px; text-decoration: line-through; text-decoration-color: rgba(0,0,0,.3); }
+.dgroup li .lyr { color: var(--ink-3); font-size: 12.5px; font-weight: 600; }
+.dgroup li.novo { font-weight: 700; }
+.dgroup li.novo .tagn { font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--wine-2); margin-left: 6px; }
+.plan-check { margin: 12px 0; padding: 12px 14px; border-radius: var(--r-m); background: color-mix(in srgb, var(--rose) 30%, var(--paper)); }
+.plan-check b { display: block; margin-bottom: 4px; }
+.plan-check ul { margin: 4px 0 0; padding-left: 18px; font-size: 14px; line-height: 1.45; }
+.plan-check.ok { background: color-mix(in srgb, var(--olive) 30%, var(--paper)); }

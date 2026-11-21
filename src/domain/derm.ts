@@ -11,6 +11,8 @@ import { chatMemory, rollbackAction, undoLog, type SkinProposal, type SpecMsg } 
 import type { Product, ProductGroup, ProductStatus } from '../db/types';
 import { layerOf } from './skinSteps';
 import { applyLayer, layersForAI, organizeSoon } from './skinLayers';
+import { auditSkinPlan } from './skinAudit';
+import { textureOf } from './skinSteps';
 
 const DAY = ['', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
 const DAY_LONG = ['todos os dias', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'];
@@ -67,7 +69,7 @@ export async function askDerm(text: string, history: SpecMsg[], images?: { mime:
     fala_dela: text, fotos_nesta_mensagem: images?.length || undefined,
     ...(await chatMemory('skin', history, 'dermatologista')),
     produtos: list.map((p) => ({
-      codigo: c(p.id), marca: p.brand, nome: p.name, area: p.area ?? 'rosto', etapa: productStep(p), camada: layerOf(p), posicao: p.layerPos ? p.layerPos / 10 : undefined, uso: p.howShort, tipo: p.group, situacao: p.status,
+      codigo: c(p.id), marca: p.brand, nome: p.name, area: p.area ?? 'rosto', etapa: productStep(p), camada: layerOf(p), posicao: p.layerPos ? p.layerPos / 10 : undefined, textura: textureOf(p), uso: p.howShort, tipo: p.group, situacao: p.status,
       ativo_forte: !!p.active || undefined, periodo_preferido: p.period, ativos: p.info?.actives, para_que_serve: p.info?.purpose, modo_de_uso: p.info?.howToUse, cuidados: p.info?.cautions
     })),
     plano_semanal: plan?.skin ? { manha: period('am'), noite: period('pm'), recuperacao: { manha: codes(plan.skin.recovery?.am ?? []), noite: codes(plan.skin.recovery?.pm ?? []) }, diagnostico: plan.skin.diagnosis } : null,
@@ -86,6 +88,8 @@ export async function askDerm(text: string, history: SpecMsg[], images?: { mime:
     treinos_feitos: workouts.map((w) => ({ data: w.date, modalidade: modName(w.modalityId), minutos: w.duration })),
     sono_e_recuperacao: wellness.sort((a, b) => a.date.localeCompare(b.date)).map(wellnessForAI),
     preferencias_de_cuidados: settings?.aiPrefs?.skin ?? '',
+    // Checagem automática do plano da semana (mesmas regras que aparecem na tela do plano).
+    alertas_da_rotina: plan?.skin ? auditSkinPlan(plan.skin, list).map((a) => a.text) : [],
     camadas: layersForAI()
   };
   const r = await askAI<any>('skin_coach', ctx, images);

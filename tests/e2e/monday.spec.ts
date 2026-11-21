@@ -708,3 +708,33 @@ test('conversa com a especialista: perguntas, rascunho legível, ajuste e aplica
   await expect(page.getByTestId('plan-base')).toContainText('Sérum calmante');
   await noHorizontalScroll(page);
 });
+
+test('rotina: tirar produto de hoje fecha o registro e a checagem aponta manhã sem protetor', async ({ page }) => {
+  await onboard(page);
+  await page.goto('./#/plano/skin');
+  await page.getByTestId('edit-base').click();
+  // Manhã com limpeza e hidratante, sem protetor (o estado inicial pode já trazer algum deles marcado).
+  const want: Record<string, boolean> = { 'Gel de limpeza': true, 'Creme hidratante': true, 'Protetor FPS 50': false };
+  for (const [name, on] of Object.entries(want)) {
+    const b = page.locator('.sheet [data-testid=product-pick]', { hasText: name }).first();
+    if ((await b.getAttribute('aria-pressed') === 'true') !== on) await b.click();
+  }
+  await page.getByRole('button', { name: 'Pronto' }).click();
+  await expect(page.getByTestId('plan-check')).toContainText('Manhã sem protetor solar');
+  if (process.env.SHOTS) { await page.getByTestId('plan-check').scrollIntoViewIfNeeded(); await page.screenshot({ path: '/tmp/claude-0/shots/plano-checagem.png' }); }
+  await page.getByTestId('plan-save').click();
+  await expect(page.getByTestId('plan-skin')).toBeHidden();
+  await page.goto('./#/pele?p=am');
+  await expect(page.getByTestId('skin-sec-pos-rosto')).toContainText('Creme hidratante');
+  await page.getByRole('button', { name: /Não vou usar Creme hidratante hoje/ }).click();
+  await expect(page.getByTestId('skin-sec-pos-rosto')).toHaveCount(0);
+  await expect(page.getByTestId('skin-out-today')).toContainText('Creme hidratante');
+  await page.getByTestId('skin-use-all').click();
+  await expect(page.getByTestId('skin-save')).toContainText('1 de 1');
+  if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/rotina-fora-de-hoje.png', fullPage: true });
+  // volta com um toque
+  await page.getByRole('button', { name: /Trazer Creme hidratante de volta/ }).click();
+  await expect(page.getByTestId('skin-sec-pos-rosto')).toContainText('Creme hidratante');
+  await page.getByTestId('skin-save').click();
+  await expect(page.getByTestId('skin-screen')).toBeHidden();
+});

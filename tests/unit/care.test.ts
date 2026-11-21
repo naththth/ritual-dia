@@ -76,7 +76,8 @@ describe('troca de refeição do dia', () => {
   });
 });
 
-import { applicationOrder, layerOf, shortUse } from '../../src/domain/skinSteps';
+import { applicationOrder, layerOf, shortUse, ruleOrderPatches, textureOf } from '../../src/domain/skinSteps';
+import { auditSkinPlan } from '../../src/domain/skinAudit';
 describe('ordem de aplicação', () => {
   const P = (id: string, x: Partial<Product>) => prod(id, x);
   const list = [
@@ -91,8 +92,20 @@ describe('ordem de aplicação', () => {
     P('eye', { group: 'olhos', name: 'K-Ox Eyes' })
   ];
   const byId = new Map(list.map((p) => [p.id, p]));
-  it('segue as camadas do rosto, do banho ao protetor', () => {
-    expect(applicationOrder(list.map((p) => p.id), byId)).toEqual(['oil', 'gel', 'ton', 'ess', 'amp', 'ret', 'eye', 'creme', 'fps']);
+  it('segue as camadas do rosto, do banho ao protetor, com o ativo na pele seca antes da essência', () => {
+    expect(applicationOrder(list.map((p) => p.id), byId)).toEqual(['oil', 'gel', 'ton', 'ret', 'ess', 'amp', 'eye', 'creme', 'fps']);
+  });
+  it('micelar é primeira limpeza e curativo de espinha é pontual, antes do ativo', () => {
+    const m = P('m', { group: 'limpeza', name: 'Sensibio H2O', step: 'pos' });
+    const g = P('g', { group: 'limpeza', name: 'Sensibio Gel Moussant' });
+    const c = P('c', { group: 'tratamentos', name: 'Curativo hidrocoloide para acne' });
+    const a = P('a', { group: 'tratamentos', name: 'Ácido Salicílico BHA 2%', active: true });
+    expect(layerOf(m)).toBe('rosto_oleo_limpeza');
+    expect(layerOf(c)).toBe('rosto_pontual');
+    expect(applicationOrder(['a', 'c', 'g', 'm'], new Map([m, g, c, a].map((p) => [p.id, p])))).toEqual(['m', 'g', 'c', 'a']);
+  });
+  it('camada definida manda na etapa: produto com camada de limpeza não fica depois do banho', () => {
+    expect(productStep(P('x', { group: 'limpeza', name: 'Sensibio H2O', step: 'pos', layer: 'rosto_limpeza' }))).toBe('banho');
   });
   it('cabelo e corpo pelas camadas', () => {
     expect(layerOf(prod('a', { area: 'cabelo', group: 'cabelo', name: 'Genesis Bain Hydra-Fortifiant' }))).toBe('cabelo_shampoo');
@@ -112,5 +125,51 @@ describe('ordem de aplicação', () => {
   it('uso curto: o da dermatologista ou o começo do modo de uso', () => {
     expect(shortUse({ howShort: 'Duas gotas.' })).toBe('Duas gotas.');
     expect(shortUse({ info: { howToUse: 'Aplique à noite. Espere secar. Depois hidrate. Evite olhos.' } })).toBe('Aplique à noite. Espere secar.');
+  });
+});
+
+describe('ordem dentro da camada', () => {
+  const P = (id: string, x: Partial<Product>) => prod(id, x);
+  it('textura pelo nome quando a dermatologista não definiu', () => {
+    expect(textureOf(P('a', { group: 'seruns', name: 'Madagascar Centella Ampoule' }))).toBe('serum');
+    expect(textureOf(P('b', { group: 'hidratacao', name: 'Atobarrier 365 Cream' }))).toBe('creme');
+    expect(textureOf(P('c', { group: 'fps', name: 'Airy Sunstick Smoothing Bar SPF 50+' }))).toBe('balm');
+    expect(textureOf(P('d', { group: 'seruns', name: 'RetrinAL Oil Control' }))).not.toBe('oleo');
+    expect(textureOf(P('e', { group: 'seruns', name: 'Sérum X', texture: 'oleo' }))).toBe('oleo');
+  });
+  it('vitamina C primeiro, depois da textura mais fina à mais densa; empate mantém a ordem dela', () => {
+    const list = [
+      P('cent', { group: 'seruns', name: 'Centella Ampoule', layer: 'rosto_serum', layerPos: 10 }),
+      P('oil', { group: 'seruns', name: 'Overnight Reset', layer: 'rosto_serum', layerPos: 20, texture: 'oleo' }),
+      P('calm', { group: 'seruns', name: 'Calming Serum', layer: 'rosto_serum', layerPos: 30 }),
+      P('vitc', { group: 'seruns', name: 'Glutathione Serum', layer: 'rosto_serum', layerPos: 40, info: { actives: ['Vitamina C'] } })
+    ];
+    const patches = ruleOrderPatches(list);
+    const pos = new Map(list.map((p) => [p.id, patches.find((x) => x.id === p.id)?.layerPos ?? p.layerPos]));
+    expect([...pos.entries()].sort((a, b) => a[1]! - b[1]!).map(([id]) => id)).toEqual(['vitc', 'cent', 'calm', 'oil']);
+  });
+});
+
+describe('checagem da rotina da semana', () => {
+  const P = (id: string, x: Partial<Product>) => prod(id, x);
+  const fps = P('fps', { group: 'fps', name: 'Sun Serum' });
+  const gel = P('gel', { group: 'limpeza', name: 'Gel de limpeza' });
+  const ret = P('ret', { group: 'tratamentos', name: 'Retinol 0.3', active: true });
+  const bha = P('bha', { group: 'tratamentos', name: 'Ácido Salicílico BHA 2%', active: true });
+  const aze = P('aze', { group: 'tratamentos', name: 'Azelan gel', active: true, info: { actives: ['ácido azelaico 15%'] } });
+  const products = [fps, gel, ret, bha, aze];
+  const empty = { add: [], remove: [] };
+  it('aponta manhã sem protetor, retinoide com ácido no mesmo dia e dois ativos juntos', () => {
+    const skin = {
+      am: { base: ['gel'], days: { 1: { add: ['bha'], remove: [] } } },
+      pm: { base: ['gel'], days: { 1: { add: ['ret'], remove: [] }, 2: { add: ['bha', 'aze'], remove: [] } } },
+      recovery: { am: [], pm: [] }
+    } as any;
+    const ids = auditSkinPlan(skin, products).map((a) => a.id);
+    expect(ids).toEqual(expect.arrayContaining(['fps', 'ret_acido', 'dois_ativos']));
+  });
+  it('rotina coerente não gera alerta', () => {
+    const skin = { am: { base: ['gel', 'fps'], days: {} }, pm: { base: ['gel'], days: { 2: { add: ['ret'], remove: [] }, 4: { add: ['bha'], remove: [] }, 6: { ...empty } } }, recovery: { am: [], pm: [] } } as any;
+    expect(auditSkinPlan(skin, products)).toEqual([]);
   });
 });

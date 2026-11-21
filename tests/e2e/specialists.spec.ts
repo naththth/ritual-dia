@@ -75,18 +75,18 @@ test('rotina da noite por etapa e área, com produto que ela já tem', async ({ 
   await page.locator('.sheet [data-testid=product-pick]', { hasText: 'Óleo de pontas' }).click();
   await page.getByRole('button', { name: 'Pronto' }).click();
   await expect(page.getByTestId('skin-sec-pos-cabelo')).toContainText('fora do plano');
-  // Ordem de aplicação: o sérum entra antes do retinol, com número; "Mudar ordem" troca e vale dali em diante.
+  // Ordem de aplicação: o retinol (ativo, pele seca) entra antes do sérum, com número; "Mudar ordem" troca e vale dali em diante.
   await page.getByTestId('skin-add-pos-rosto').click();
   await page.locator('.sheet [data-testid=product-pick]', { hasText: 'Sérum B5' }).click();
   await page.getByRole('button', { name: 'Pronto' }).click();
   const rosto = page.getByTestId('skin-sec-pos-rosto').locator('[data-testid=product-pick]');
-  await expect(rosto.first()).toContainText('Sérum B5');
+  await expect(rosto.first()).toContainText('Retinol 0.3');
   await expect(rosto.first().getByTestId('step-line')).toContainText('Passo 1');
   await page.getByTestId('reorder-pos-rosto').click();
   await page.getByTestId('reorder-row').first().getByRole('button', { name: 'Descer' }).click();
-  await expect(page.getByTestId('reorder-row').first()).toContainText('Retinol 0.3');
+  await expect(page.getByTestId('reorder-row').first()).toContainText('Sérum B5');
   await page.getByTestId('reorder-pos-rosto').click();
-  await expect(rosto.first()).toContainText('Retinol 0.3');
+  await expect(rosto.first()).toContainText('Sérum B5');
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/rotina-etapas.png', fullPage: true });
   await page.getByTestId('skin-save').click();
   await expect(page.getByTestId('skin-screen')).toBeHidden();
