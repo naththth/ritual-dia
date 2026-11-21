@@ -53,6 +53,19 @@ function AlertCard({ a, compact }: { a: MindAlert; compact?: boolean }) {
 /** Folha para anotar café: abre pelo + do Hoje, pela linha de café e pela aba Mente.
  *  O horário começa em agora (ou 09:00 em outro dia) e pode ser trocado antes de anotar;
  *  os cafés já anotados também têm o horário editável. */
+/** Xícara desenhada no tamanho da dose: 1 espresso, 2 xícara, 3 caneca. */
+function CupArt({ size }: { size: 1 | 2 | 3 }) {
+  const w = [0, 30, 40, 48][size], h = [0, 22, 32, 42][size];
+  return (
+    <svg width="64" height="54" viewBox="0 0 64 54" aria-hidden>
+      <g className="art-steam" fill="none" stroke="#C9B691" strokeWidth="2" strokeLinecap="round"><path d={`M${28 - w / 6} ${50 - h - 8} c -3 -4 3 -6 0 -10`} /><path className="s2" d={`M${32 + w / 6} ${50 - h - 8} c -3 -4 3 -6 0 -10`} /></g>
+      <path d={`M${32 - w / 2} ${50 - h} h${w} v${h - 8} a8 8 0 0 1 -8 8 h${-(w - 16)} a8 8 0 0 1 -8 -8 z`} fill="#6A3A1E" />
+      <rect x={32 - w / 2 + 3} y={50 - h + 3} width={w - 6} height="4" rx="2" fill="#B5643A" />
+      <path d={`M${32 + w / 2} ${50 - h + 6} h4 a6 6 0 0 1 0 12 h-4`} fill="none" stroke="#6A3A1E" strokeWidth="3.5" />
+    </svg>
+  );
+}
+
 export function CoffeeSheet({ open, onClose, date }: { open: boolean; onClose: () => void; date: DateKey }) {
   const settings = useSettings();
   const list = useByDate('caffeine', date);
@@ -65,23 +78,43 @@ export function CoffeeSheet({ open, onClose, date }: { open: boolean; onClose: (
   const add = async (label: string, n: number) => { await addCaffeine(date, label, n, time); toast(`${label} anotado às ${time}`); onClose(); };
   return (
     <Sheet open={open} onClose={onClose} title="Café" sub={date === todayKey() ? 'Hoje' : shortLabel(date)} testId="coffee-sheet">
-      <div className="row-item" style={{ minHeight: 52 }}>
-        <span className="grow"><span className="t">Horário</span></span>
+      {/* Antes de escolher: quanto já foi hoje e quando foi o último. 400 mg/dia é a referência geral para adultos. */}
+      {(() => {
+        const total = sorted.reduce((x, c) => x + (c.mg ?? 0), 0);
+        const last = sorted[sorted.length - 1];
+        const late = Number(time.slice(0, 2)) >= 14;
+        return (
+          <div className="cf-sum" data-testid="coffee-summary">
+            <div className="row between" style={{ alignItems: 'baseline' }}>
+              <span><b className="num">{total}</b> mg hoje</span>
+              <span className="small">{last ? `último às ${last.time}` : 'nenhum ainda'}</span>
+            </div>
+            <span className="cf-bar"><i style={{ width: `${Math.min(100, (total / 400) * 100)}%` }} /></span>
+            <span className="tiny">referência: até 400 mg por dia</span>
+            {late && <span className="cf-warn">Depois das 14h, parte da cafeína ainda estará no corpo na hora de deitar.</span>}
+          </div>
+        );
+      })()}
+      <div className="cf-time">
+        <span>Horário</span>
         <TimeInput value={time} onChange={setTime} label="Horário do café" style={{ width: 84, textAlign: 'center' }} />
       </div>
-      <div className="stack">
-        {drinks.map((d) => (
-          <button key={d.id} className="row-item tap" style={{ width: '100%', textAlign: 'left' }} onClick={() => void add(d.label, d.mg)} data-testid={`drink-${d.id}`}>
-            <Coffee size={18} />
-            <span className="grow"><span className="t">{d.label}</span><span className="s"> · cerca de {d.mg} mg</span></span>
-            <Plus size={18} />
-          </button>
-        ))}
+      <div className="cf-grid">
+        {drinks.map((d) => {
+          const big = d.mg >= 140 ? 3 : d.mg >= 90 ? 2 : 1;
+          return (
+            <button key={d.id} className="cf-tile tap" onClick={() => void add(d.label, d.mg)} data-testid={`drink-${d.id}`}>
+              <CupArt size={big} />
+              <span className="cf-l">{d.label}</span>
+              <span className="cf-mg">{d.mg} mg <Plus size={14} /></span>
+            </button>
+          );
+        })}
       </div>
       {sorted.length > 0 && <>
         <span className="label">Já anotados</span>
         {sorted.map((c) => (
-          <div key={c.id} className="row-item" data-testid={`coffee-row-${c.id}`}>
+          <div key={c.id} className="row-item cf-row" data-testid={`coffee-row-${c.id}`}>
             <TimeInput value={c.time} onChange={(v) => void update<'caffeine'>(c.id, { time: v })} label={`Horário do ${c.label}`} style={{ width: 72, textAlign: 'center' }} />
             <span className="grow">{c.label} <span className="muted">· {c.mg} mg</span></span>
             <button className="icon-btn" aria-label="Apagar" onClick={() => void remove(c.id)}><Trash2 size={16} /></button>
@@ -324,26 +357,40 @@ export function CheckinScreen() {
           <span className="label">Como você acordou?</span>
           <div className="chips">{WAKE_OPTIONS.map((o) => <Chip key={o.id} on={st.wake === o.id} onClick={() => set({ wake: st.wake === o.id ? undefined : o.id })} testId={`wake-${o.id}`}>{o.label}</Chip>)}</div>
         </>}
-        <span className="label">{period === 'am' ? 'Humor agora' : 'Humor do dia'}</span>
-        <div className="mood-scale" role="radiogroup" aria-label="Humor de −3 a +3">
-          {[-3, -2, -1, 0, 1, 2, 3].map((n) => (
-            <button key={n} role="radio" aria-checked={st.mood === n} className={`ms-btn ${st.mood === n ? 'on' : ''} ${n < 0 ? 'neg' : n > 0 ? 'pos' : 'zero'}`} onClick={() => set({ mood: st.mood === n ? undefined : n })} data-testid={`mood-${n}`}>{signed(n)}</button>
-          ))}
-        </div>
-        <p className="small muted" style={{ margin: '6px 0 0', minHeight: 20 }}>{st.mood != null ? MOOD_LABEL[String(st.mood)] : 'De −3 (muito para baixo) a +3 (muito acelerada). 0 é o seu normal.'}</p>
-        {period === 'pm' && <>
-          {SLIDERS.map((s) => (
-            <div key={s.key}>
-              <span className="label" style={{ marginTop: 14 }}>{s.label}</span>
-              <div className="mood-scale small-scale">
-                {[0, 1, 2, 3, 4].map((n) => (
-                  <button key={n} className={`ms-btn ${(st as any)[s.key] === n ? 'on' : ''}`} onClick={() => set({ [s.key]: (st as any)[s.key] === n ? undefined : n } as any)} data-testid={`${s.key}-${n}`}>{n}</button>
-                ))}
-              </div>
-            </div>
-          ))}
-          <p className="tiny muted" style={{ marginTop: 6 }}>0 é nada, 4 é muito.</p>
-        </>}
+        {/* Humor: o arco responde na hora ao toque; a fileira vai do ameixa (para baixo) ao terracota (acelerada). */}
+        <section className="ck-mood">
+          <span className="h2-k">{period === 'am' ? 'Humor agora' : 'Humor do dia'}</span>
+          <div className="arc-wrap">
+            <Arc f={st.mood != null ? (st.mood + 3) / 6 : 0.5} from="#7A3352" to="#EDC15A" knob={st.mood != null ? '#FAF6EC' : 'rgba(250,246,236,.25)'} label="Humor de −3 a +3" />
+            <div className="arc-mid"><div className="h2-v num">{st.mood != null ? signed(st.mood) : '?'}</div><div className="ck-word">{st.mood != null ? MOOD_LABEL[String(st.mood)] : 'Toque no número que mais se parece com hoje'}</div></div>
+          </div>
+          <div className="mood-scale ck-row" role="radiogroup" aria-label="Humor de −3 a +3">
+            {[-3, -2, -1, 0, 1, 2, 3].map((n) => (
+              <button key={n} role="radio" aria-checked={st.mood === n} className={`ms-btn m${n + 3} ${st.mood === n ? 'on' : ''}`} onClick={() => set({ mood: st.mood === n ? undefined : n })} data-testid={`mood-${n}`}>{signed(n)}</button>
+            ))}
+          </div>
+          <div className="ck-ends"><span>muito para baixo</span><span>seu normal</span><span>muito acelerada</span></div>
+        </section>
+        {period === 'pm' && (
+          <section className="ck-scales">
+            <span className="label" style={{ marginTop: 0 }}>Corpo e cabeça hoje</span>
+            {SLIDERS.map((sl) => {
+              const v = (st as any)[sl.key] as number | undefined;
+              const good = sl.key === 'energy';
+              const WORD = ['nada', 'pouca', 'média', 'bastante', 'muita'];
+              return (
+                <div key={sl.key} className={`ck-sl ${good ? 'good' : 'bad'}`}>
+                  <div className="row between"><b>{sl.label}</b><span className="ck-v">{v != null ? WORD[v] : '–'}</span></div>
+                  <div className="ck-seg" role="radiogroup" aria-label={`${sl.label} de 0 a 4`}>
+                    {[0, 1, 2, 3, 4].map((n) => (
+                      <button key={n} role="radio" aria-checked={v === n} aria-label={`${n}, ${WORD[n]}`} className={`${v != null && n <= v ? 'fill' : ''} ${v === n ? 'on' : ''}`} onClick={() => set({ [sl.key]: v === n ? undefined : n } as any)} data-testid={`${sl.key}-${n}`}><span>{n}</span></button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </section>
+        )}
         <span className="label">O que marcou {period === 'am' ? 'a noite' : 'o dia'}</span>
         <div className="chips">{CONTEXT_TAGS.map((t) => <Chip key={t} on={st.tags?.includes(t)} onClick={() => set({ tags: st.tags?.includes(t) ? st.tags.filter((x) => x !== t) : [...(st.tags ?? []), t] })}>{t}</Chip>)}</div>
         <span className="label">Uma linha, se quiser</span>

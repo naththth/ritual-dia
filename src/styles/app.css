@@ -2332,3 +2332,38 @@ html:has(.save-bar) { scroll-padding-bottom: calc(170px + var(--safe-b)); }
 body:has(.save-bar) .screen { padding-bottom: calc(200px + var(--safe-b)); }
 html:has(.save-bar) { scroll-padding-bottom: calc(190px + var(--safe-b)); }
 body:has(.save-bar) .toasts { bottom: calc(164px + var(--safe-b)); }
+
+/* ===================== Check-in (Como estou / Fechar o dia) ===================== */
+.ck-mood { position: relative; overflow: hidden; border-radius: 30px; background: #3A1426; color: #F6DDE3; padding: 18px 16px 16px; margin: 6px 0 14px; }
+.ck-mood::before { content: ''; position: absolute; left: 50%; top: 30px; width: 260px; height: 200px; margin-left: -130px; border-radius: 50%; background: radial-gradient(circle, #C0582C 0%, rgba(58,20,38,0) 70%); filter: blur(16px); opacity: .8; pointer-events: none; }
+.ck-mood > * { position: relative; }
+.ck-mood .h2-k { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.ck-mood .h2-v { font-family: var(--f-display); font-weight: 700; font-size: 52px; line-height: 1; color: #fff; }
+.ck-word { font-size: 14px; margin-top: 4px; padding: 0 30px; line-height: 1.3; }
+.ck-row { margin-top: 10px; gap: 5px; }
+.ck-row .ms-btn { height: 46px; border-radius: 14px; border: 0; font-weight: 800; font-size: 15px; color: #2A1A10; opacity: .55; transition: opacity .15s, transform .15s; }
+.ck-row .ms-btn.on { opacity: 1; transform: translateY(-3px); box-shadow: 0 0 0 3px #3A1426, 0 0 0 5px #FAF6EC; }
+.ck-row .m0 { background: #5A1E37; color: #F6DDE3; } .ck-row .m1 { background: #A1456B; color: #FFF; } .ck-row .m2 { background: #D18E97; }
+.ck-row .m3 { background: #E9DCC8; } .ck-row .m4 { background: #EDC15A; } .ck-row .m5 { background: #E8875A; } .ck-row .m6 { background: #C0582C; color: #FFF2E4; }
+.ck-ends { display: flex; justify-content: space-between; font-size: 11.5px; margin-top: 8px; opacity: .85; }
+.ck-scales { background: var(--card); border-radius: 26px; padding: 16px; margin-bottom: 14px; display: flex; flex-direction: column; gap: 14px; }
+.ck-sl b { font-size: 15px; }
+.ck-v { font-size: 13px; font-weight: 700; color: var(--ink-2); }
+.ck-seg { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; margin-top: 8px; }
+.ck-seg button { height: 40px; border-radius: 12px; border: 0; background: var(--paper-2); color: var(--ink-3); font-weight: 700; font-size: 13px; }
+.ck-sl.good .ck-seg button.fill { background: #8DB6AC; color: var(--blue-ink); }
+.ck-sl.good .ck-seg button.on { background: var(--blue-ink); color: var(--paper); }
+.ck-sl.bad .ck-seg button.fill { background: #EBBFC2; color: #5A1E37; }
+.ck-sl.bad .ck-seg button.on { background: #A1456B; color: #fff; }
+/* Café: resumo do dia, horário e as doses como cards com a xícara no tamanho */
+.cf-sum { background: #3A2416; color: #F2E3CF; border-radius: 22px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.cf-sum b { font-family: var(--f-display); font-size: 30px; color: #fff; }
+.cf-bar { display: block; height: 8px; border-radius: 9px; background: rgba(255,255,255,.14); }
+.cf-bar i { display: block; height: 8px; border-radius: 9px; background: #D9A46A; }
+.cf-warn { margin-top: 4px; background: rgba(237,193,90,.18); color: #F4D78E; border-radius: 12px; padding: 8px 10px; font-size: 12.5px; }
+.cf-time { display: flex; align-items: center; justify-content: space-between; background: var(--card); border-radius: 18px; padding: 8px 8px 8px 16px; margin-bottom: 10px; font-weight: 700; }
+.cf-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.cf-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 12px; border-radius: 20px; background: var(--card); text-align: left; min-height: 150px; }
+.cf-tile .cf-l { font-weight: 700; font-size: 14px; line-height: 1.25; }
+.cf-tile .cf-mg { margin-top: auto; display: inline-flex; align-items: center; gap: 4px; background: #EADBC6; color: #6A3A1E; border-radius: 999px; padding: 4px 10px; font-size: 12.5px; font-weight: 700; }
+.cf-row { background: var(--card); border-radius: 18px; padding: 6px 10px; margin-bottom: 6px; border-bottom: 0 !important; }

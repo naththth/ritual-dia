@@ -31,15 +31,15 @@ export function RegisterSheet({ open, onClose }: { open: boolean; onClose: () =>
     { icon: <Upload size={22} />, label: 'Treino do arquivo .FIT', color: 'var(--blue)', on: () => fileRef.current?.click() },
     { icon: <Dumbbell size={22} />, label: 'Treino sem arquivo', color: 'var(--blue)', on: () => go('/treino/registrar?novo=1') },
     { icon: <Coffee size={22} />, label: 'Café', color: 'var(--lilac)', on: () => { onClose(); afterSheetClose(() => setCoffee(true)); }, testId: 'reg-coffee' },
-    { icon: <Pill size={22} />, label: 'Remédios e vitaminas', color: 'var(--lilac)', on: () => go('/mente') },
+    { icon: <Pill size={22} />, label: 'Remédios e vitaminas', color: 'var(--lilac)', on: () => go('/mente/tomo') },
     { icon: <Smile size={22} />, label: 'Como estou', color: 'var(--lilac)', on: () => go(`/mente/checkin?p=${new Date().getHours() < 12 ? 'am' : 'pm'}&d=${date}`) },
-    { icon: <SquareCheck size={22} />, label: 'Hábito', color: 'var(--olive)', on: () => setSub('habit') },
-    { icon: <ListPlus size={22} />, label: 'Nova tarefa', color: 'var(--wine-ink)', on: () => setSub('task') },
-    { icon: <Ruler size={22} />, label: 'Medida de meta', color: 'var(--paper-2)', on: () => setSub('measure') }
+    { icon: <SquareCheck size={22} />, label: 'Hábito', color: 'var(--olive)', on: () => { onClose(); afterSheetClose(() => setSub('habit')); } },
+    { icon: <ListPlus size={22} />, label: 'Nova tarefa', color: 'var(--wine-ink)', on: () => { onClose(); afterSheetClose(() => setSub('task')); } },
+    { icon: <Ruler size={22} />, label: 'Medida de meta', color: 'var(--paper-2)', on: () => { onClose(); afterSheetClose(() => setSub('measure')); } }
   ];
   return (
     <>
-      <Sheet open={open && !sub} onClose={onClose} title="Registrar" sub={`Em ${shortLabel(date)}`} testId="register-sheet">
+      <Sheet open={open} onClose={onClose} title="Registrar" sub={`Em ${shortLabel(date)}`} testId="register-sheet">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           {/* Ícone no topo e nome logo abaixo: nomes de uma e de duas linhas começam na mesma altura. */}
           {items.map((it) => (
@@ -57,9 +57,9 @@ export function RegisterSheet({ open, onClose }: { open: boolean; onClose: () =>
           if (last) { useApp.getState().setDate(last); afterSheetClose(() => nav('/treino')); }
         }} />
       </Sheet>
-      <HabitQuick open={open && sub === 'habit'} onClose={() => { setSub(null); onClose(); }} />
-      <TaskSheet open={open && sub === 'task'} onClose={() => { setSub(null); onClose(); }} defaults={{ plannedDate: date }} />
-      <MeasureSheet open={open && sub === 'measure'} onClose={() => { setSub(null); onClose(); }} />
+      <HabitQuick open={sub === 'habit'} onClose={() => setSub(null)} />
+      <TaskSheet open={sub === 'task'} onClose={() => setSub(null)} defaults={{ plannedDate: date }} />
+      <MeasureSheet open={sub === 'measure'} onClose={() => setSub(null)} />
       <CoffeeSheet open={coffee} date={date} onClose={() => setCoffee(false)} />
     </>
   );
