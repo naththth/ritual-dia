@@ -1,3 +1,5 @@
+import { FoodStack, FoodThumb } from '../food-ui';
+import { ActivityArt, activityKind } from '../../ui/activity';
 import { useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { planFor } from '../../domain/rules';
@@ -128,6 +130,7 @@ export function Foods() {
       {list.map((f) => (
         <div key={f.id} className="lib-item">
           <button className="icon-btn" aria-label={f.favorite ? 'Tirar dos favoritos' : 'Favoritar'} onClick={() => update<'food'>(f.id, { favorite: !f.favorite })}><Star size={20} fill={f.favorite ? 'var(--honey-2)' : 'none'} /></button>
+          <button className="lib-thumb" onClick={() => setEdit(f)} aria-hidden tabIndex={-1}><FoodThumb food={f} size={48} radius={14} /></button>
           <button className="grow tap" onClick={() => setEdit(f)}><span style={{ fontWeight: 650 }}>{f.name}</span><br /><span className="small muted">{f.type}. Porções: {f.portions.join(', ')}</span></button>
           {arch && <button className="icon-btn" aria-label="Restaurar" onClick={() => update<'food'>(f.id, { archived: false })}><ArchiveRestore size={20} /></button>}
         </div>
@@ -158,6 +161,7 @@ export function MealTemplates() {
       <AddButton label="Nova refeição favorita" onClick={() => setEdit({ name: '', items: [] })} />
       {(tmpls ?? []).filter((t) => !t.archived).map((t) => (
         <button key={t.id} className="lib-item" onClick={() => setEdit(t)}>
+          <FoodStack foods={t.items.map((i) => foods?.find((f) => f.id === i.foodId))} size={40} />
           <span className="grow"><span style={{ fontWeight: 650 }}>{t.name}</span><br /><span className="small muted">{t.items.map((i) => `${foods?.find((f) => f.id === i.foodId)?.name ?? '?'} ${i.portion}`).join(', ')}</span></span>
         </button>
       ))}
@@ -211,6 +215,7 @@ export function Modalities() {
       <ArchToggle on={arch} set={setArch} />
       {(mods ?? []).filter((m) => !!m.archived === arch).sort((a, b) => a.order - b.order).map((m) => (
         <div key={m.id} className="lib-item">
+          <ActivityArt thumb kind={activityKind(m.name)} />
           <button className="grow tap" onClick={() => setEdit(m)} style={{ fontWeight: 650 }}>{m.name}</button>
           {arch && <button className="icon-btn" aria-label="Restaurar" onClick={() => update<'modality'>(m.id, { archived: false })}><ArchiveRestore size={20} /></button>}
         </div>
@@ -253,10 +258,13 @@ export function WorkoutTemplates() {
       {(tmpls ?? []).filter((t) => !t.archived).map((t) => {
         const ds = daysOf(t.id);
         return (
-          <button key={t.id} className="lib-item" onClick={() => setEdit(t)}>
-            <span className="grow"><span style={{ fontWeight: 650 }}>{t.name}</span><br />
-              <span className="small muted">{mods?.find((m) => m.id === t.modalityId)?.name}, {t.duration} min, {t.intensity}</span><br />
-              <span className="small" style={{ fontWeight: 650 }}>{ds.length ? `No plano: ${ds.join(', ')}` : 'Fora do plano da semana'}</span></span>
+          <button key={t.id} className="lib-item ses-card" onClick={() => setEdit(t)}>
+            <ActivityArt thumb kind={activityKind(t.name, mods?.find((m) => m.id === t.modalityId)?.name)} />
+            <span className="grow">
+              <b className="ses-t">{t.name}</b>
+              <span className="ses-chips"><span className="chip">{mods?.find((m) => m.id === t.modalityId)?.name}</span><span className="chip">{t.duration} min</span><span className={`chip int-${t.intensity}`}>{t.intensity}</span></span>
+              <span className="ses-days">{ds.length ? ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'].map((x) => <i key={x} className={ds.includes(x) ? 'on' : ''}>{x[0].toUpperCase()}</i>) : <span className="small muted">Fora do plano da semana</span>}</span>
+            </span>
           </button>
         );
       })}

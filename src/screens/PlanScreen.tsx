@@ -1,3 +1,4 @@
+import { ActivityArt, activityKind } from '../ui/activity';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageHead , useBack } from './common';
@@ -207,6 +208,7 @@ function ProductToggleList({ products, selected, onToggle }: { products: Product
 export function TrainingPlan({ embedded = false }: { embedded?: boolean } = {}) {
   const { plans, current } = useCurrent('training');
   const tmpls = useAll('wtemplate');
+  const mods = useAll('modality');
   const nav = useNavigate();
   const back = useBack();
   const [d, setD] = useState<Record<number, string[]> | null>(null);
@@ -231,6 +233,13 @@ export function TrainingPlan({ embedded = false }: { embedded?: boolean } = {}) 
       {DAYS.map((wd) => (
         <div key={wd} className="plan-day" data-testid={`tplan-${wd}`}>
           <div className="row between"><span className="dn">{WEEKDAY_LONG[wd]}</span><span className={`plan-tag ${d[wd]?.length ? 'on' : ''}`}>{d[wd]?.length ? `${d[wd].length} ${d[wd].length === 1 ? 'treino' : 'treinos'}` : 'Descanso'}</span></div>
+          {d[wd]?.length ? (
+            <div className="plan-picked">
+              {d[wd].map((id) => active.find((t) => t.id === id)).filter(Boolean).map((t) => (
+                <div key={t!.id} className="pp-row"><ActivityArt thumb kind={activityKind(t!.name, mods?.find((m) => m.id === t!.modalityId)?.name)} /><span className="grow"><b>{t!.name}</b><span className="small muted">{[t!.time, `${t!.duration} min`, t!.intensity].filter(Boolean).join(' · ')}</span></span></div>
+              ))}
+            </div>
+          ) : null}
           <div className="chips plan-opts" style={{ marginTop: 8 }}>
             {active.map((t) => {
               const on = d[wd]?.includes(t.id);

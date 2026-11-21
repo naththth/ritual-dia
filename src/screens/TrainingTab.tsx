@@ -21,7 +21,8 @@ import { MicButton, appendText } from '../ui/Dictation';
 import type { StrengthExercise, Workout, WorkoutTemplate } from '../db/types';
 import { programFor, lpoProgram, lpoFromText, LPO_GROUP, defaultExercises, reconcileWithNote, noteWithExercises, parseNoteLine, loadText, topLoad, loadsPerSet, exerciseVolume, repsPerSet, repsText } from '../domain/strength';
 import { ExerciseEditor, LogExercises } from './strength-ui';
-import { Arc, SportScene } from '../ui/art';
+import { Arc } from '../ui/art';
+import { ActivityArt, activityKind } from '../ui/activity';
 import { SessionHero, FeelCard, SessionExercises } from './session-ui';
 import { aiAvailable, askAI, applyTrainingResult } from '../domain/ai';
 import { fmt } from '../domain/nutrition';
@@ -192,7 +193,9 @@ export function TrainingTab() {
             const swapped = dayDone.find((w) => !daySlots.some((x) => x.workoutId === w.id));
             return (
               <TItem key={t.id} kind="planned" testId="planned-item" open={openSet.has(t.id)} onToggle={() => toggle(t.id)}
-                title={t.name} meta={[modName(t.modalityId), `${t.duration} min`, t.intensity].join(' · ')} time={t.time}
+                title={t.name} time={t.time}
+                cover={<ActivityArt kind={activityKind(t.name, modName(t.modalityId))} exercises={isMuscle(t.modalityId) ? programFor(t, history ?? [], date).exercises : undefined} />}
+                chips={<><span className="chip">{modName(t.modalityId)}</span><span className="chip">{t.duration} min</span><span className={`chip int-${t.intensity}`}>{t.intensity}</span></>}
                 preview={<>
                   {swapped && (
                     <div className="swap-ask" data-testid="swap-ask">
@@ -256,21 +259,20 @@ export function TrainingTab() {
             <h2 className="sec-h">Próximos treinos</h2>
             {(() => {
               const { d, t } = ahead[0];
-              const nm = `${t.name} ${modName(t.modalityId)}`;
-              const sport = /nata|swim|piscina/i.test(nm) ? 'swim' : /pedal|bike|ciclis/i.test(nm) ? 'bike' : /corr|run|trote/i.test(nm) ? 'run' : isMuscle(t.modalityId) || isLpo(t.modalityId) ? 'strength' : 'run';
               return (
                 <button className="up-hero" onClick={() => setDate(d)} data-testid="training-next">
-                  <SportScene sport={sport} />
+                  <ActivityArt kind={activityKind(t.name, modName(t.modalityId))} exercises={isMuscle(t.modalityId) ? programFor(t, history ?? [], d).exercises : undefined} />
                   <span className="uh-in">
-                    <span className="uh-k">{d === addDays(todayKey(), 1) ? 'Amanhã' : `${WEEKDAY_SHORT[isoWeekday(d)]} ${dayNum(d)}`}{t.time ? ` · ${t.time}` : ''}{t.intensity ? ` · ${t.intensity}` : ''}</span>
+                    <span className="uh-k">{d === addDays(todayKey(), 1) ? 'Amanhã' : `${WEEKDAY_SHORT[isoWeekday(d)]} ${dayNum(d)}`}{t.time ? ` · ${t.time}` : ''}</span>
                     <b className="uh-t">{t.name}</b>
-                    <span className="uh-chips">{[modName(t.modalityId), `${t.duration} min`].map((x) => <span key={x} className="chip">{x}</span>)}</span>
+                    <span className="uh-chips"><span className="chip">{modName(t.modalityId)}</span><span className="chip">{t.duration} min</span><span className={`chip int-${t.intensity}`}>{t.intensity}</span></span>
                   </span>
                 </button>
               );
             })()}
             {ahead.slice(1).map(({ d, t }) => (
               <button key={`${d}-${t.id}`} className="up-row" onClick={() => setDate(d)}>
+                <ActivityArt thumb kind={activityKind(t.name, modName(t.modalityId))} />
                 <span className="up-day"><b>{WEEKDAY_LETTER[isoWeekday(d)]}</b><span className="num">{dayNum(d)}</span></span>
                 <span className="grow"><b>{t.name}</b><span className="small muted">{[t.time, `${t.duration} min`, t.intensity].filter(Boolean).join(' · ')}</span></span>
                 <ChevronRight size={18} />
@@ -344,11 +346,12 @@ export function TrainingTab() {
 }
 
 /** Item do dia: fechado mostra nome, o essencial e uma prévia; tocar abre os detalhes e as ações. */
-function TItem({ kind, title, meta, time, open, onToggle, preview, children, testId, wide }: {
-  kind: 'done' | 'planned'; title: ReactNode; meta?: string; time?: string; open: boolean; onToggle: () => void; preview?: ReactNode; children: ReactNode; testId: string; wide?: boolean;
+function TItem({ kind, title, meta, time, open, onToggle, preview, children, testId, wide, cover, chips }: {
+  kind: 'done' | 'planned'; title: ReactNode; meta?: string; time?: string; open: boolean; onToggle: () => void; preview?: ReactNode; children: ReactNode; testId: string; wide?: boolean; cover?: ReactNode; chips?: ReactNode;
 }) {
   return (
-    <article className={`titem ${kind} ${open ? 'open' : ''}`} data-testid={testId}>
+    <article className={`titem ${kind} ${open ? 'open' : ''} ${cover ? 'has-cover' : ''}`} data-testid={testId}>
+      {cover && <button className="titem-cover" onClick={onToggle} tabIndex={-1} aria-hidden>{cover}{time && <span className="tc-time num">{time}</span>}</button>}
       <button className="titem-head" aria-expanded={open} onClick={onToggle} data-testid="titem-head">
         <span className="titem-ic" aria-hidden>{kind === 'done' ? <CheckIcon size={15} strokeWidth={3} /> : null}</span>
         <span className="titem-main">
@@ -356,10 +359,11 @@ function TItem({ kind, title, meta, time, open, onToggle, preview, children, tes
           {meta ? <span className="titem-meta">{meta}</span> : null}
         </span>
         <span className="titem-side">
-          {time ? <span className="titem-time num">{time}</span> : null}
+          {time && !cover ? <span className="titem-time num">{time}</span> : null}
           <ChevronDown size={18} className="titem-chev" aria-label={open ? 'Fechar detalhes' : 'Ver detalhes'} />
         </span>
       </button>
+      {chips && <div className="titem-chips">{chips}</div>}
       {preview}
       {open && <div className={`titem-body ${wide ? 'wide' : ''}`}>{children}</div>}
     </article>

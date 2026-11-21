@@ -2111,3 +2111,60 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea
 .cy-ring .big-num { font-family: var(--f-display); font-weight: 700; font-size: 44px; }
 .cal-grid.cal-card { padding: 12px 8px; gap: 2px; }
 .cal-card .cal-day, .cal-card .cal-wd { min-width: 0; }
+
+/* ===================== Atividades: capa e miniatura ===================== */
+.act-art { position: relative; display: block; overflow: hidden; background: var(--blue-ink); flex: 0 0 auto; }
+.act-art svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.act-art img { width: 100%; height: 100%; object-fit: cover; display: block; filter: grayscale(1) contrast(1.05); mix-blend-mode: luminosity; opacity: .9; }
+.act-art.act-lpo { background: #5A1E37; }
+.act-cover { height: 118px; border-radius: 22px 22px 0 0; }
+.act-thumb { width: 56px; height: 56px; border-radius: 18px; }
+.act-thumb svg { width: 240% !important; left: -70% !important; }
+/* Treino planejado: capa da atividade em cima, chips e o horário sobre a capa */
+.titem.planned.has-cover { padding: 0; overflow: hidden; background: var(--card); border-radius: 24px; }
+.titem-cover { position: relative; display: block; width: 100%; padding: 0; }
+.titem-cover .act-cover { border-radius: 0; height: 112px; }
+.titem-cover .tc-time { position: absolute; right: 12px; top: 12px; background: rgba(250,246,236,.92); color: var(--ink); border-radius: 999px; padding: 5px 12px; font-weight: 700; font-size: 13px; }
+.titem.has-cover .titem-head { padding: 12px 14px 4px; }
+.titem.has-cover .titem-ic { display: none; }
+.titem.has-cover .titem-t { font-family: var(--f-display); font-size: 19px; line-height: 1.15; }
+.titem-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 14px 12px; }
+.titem-chips .chip, .uh-chips .chip { height: 28px; padding: 0 11px; font-size: 12.5px; background: var(--paper-2); }
+.chip.int-leve { background: #DCEBE6 !important; color: var(--blue-ink); }
+.chip.int-moderada { background: #F4D78E !important; color: var(--honey-ink); }
+.chip.int-intensa { background: #F2B48C !important; color: #4A1F0A; }
+.titem.has-cover > :not(.titem-cover):not(.titem-head):not(.titem-chips) { margin-left: 14px; margin-right: 14px; }
+.titem.has-cover .titem-body { padding-bottom: 14px; }
+/* Próximo treino: imagem em cima, texto embaixo (sem texto sobre o desenho) */
+.up-hero { height: auto; padding: 0; background: var(--card); display: flex; flex-direction: column; }
+.up-hero .act-cover { height: 130px; border-radius: 0; }
+.up-hero .uh-in { height: auto; padding: 14px 16px 16px; gap: 6px; }
+.up-hero .uh-k { color: var(--ink-2); }
+.up-hero .uh-t { font-size: 22px; max-width: none; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.up-hero .uh-chips { margin-top: 4px; }
+.up-row .act-thumb { width: 52px; height: 52px; border-radius: 16px; }
+/* Treino › Sessões e Plano */
+.ses-card { background: var(--card); border-radius: 24px; padding: 12px 14px; margin-bottom: 10px; border-bottom: 0 !important; align-items: flex-start; }
+.ses-card .ses-t { display: block; font-family: var(--f-display); font-size: 17px; line-height: 1.2; }
+.ses-chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0; }
+.ses-chips .chip { height: 26px; padding: 0 10px; font-size: 12px; background: var(--paper-2); }
+.ses-days { display: flex; gap: 4px; }
+.ses-days i { font-style: normal; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; background: var(--paper-2); color: var(--ink-3); }
+.ses-days i.on { background: var(--blue-ink); color: var(--paper); }
+.plan-day { background: var(--card); border-radius: 24px; padding: 14px 16px; margin-bottom: 10px; border: 0 !important; }
+.plan-day .dn { font-family: var(--f-display); font-size: 19px; font-weight: 700; text-transform: capitalize; }
+.plan-picked { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.pp-row { display: flex; align-items: center; gap: 12px; }
+.pp-row .act-thumb { width: 48px; height: 48px; border-radius: 14px; }
+.pp-row b { display: block; font-size: 15px; }
+.pp-row .small { display: block; }
+.titem.has-cover .titem-head { grid-template-columns: minmax(0, 1fr) auto; display: grid; }
+.act-art.act-lpo { background: var(--blue-ink); }
+.act-thumb svg { width: 260% !important; left: -150% !important; }
+
+/* ===================== Listas das sub-abas em cards ===================== */
+.lib-item { background: var(--card); border-radius: 22px; padding: 10px 14px; margin-bottom: 8px; border-bottom: 0 !important; min-height: 64px; }
+.lib-item:active { transform: scale(.99); }
+.lib-item .lib-icon { width: 44px; height: 44px; border-radius: 14px; background: var(--paper-2); display: grid; place-items: center; flex: 0 0 auto; }
+.lib-item .food-stack { flex: 0 0 auto; }
+.lib-thumb { flex: 0 0 auto; width: auto; padding: 0; min-height: 0; }
