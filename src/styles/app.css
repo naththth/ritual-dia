@@ -2313,3 +2313,13 @@ html { scroll-padding-bottom: calc(100px + var(--safe-b)); }
 body:has(.save-bar) { scroll-padding-bottom: calc(170px + var(--safe-b)); }
 html:has(.save-bar) { scroll-padding-bottom: calc(170px + var(--safe-b)); }
 .app { padding-bottom: calc(84px + var(--safe-b)); }
+/* Hábitos: contagem da semana e as últimas 4 semanas em pontos; Metas: barra de progresso */
+.hb-card, .gl-card { align-items: stretch; padding: 14px 16px; }
+.hb-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.hb-n { font-family: var(--f-display); font-weight: 700; font-size: 22px; color: var(--olive-ink, #33360F); }
+.hb-n small { font-size: 13px; color: var(--ink-2); }
+.hb-grid { display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 3px; margin: 8px 0 6px; }
+.hb-grid i { height: 10px; border-radius: 999px; background: var(--paper-2); }
+.hb-grid i.on { background: var(--olive-ink, #33360F); }
+.gl-bar { display: block; height: 8px; border-radius: 9px; background: var(--paper-2); margin: 8px 0 6px; }
+.gl-bar i { display: block; height: 8px; border-radius: 9px; background: var(--wine); }

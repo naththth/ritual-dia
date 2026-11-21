@@ -312,9 +312,10 @@ export function Habits() {
       <AddButton label="Novo hábito" onClick={() => setEdit({ title: '', freq: 'diaria', target: 1, priority: 'media' })} />
       <ArchToggle on={arch} set={setArch} />
       {(habits ?? []).filter((h) => !!h.archived === arch).sort((a, b) => a.order - b.order).map((h) => (
-        <div key={h.id} className="lib-item">
+        <div key={h.id} className="lib-item hb-card">
           <button className="grow tap" onClick={() => setEdit(h)}>
-            <span style={{ fontWeight: 650 }}>{h.title}</span><br />
+            <span className="hb-top"><span style={{ fontWeight: 700, fontSize: 16 }}>{h.title}</span><span className="hb-n num">{(logs ?? []).filter((l) => l.habitId === h.id && l.done && l.date > addDays(date, -7)).length}<small>{h.freq === 'diaria' ? '/7' : h.freq === 'semanal' ? `/${h.target}` : ''}</small></span></span>
+            <span className="hb-grid" aria-label="Últimas 4 semanas">{Array.from({ length: 28 }, (_, i) => addDays(date, i - 27)).map((d) => <i key={d} className={(logs ?? []).some((l) => l.habitId === h.id && l.done && l.date === d) ? 'on' : ''} />)}</span>
             <span className="small muted">{h.freq === 'diaria' ? 'Diário' : `${h.target}x ${h.freq === 'semanal' ? 'por semana' : 'por mês'}, sem dias fixos`}{h.modalityId ? `. Conta com treinos de ${mods?.find((m) => m.id === h.modalityId)?.name}` : ''}. {logs?.filter((l) => l.habitId === h.id && l.done).length ?? 0} marcações em 4 semanas</span>
           </button>
           {arch && <button className="icon-btn" aria-label="Restaurar" onClick={() => update<'habit'>(h.id, { archived: false })}><ArchiveRestore size={20} /></button>}
@@ -367,8 +368,13 @@ export function Goals() {
       {(goals ?? []).filter((g) => g.status !== 'arquivada').map((g) => {
         const es = (entries ?? []).filter((e) => e.goalId === g.id).sort((a, b) => (a.date < b.date ? 1 : -1));
         return (
-          <button key={g.id} className="lib-item" onClick={() => setEdit(g)}>
-            <span className="grow"><span style={{ fontWeight: 650 }}>{g.title}</span><br />
+          <button key={g.id} className="lib-item gl-card" onClick={() => setEdit(g)}>
+            <span className="grow"><span style={{ fontWeight: 700, fontSize: 16, display: 'block' }}>{g.title}</span>
+              {(() => {
+                const f = g.type === 'marcos' ? (g.milestones.length ? g.milestones.filter((m) => m.done).length / g.milestones.length : 0)
+                  : es[0] && g.targetValue != null && g.startValue != null && g.targetValue !== g.startValue ? (es[0].value - g.startValue) / (g.targetValue - g.startValue) : undefined;
+                return f != null ? <span className="gl-bar"><i style={{ width: `${Math.round(Math.max(0, Math.min(1, f)) * 100)}%` }} /></span> : null;
+              })()}
               <span className="small muted">{g.type === 'marcos' ? `${g.milestones.filter((m) => m.done).length} de ${g.milestones.length} marcos` : es[0] ? `Última medida: ${es[0].value} ${g.unit ?? ''} em ${shortLabel(es[0].date)}` : 'Sem medidas ainda'}{g.status === 'concluida' ? '. Concluída' : ''}</span></span>
           </button>
         );
