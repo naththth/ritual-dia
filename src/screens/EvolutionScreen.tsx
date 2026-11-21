@@ -178,7 +178,7 @@ export function EvolutionScreen() {
       </section>
 
       <section className="block b-honey">
-        <div className="bh"><h2>Alimentação</h2></div>
+        <div className="bh"><h2>Dieta</h2></div>
         <div className="row wrap" style={{ gap: '12px 24px', marginBottom: 12 }}>
           <Stat n={mealDays.size} label={`de ${elapsed} ${elapsed === 1 ? 'dia' : 'dias'} com refeição`} />
           {avgKcal != null && <Stat n={fmt(avgKcal)} label="kcal média por dia registrado" />}

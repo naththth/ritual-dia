@@ -208,6 +208,21 @@ export function PeriodSheet({ open, period, onClose }: { open: boolean; period?:
 const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 
 /** Tela completa: situação atual, calendário com previsão, histórico e ajustes. */
+/** O ciclo como um anel de pontos: cada dia na cor da fase e o dia de hoje marcado. */
+function CycleRing({ day, len, per, hormonal }: { day: number; len: number; per: number; hormonal: boolean }) {
+  const R = 96, c = 120, ovu = len - 14;
+  const color = (d: number) => (hormonal ? '#D18E97' : d <= per ? '#C0582C' : d < ovu - 1 ? '#EDC15A' : d <= ovu + 1 ? '#D18E97' : '#CFC1DF');
+  return (
+    <svg width="240" height="240" viewBox="0 0 240 240" role="img" aria-label={`Dia ${day} de ${len}`}>
+      {Array.from({ length: len }, (_, i) => {
+        const d = i + 1, a = (i / len) * 2 * Math.PI - Math.PI / 2;
+        const today = d === Math.min(day, len);
+        return <circle key={d} cx={c + R * Math.cos(a)} cy={c + R * Math.sin(a)} r={today ? 9 : 6} fill={color(d)} stroke={today ? '#2A1A10' : 'none'} strokeWidth={3} opacity={d < day || today ? 1 : 0.55} />;
+      })}
+    </svg>
+  );
+}
+
 export function CycleScreen() {
   const { days, profile, stats, loaded } = useCycle();
   const [sheet, setSheet] = useState<DateKey | null>(null);
@@ -252,10 +267,13 @@ export function CycleScreen() {
   return (
     <div className="screen" data-testid="cycle-screen">
       <PageHead title="Ciclo" withDate={false} />
-      <section className="block b-rose">
+      <section className="block b-paper cy-hero">
         {info ? (
           <>
-            <div className="big-num num" data-testid="cycle-day">Dia {info.day}</div>
+            <div className="cy-ring">
+              <CycleRing day={info.day} len={len} per={per} hormonal={!!cyc.hormonalContraception} />
+              <div className="cy-mid"><div className="big-num num" data-testid="cycle-day">Dia {info.day}</div>{info.phase && <span className="small">fase {PHASE_LABEL[info.phase]}</span>}</div>
+            </div>
             <p style={{ margin: '4px 0 0' }}>{info.phase ? <>Fase {PHASE_LABEL[info.phase]} (estimada). {PHASE_HINT[info.phase]}</> : 'Com anticoncepcional hormonal não há fase natural para estimar; o app acompanha sangramentos e sintomas.'}</p>
             {!cyc.hormonalContraception && <p className="small" style={{ margin: '8px 0 0' }} data-testid="cycle-next">{info.late ? `Atrasada ${info.day - len} dias em relação à média.` : `Próxima menstruação por volta de ${shortLabel(info.nextStart)}${info.daysToNext > 0 ? `, em ${info.daysToNext} dias` : ''}.`}{info.estimated ? ' Previsão ainda aproximada: fica melhor com três ciclos registrados.' : ''}</p>}
           </>

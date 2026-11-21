@@ -19,7 +19,7 @@ export function ListsScreen() {
     <div className="screen" data-testid="lists-screen">
       <TopBar />
       <div className="row between" style={{ margin: '8px 0 14px', alignItems: 'center' }}>
-        <h1 className="page-title" style={{ margin: 0 }}>Tarefas</h1>
+        <h1 className="page-title page-big" style={{ margin: 0 }}>Tarefas</h1>
         <button className="link" onClick={() => nav('/biblioteca/categorias')} data-testid="task-categories"><Tags size={15} style={{ marginRight: 6, verticalAlign: '-2px' }} />Categorias</button>
       </div>
       <GTasksStatus />

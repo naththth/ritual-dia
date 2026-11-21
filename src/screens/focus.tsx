@@ -25,7 +25,7 @@ export function TodayFocus({ date }: { date: DateKey }) {
         <span className="brief-k" style={{ color: 'var(--ink)' }}><RadarIcon size={15} />O que muda hoje</span>
         <button className="link small" style={{ minHeight: 32 }} onClick={() => nav('/indicadores')}><Activity size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />Indicadores</button>
       </div>
-      {total === 0 && <p className="small muted" style={{ margin: '6px 0 0' }}>Nada pedindo atenção agora. Comida, água, treino e recuperação estão no ritmo.</p>}
+      {total === 0 && <p className="small muted" style={{ margin: '6px 0 0' }}>Nada pedindo atenção agora. Dieta, água, treino e recuperação estão no ritmo.</p>}
       {council.length > 0 && <div className="focus-group" data-testid="council">{cShown.map((x, k) => <CouncilItemView key={x.id} x={x} k={k} />)}</div>}
       <div className="focus-group" data-testid="radar">{rShown.map((r) => <RadarItemView key={r.id} r={r} />)}</div>
       {(hidden > 0 || all) && total > SHOW && (

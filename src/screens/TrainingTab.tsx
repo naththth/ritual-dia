@@ -21,6 +21,7 @@ import { MicButton, appendText } from '../ui/Dictation';
 import type { StrengthExercise, Workout, WorkoutTemplate } from '../db/types';
 import { programFor, lpoProgram, lpoFromText, LPO_GROUP, defaultExercises, reconcileWithNote, noteWithExercises, parseNoteLine, loadText, topLoad, loadsPerSet, exerciseVolume, repsPerSet, repsText } from '../domain/strength';
 import { ExerciseEditor, LogExercises } from './strength-ui';
+import { Arc, SportScene } from '../ui/art';
 import { SessionHero, FeelCard, SessionExercises } from './session-ui';
 import { aiAvailable, askAI, applyTrainingResult } from '../domain/ai';
 import { fmt } from '../domain/nutrition';
@@ -132,7 +133,7 @@ export function TrainingTab() {
     <div className="screen" data-testid="training-tab">
       <TopBar />
       <div className="row between" style={{ alignItems: 'center' }}>
-        <h1 className="page-title">Treino</h1>
+        <h1 className="page-title page-big">Treino</h1>
         <CoachButton />
       </div>
       <AreaNav area="treino" />
@@ -253,7 +254,22 @@ export function TrainingTab() {
         return (
           <section className="upcoming" data-testid="training-upcoming">
             <h2 className="sec-h">Próximos treinos</h2>
-            {ahead.map(({ d, t }) => (
+            {(() => {
+              const { d, t } = ahead[0];
+              const nm = `${t.name} ${modName(t.modalityId)}`;
+              const sport = /nata|swim|piscina/i.test(nm) ? 'swim' : /pedal|bike|ciclis/i.test(nm) ? 'bike' : /corr|run|trote/i.test(nm) ? 'run' : isMuscle(t.modalityId) || isLpo(t.modalityId) ? 'strength' : 'run';
+              return (
+                <button className="up-hero" onClick={() => setDate(d)} data-testid="training-next">
+                  <SportScene sport={sport} />
+                  <span className="uh-in">
+                    <span className="uh-k">{d === addDays(todayKey(), 1) ? 'Amanhã' : `${WEEKDAY_SHORT[isoWeekday(d)]} ${dayNum(d)}`}{t.time ? ` · ${t.time}` : ''}{t.intensity ? ` · ${t.intensity}` : ''}</span>
+                    <b className="uh-t">{t.name}</b>
+                    <span className="uh-chips">{[modName(t.modalityId), `${t.duration} min`].map((x) => <span key={x} className="chip">{x}</span>)}</span>
+                  </span>
+                </button>
+              );
+            })()}
+            {ahead.slice(1).map(({ d, t }) => (
               <button key={`${d}-${t.id}`} className="up-row" onClick={() => setDate(d)}>
                 <span className="up-day"><b>{WEEKDAY_LETTER[isoWeekday(d)]}</b><span className="num">{dayNum(d)}</span></span>
                 <span className="grow"><b>{t.name}</b><span className="small muted">{[t.time, `${t.duration} min`, t.intensity].filter(Boolean).join(' · ')}</span></span>
@@ -273,7 +289,22 @@ export function TrainingTab() {
         const avg = (k: 'sleepH' | 'hrv' | 'restingHR' | 'steps') => { const v = wk.map(pick(k)).filter((x): x is number => x != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : undefined; };
         const sleep = avg('sleepH'), hrv = avg('hrv'), rhr = avg('restingHR'), steps = avg('steps');
         const est = history.filter((w) => w.date >= addDays(todayKey(), -42)).some((w) => workoutLoad(w).estimated);
+        const f = Math.max(0, Math.min(1, (now.tsb + 30) / 55));
         return (
+          <>
+          <section className="hero2" style={{ background: '#0B3E40', color: '#DCEBE6', ['--hero-glow' as string]: '#6FA39A', marginTop: 14 }} data-testid="recovery-arc">
+            <div className="row between"><span className="h2-k">Carga e recuperação</span>{hrv != null && <span className="chip" style={{ background: 'rgba(255,255,255,.10)', color: '#DCEBE6', height: 28 }}>VFC {Math.round(hrv)}</span>}</div>
+            <div className="arc-wrap">
+              <Arc f={f} from="#6FA39A" to="#EDC15A" label={`Forma ${Math.round(now.tsb)}: ${formLabel(now.tsb)}`} />
+              <div className="arc-mid"><div className="h2-v num" style={{ fontSize: 46 }}>{now.tsb > 0 ? '+' : ''}{Math.round(now.tsb)}</div><div style={{ fontSize: 14, marginTop: 4 }}>forma {formLabel(now.tsb)}</div></div>
+            </div>
+            <div className="row between small" style={{ margin: '0 14px', color: '#DCEBE6' }}><span>cansada</span><span>descansada</span></div>
+            <div className="h2-stats">
+              <div><b className="num">{Math.round(now.ctl)}</b>fitness</div>
+              <div><b className="num">{Math.round(now.atl)}</b>fadiga</div>
+              <div><b className="num">{weekTss ? Math.round(weekTss) : '–'}</b>TSS semana</div>
+            </div>
+          </section>
           <Fold title="Carga e recuperação" icon={<Activity size={19} />} testId="recovery"
             summary={[`forma ${formLabel(now.tsb)}`, `fitness ${Math.round(now.ctl)}`, sleep != null ? `sono ${Math.floor(sleep)}h${String(Math.round((sleep % 1) * 60)).padStart(2, '0')}` : '', hrv != null ? `VFC ${Math.round(hrv)}` : ''].filter(Boolean).join(' · ')}>
             <div className="row wrap" style={{ gap: '12px 22px' }}>
@@ -291,6 +322,7 @@ export function TrainingTab() {
             )}
             <p className="tiny muted" style={{ marginBottom: 0 }}>Calculada pelo TSS dos arquivos .FIT{est ? '; treinos sem potência (musculação, aulas) entram por estimativa de duração e intensidade' : ''}. Fica mais precisa depois de algumas semanas de registros.</p>
           </Fold>
+          </>
         );
       })()}
 

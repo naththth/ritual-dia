@@ -45,7 +45,7 @@ test('menu lateral leva a todas as áreas e a Carreira organiza trabalho, marca 
   // Barra de baixo: as quatro áreas mais usadas e o Menu.
   await expect(page.locator('.bottomnav')).toHaveCount(0);
   await page.getByTestId('nav-menu').click();
-  await expect(page.getByTestId('drawer')).toContainText('Alimentação');
+  await expect(page.getByTestId('drawer')).toContainText('Dieta');
   if (process.env.SHOTS) { await page.waitForTimeout(400); await page.screenshot({ path: '/tmp/shots/menu.png' }); }
   await page.getByTestId('dr-carreira').click();
   await expect(page.getByTestId('drawer')).toHaveCount(0);

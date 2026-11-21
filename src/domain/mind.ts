@@ -302,7 +302,7 @@ export function computeAlerts(days: MindDay[], ctx: AlertCtx): MindAlert[] {
   }
   if (today?.sleepH != null && today.sleepH < 6) {
     out.push({ id: 'noite-curta', level: 'atencao', area: 'emagrecimento', title: `Noite de ${h1(today.sleepH)} h`,
-      text: 'Depois de noite curta, fome e vontade de doce tendem a subir. Deixe as refeições do dia definidas cedo e a proteína em todas elas.', action: { label: 'Abrir Alimentação', to: '/alimentacao' } });
+      text: 'Depois de noite curta, fome e vontade de doce tendem a subir. Deixe as refeições do dia definidas cedo e a proteína em todas elas.', action: { label: 'Abrir Dieta', to: '/alimentacao' } });
   }
   const hrvRef = avg(last(28, 3).map((d) => d.hrv));
   const hrv3 = last(3).map((d) => d.hrv);
@@ -343,7 +343,7 @@ export function computeAlerts(days: MindDay[], ctx: AlertCtx): MindAlert[] {
     const trainDays = last(7, 1).filter((d) => d.trainMin > 0 && d.mealsLogged && d.protein != null);
     if (trainDays.length >= 2 && avg(trainDays.map((d) => d.protein))! < ctx.targets.p * 0.8) {
       out.push({ id: 'proteina', level: 'atencao', area: 'emagrecimento', title: 'Proteína baixa nos dias de treino',
-        text: `Média de ${Math.round(avg(trainDays.map((d) => d.protein))!)} g nos dias de treino, para meta de ${ctx.targets.p} g. É a proteína que segura a massa magra no déficit.`, action: { label: 'Abrir Alimentação', to: '/alimentacao' } });
+        text: `Média de ${Math.round(avg(trainDays.map((d) => d.protein))!)} g nos dias de treino, para meta de ${ctx.targets.p} g. É a proteína que segura a massa magra no déficit.`, action: { label: 'Abrir Dieta', to: '/alimentacao' } });
     }
   }
   const wAvg = (from: number) => avg(last(7, from).map((d) => d.weight));

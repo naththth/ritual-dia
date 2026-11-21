@@ -17,12 +17,14 @@ export function CalendarScreen() {
   return (
     <div className="screen" data-testid="calendar-screen">
       <TopBar />
-      <div className="cal-head">
-        <button className="icon-btn" aria-label="Mês anterior" onClick={() => setDate(addMonths(date, -1))}><ChevronLeft size={22} /></button>
-        <h1>{monthTitle(date)}</h1>
-        <button className="icon-btn" aria-label="Próximo mês" onClick={() => setDate(addMonths(date, 1))}><ChevronRight size={22} /></button>
+      <div className="cal-head2">
+        <h1 className="page-big">{monthTitle(date).split(' ')[0].replace(/^./, (c) => c.toUpperCase())}<br /><span className="lt">{monthTitle(date).split(' ')[1]}</span></h1>
+        <span className="row" style={{ gap: 6 }}>
+          <button className="icon-btn ib-round" aria-label="Mês anterior" onClick={() => setDate(addMonths(date, -1))}><ChevronLeft size={20} /></button>
+          <button className="icon-btn ib-round" aria-label="Próximo mês" onClick={() => setDate(addMonths(date, 1))}><ChevronRight size={20} /></button>
+        </span>
       </div>
-      <div className="cal-grid">
+      <div className="cal-grid cal-card">
         {[1, 2, 3, 4, 5, 6, 7].map((i) => <div key={i} className="cal-wd">{WEEKDAY_LETTER[i]}</div>)}
         {grid.map((d) => (
           <button key={d} className={`cal-day ${d.slice(0, 7) !== m.slice(0, 7) ? 'out' : ''} ${d === today ? 'today' : ''} ${d === date ? 'sel' : ''}`}
@@ -33,7 +35,7 @@ export function CalendarScreen() {
         ))}
       </div>
       <div className="row wrap small muted" style={{ gap: 12, margin: '12px 0 4px' }}>
-        <Legend c="var(--rose-2)" t="Pele" /><Legend c="var(--honey-2)" t="Alimentação" /><Legend c="var(--blue-2)" t="Treino" /><Legend c="var(--olive-2)" t="Hábitos" /><Legend c="var(--wine)" t="Tarefa concluída" />
+        <Legend c="var(--rose-2)" t="Pele" /><Legend c="var(--honey-2)" t="Dieta" /><Legend c="var(--blue-2)" t="Treino" /><Legend c="var(--olive-2)" t="Hábitos" /><Legend c="var(--wine)" t="Tarefa concluída" />
       </div>
       {date !== today && <button className="today-pill" style={{ marginTop: 8 }} onClick={() => setDate(today)}>Hoje</button>}
       <DayPanel onOpen={(p) => nav(p)} />
@@ -63,7 +65,7 @@ function DayPanel({ onOpen }: { onOpen: (path: string) => void }) {
   const ml = (water ?? []).reduce((a, w) => a + w.ml, 0);
   const rows = [
     { k: 'Pele', v: [am ? 'manhã registrada' : 'manhã não registrada', pm ? 'noite registrada' : 'noite não registrada'].join(', '), c: 'var(--rose)', p: '/pele' },
-    { k: 'Alimentação', v: (meals?.filter((m) => m.items.length).map((m) => mealTypes.find((t) => t.id === m.mealType)?.label ?? m.mealType).join(', ') || 'Não registrado') + (ml ? `. Água ${ml} mL` : ''), c: 'var(--honey)', p: '/alimentacao' },
+    { k: 'Dieta', v: (meals?.filter((m) => m.items.length).map((m) => mealTypes.find((t) => t.id === m.mealType)?.label ?? m.mealType).join(', ') || 'Não registrado') + (ml ? `. Água ${ml} mL` : ''), c: 'var(--honey)', p: '/alimentacao' },
     { k: 'Treino', v: workouts?.length ? workouts.map((w) => `${mods?.find((m) => m.id === w.modalityId)?.name}${w.duration ? ` ${w.duration} min` : ''}`).join(', ') : 'Não registrado', c: 'var(--blue)', p: '/treino' },
     { k: 'Hábitos', v: hlogs?.filter((h) => h.done).map((h) => habits?.find((x) => x.id === h.habitId)?.title).filter(Boolean).join(', ') || 'Não registrado', c: 'var(--olive)', p: '/' },
     { k: 'Tarefas', v: dayTasks.length ? dayTasks.map((t) => `${t.title}${t.status === 'concluida' ? ' (concluída)' : ''}`).join('; ') : 'Nenhuma escolhida', c: 'var(--wine-ink)', p: '/' }

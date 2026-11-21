@@ -50,7 +50,7 @@ export function AddButton() {
   const items: { k: string; to: string; label: string; icon: JSX.Element }[] = [
     { k: 'hoje', to: '/', label: 'Hoje', icon: <House size={21} /> },
     { k: 'treino', to: '/treino', label: 'Treino', icon: <Dumbbell size={21} /> },
-    { k: 'comida', to: '/alimentacao', label: 'Comida', icon: <Utensils size={21} /> },
+    { k: 'comida', to: '/alimentacao', label: 'Dieta', icon: <Utensils size={21} /> },
     { k: 'mais', to: '/mais', label: 'Mais', icon: <LayoutGrid size={21} /> }
   ];
   const tab = (i: typeof items[number]) => (
@@ -120,18 +120,24 @@ export function DateHeader() {
 export function PageHead({ title, withDate = true, right, back }: { title: string; withDate?: boolean; right?: ReactNode; back?: () => void }) {
   const goBack = useBack();
   const { date, setDate } = useApp();
+  // Barra fina e translúcida (voltar, dia, ações) e, abaixo, o título grande na linguagem do app.
   return (
-    <div className="page-head">
-      <button className="icon-btn" aria-label="Voltar" onClick={() => (back ? back() : goBack())}><ArrowLeft size={22} /></button>
-      <h1>{title}{withDate && <span className="sub" data-testid="page-date">{date === todayKey() ? `Hoje, ${shortLabel(date)}` : shortLabel(date)}</span>}</h1>
-      {withDate && (
-        <>
-          <button className="icon-btn" aria-label="Dia anterior" onClick={() => setDate(addDays(date, -1))}><ChevronLeft size={22} /></button>
-          <button className="icon-btn" aria-label="Próximo dia" onClick={() => setDate(addDays(date, 1))}><ChevronRight size={22} /></button>
-        </>
+    <>
+      <div className="page-head ph2">
+        <button className="icon-btn" aria-label="Voltar" onClick={() => (back ? back() : goBack())}><ArrowLeft size={22} /></button>
+        <span className="grow" />
+        {withDate && (
+          <>
+            <button className="icon-btn" aria-label="Dia anterior" onClick={() => setDate(addDays(date, -1))}><ChevronLeft size={22} /></button>
+            <button className="icon-btn" aria-label="Próximo dia" onClick={() => setDate(addDays(date, 1))}><ChevronRight size={22} /></button>
+          </>
+        )}
+        {right}
+      </div>
+      {title && (
+        <h1 className="page-big ph-title">{title}{withDate && <span className="sub" data-testid="page-date">{date === todayKey() ? `Hoje, ${shortLabel(date)}` : shortLabel(date)}</span>}</h1>
       )}
-      {right}
-    </div>
+    </>
   );
 }
 

@@ -82,7 +82,7 @@ export function IndicatorsScreen() {
       <button className="lib-item" style={{ margin: '0 0 18px' }} onClick={() => nav('/semana')} data-testid="ind-week"><span className="lib-icon"><Sparkles size={20} /></span><span className="grow"><b>Sua semana</b><br /><span className="small muted">Leitura da equipe e padrões que são seus</span></span><ChevronRight size={18} /></button>
       <Seg value={n} onChange={setN} options={[{ id: '7', label: '7 dias' }, { id: '28', label: '28 dias' }]} label="Período" />
 
-      <h2 className="sec-h">Alimentação</h2>
+      <h2 className="sec-h">Dieta</h2>
       <div className="ind-grid">
         <Tile tone="t-honey" v={f.pAvg != null ? `${fmt(f.pAvg)} g` : '–'} l="proteína média por dia" hint={f.pPerKg != null ? `${f.pPerKg.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} g/kg · faixa 1,6 a 2,2` : 'faixa 1,6 a 2,2 g/kg'} ok={f.pPerKg != null ? f.pPerKg >= 1.6 : null} />
         <Tile v={`${f.pDaysOk}/${f.loggedDays}`} l="dias com proteína na meta" hint={f.pTarget ? `meta ${fmt(f.pTarget)} g` : undefined} ok={f.loggedDays ? f.pDaysOk / f.loggedDays >= 0.7 : null} />

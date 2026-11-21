@@ -34,7 +34,7 @@ export const SPECIALISTS: Record<Domain, { who: string; role: string; how: strin
     ]
   },
   food: {
-    who: 'Nutricionista esportiva', role: 'Alimentação, treino e Mounjaro',
+    who: 'Nutricionista esportiva', role: 'Dieta, treino e Mounjaro',
     how: [
       'Aproveita a janela do Mounjaro para construir hábitos que se sustentem depois dele: proteína alta em todas as refeições, fibra, água e comida de verdade.',
       'Preserva massa magra e abastece o treino: carboidrato onde o treino pede, nunca corte agressivo.',

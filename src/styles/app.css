@@ -1980,3 +1980,134 @@ body:has(.save-bar) .bottomnav2, body:has(.chat-input) .bottomnav2, body:has(.ri
 .mt2.has-glow::after { content: ''; position: absolute; right: -50px; top: -50px; width: 190px; height: 190px; border-radius: 50%; background: var(--mt-glow); filter: blur(8px); pointer-events: none; }
 .mt2.has-glow > * { position: relative; z-index: 1; }
 .tl3 .tl2:has(.tl-next) .tl2-time { align-self: start; padding-top: 18px; }
+
+/* ===================== Identidade em todo o sistema (folhas, avisos, cabeçalhos, botões) ===================== */
+:root { --r-l: 28px; --r-m: 20px; }
+.err-screen { padding: calc(24px + var(--safe-t)) 20px 40px; min-height: 100dvh; display: flex; flex-direction: column; gap: 14px; box-sizing: border-box; }
+.err-det { background: var(--card); border-radius: 20px; padding: 12px 16px; }
+.err-det summary { font-weight: 600; cursor: pointer; }
+.err-det pre { white-space: pre-wrap; font-size: 12.5px; color: var(--ink-2); margin: 8px 0 0; }
+
+/* Cabeçalho das páginas de detalhe: translúcido sobre o brilho, título forte */
+.page-head { background: rgba(239,230,211,.82); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); box-shadow: none; }
+.page-head h1 { font-weight: 700; font-size: 26px; letter-spacing: -.02em; }
+.page-head .icon-btn { width: 44px; height: 44px; border-radius: 50%; }
+.page-head > .icon-btn:first-child { background: rgba(250,246,236,.85); }
+
+/* Folhas e confirmações */
+.scrim { background: rgba(42,26,16,.40); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+.sheet { border-radius: 32px 32px 0 0; box-shadow: 0 -12px 40px rgba(42,26,16,.18); }
+.sheet .grab { width: 44px; background: var(--line-2); margin-top: 12px; }
+.sheet .sh-head { padding: 10px 14px 8px 22px; }
+.sheet .sh-head h3 { font-weight: 700; font-size: 24px; letter-spacing: -.02em; }
+.sheet .sh-head .icon-btn { width: 40px; height: 40px; border-radius: 50%; background: var(--paper-2); }
+.sheet .sh-body { padding: 4px 22px 18px; }
+.sheet .sh-foot { border-top: 0; box-shadow: 0 -1px 0 var(--line); padding-top: 14px; }
+
+/* Avisos: acima da barra de baixo, em pílula escura */
+.toasts { bottom: calc(96px + var(--safe-b)); }
+body:has(.save-bar) .toasts, body:has(.chat-input) .toasts { bottom: calc(92px + var(--safe-b)); }
+.toast { border-radius: 999px; min-height: 54px; padding: 8px 8px 8px 20px; box-shadow: 0 12px 28px rgba(42,26,16,.28); }
+.toast button { background: rgba(255,255,255,.12); border-radius: 999px; min-height: 40px; padding: 0 14px; }
+.toast.error { background: #8F2A1E; }
+
+/* Botões e campos */
+.btn { font-weight: 700; }
+.btn-soft { background: var(--card); }
+input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea { border-radius: 16px; }
+.chip { border-radius: 999px; }
+
+/* Barra de salvar flutuante, no mesmo desenho da barra de baixo */
+.save-bar { border-radius: 999px !important; left: 14px !important; right: 14px !important; bottom: calc(14px + var(--safe-b)) !important; padding: 8px !important; background: var(--ink) !important; box-shadow: 0 14px 30px rgba(42,26,16,.30) !important; }
+.save-bar .btn-soft, .save-bar .btn-ghost { background: rgba(255,255,255,.12); color: var(--paper); }
+.save-bar .btn-ink { background: var(--wine); color: var(--wine-ink); }
+
+/* ===================== Treino ===================== */
+.wt-day { min-height: 72px; background: rgba(250,246,236,.8); }
+.wt-day.sel { background: var(--ink); color: var(--paper); box-shadow: none; }
+.wt-day.sel .wt-mark { color: var(--paper); }
+.mini-stats .ms { border-radius: 20px; }
+.mini-stats .ms.t-teal { background: var(--blue-ink); color: #DCEBE6; }
+.tday-block { border-radius: 28px; }
+.up-hero { position: relative; overflow: hidden; display: block; width: 100%; height: 190px; border-radius: 30px; margin: 4px 0 10px; text-align: left; color: var(--ink); background: var(--honey); }
+.up-hero .art-fill { position: absolute; inset: 0; width: 100%; height: 100%; }
+.up-hero .uh-in { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 6px; padding: 18px; height: 100%; box-sizing: border-box; }
+.up-hero .uh-k { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); }
+.up-hero .uh-t { font-family: var(--f-display); font-size: 28px; line-height: 1.02; letter-spacing: -.02em; max-width: 70%; }
+.up-hero .uh-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: auto; }
+.up-hero .uh-chips .chip { background: rgba(250,246,236,.9); height: 30px; }
+.up-row { border-radius: 22px; }
+
+/* ===================== Dieta ===================== */
+.food-hero { border-radius: 30px; }
+.water-card.wc2 { position: relative; background: var(--blue); color: var(--blue-ink); border-radius: 28px; padding: 16px 92px 16px 18px; min-height: 120px; }
+.water-card.wc2 b { color: var(--blue-ink); }
+.water-card.wc2 .wc-glass { position: absolute; right: 16px; bottom: 12px; }
+.water-card.wc2 .wbar { display: none; }
+.water-card.wc2 .pill-act.pa-blue { background: var(--blue-ink); color: var(--paper); }
+.meal-card { border-radius: 26px; }
+.meal-card.next { background: #F2B48C; color: #4A1F0A; border-color: transparent; box-shadow: 0 10px 24px rgba(192,88,44,.18); }
+.meal-card.next .mc-kicker { color: #4A1F0A; letter-spacing: .12em; }
+.meal-card.next .mc-title b { font-family: var(--f-display); font-size: 22px; }
+.meal-card.next .mc-sub, .meal-card.next .mc-time { color: #6A3A1E; }
+.meal-card.next .add-line, .meal-card.next .mc-skip { color: #4A1F0A; }
+.meal-card.next .food-plan, .meal-card.next .repeat-row { background: rgba(255,255,255,.55); border-radius: 18px; padding: 10px 12px; }
+.mc-next-photos .food-stack .food-thumb { width: 46px !important; height: 46px !important; border: 3px solid #FAF6EC; }
+/* Hoje: fotos no próximo passo e na refeição feita */
+.tl-next .tn-photos { position: absolute; right: 8px; top: 10px; width: 140px; height: 150px; pointer-events: none; }
+.tl-next .tn-photos .food-thumb { position: absolute; border: 3px solid var(--card); object-fit: cover; }
+.tl-next .tn-photos .food-thumb:nth-child(1) { right: 6px; top: 0; }
+.tl-next .tn-photos .food-thumb:nth-child(2) { right: 74px; top: 62px; }
+.tl-next .tn-photos .food-thumb:nth-child(3) { right: 0; top: 88px; }
+.tl2-thumb-w { width: 40px; height: 40px; flex: 0 0 auto; display: block; }
+.tl2-thumb-w .food-thumb { object-fit: cover; }
+.page-head.ph2 { margin-bottom: 0; }
+.ph-title { margin: 6px 0 16px; font-size: 40px; overflow-wrap: anywhere; }
+.ph-title .sub { display: block; font-family: var(--f-ui); font-size: 15px; font-weight: 500; letter-spacing: 0; color: var(--ink-2); margin-top: 8px; }
+/* Leitura: o livro de agora em destaque, com a capa real */
+.read-hero { position: relative; overflow: hidden; display: flex; gap: 18px; align-items: center; width: 100%; text-align: left; border-radius: 32px; background: #3A1426; color: #F6DDE3; padding: 20px; margin-bottom: 12px; }
+.read-hero::before { content: ''; position: absolute; left: -40px; top: -40px; width: 240px; height: 240px; border-radius: 50%; background: radial-gradient(circle, #C0582C 0%, rgba(58,20,38,0) 70%); filter: blur(14px); pointer-events: none; }
+.read-hero > * { position: relative; }
+.read-hero .rh-cover img, .read-hero .rh-cover > * { width: 92px !important; height: 136px !important; border-radius: 6px 12px 12px 6px; object-fit: cover; box-shadow: 0 8px 18px rgba(0,0,0,.3); }
+.read-hero .rh-txt { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+.read-hero .h2-k { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.read-hero b { font-family: var(--f-display); font-size: 21px; line-height: 1.12; color: #fff; }
+.read-hero .rh-pct { margin-top: 8px; font-size: 12.5px; }
+.read-hero .rh-pct .num { font-family: var(--f-display); font-size: 26px; font-weight: 700; color: #fff; margin-right: 4px; }
+.read-hero .rh-bar { display: block; height: 8px; border-radius: 9px; background: rgba(255,255,255,.14); }
+.read-hero .rh-bar i { display: block; height: 8px; border-radius: 9px; background: var(--honey); }
+.read-hero .rh-go { align-self: flex-start; margin-top: 10px; background: var(--card); color: var(--ink); border-radius: 999px; padding: 10px 16px; font-weight: 700; font-size: 14px; }
+/* Peso: card escuro oliva com brilho */
+.wt-hero { position: relative; overflow: hidden; background: #33360F !important; color: #E1E2C2 !important; border-radius: 32px; }
+.wt-hero::before { content: ''; position: absolute; right: -60px; top: -60px; width: 240px; height: 240px; border-radius: 50%; background: radial-gradient(circle, #979E6C 0%, rgba(51,54,15,0) 70%); filter: blur(12px); pointer-events: none; }
+.wt-hero > * { position: relative; }
+.wt-hero .big-num { color: #fff; font-family: var(--f-display); font-weight: 700; font-size: 40px; }
+.wt-hero .small, .wt-hero p { color: #E1E2C2; }
+.wt-hero .wg-bar { background: rgba(255,255,255,.14); }
+.wt-hero .wg-bar i { background: var(--honey); }
+.wt-hero .pill-act.pa-ghost { background: rgba(255,255,255,.12); color: #fff; border-color: transparent; }
+/* Indicadores: cards maiores e a leitura da referência em pílula */
+.ind-grid { gap: 10px; }
+.ind-tile { border-radius: 24px; padding: 14px 16px; gap: 4px; }
+.ind-tile .v { font-weight: 700; font-size: 28px; }
+.ind-tile .r { border-top: 0; padding: 0; margin-top: 8px; opacity: 1; }
+.ind-tile .r.ok, .ind-tile .r.off { align-self: flex-start; padding: 4px 10px; border-radius: 999px; font-weight: 600; }
+.ind-tile .r.ok { background: color-mix(in srgb, var(--blue) 70%, transparent); color: var(--blue-ink); }
+.ind-tile .r.off { background: color-mix(in srgb, var(--rose) 80%, transparent); color: var(--wine-ink, #5A1E37); }
+.ind-tile.t-teal .r.ok, .ind-tile.t-honey .r.ok { background: rgba(255,255,255,.35); color: inherit; }
+.ind-tile .r.ok::before, .ind-tile .r.off::before { content: '● '; }
+/* Calendário */
+.cal-head2 { display: flex; align-items: flex-end; justify-content: space-between; margin: 8px 0 14px; }
+.ib-round { background: rgba(250,246,236,.85); border-radius: 50%; width: 44px; height: 44px; }
+.cal-card { background: var(--card); border-radius: 28px; padding: 14px 12px; }
+.cal-day { border-radius: 16px; min-height: 48px; }
+.cal-day.sel { background: var(--ink); color: var(--paper); }
+.cal-day.today:not(.sel) { box-shadow: inset 0 0 0 2px var(--wine); }
+.cal-wd { font-size: 11px; font-weight: 700; color: var(--ink-2); }
+/* Ciclo: anel de pontos com o dia no centro */
+.cy-hero { border-radius: 30px; }
+.cy-ring { position: relative; width: 240px; height: 240px; margin: 0 auto 8px; }
+.cy-ring .cy-mid { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.cy-ring .big-num { font-family: var(--f-display); font-weight: 700; font-size: 44px; }
+.cal-grid.cal-card { padding: 12px 8px; gap: 2px; }
+.cal-card .cal-day, .cal-card .cal-wd { min-width: 0; }

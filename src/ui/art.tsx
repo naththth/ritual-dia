@@ -93,7 +93,7 @@ export function SportScene({ sport }: { sport: 'run' | 'bike' | 'swim' | 'streng
   const u = useId().replace(/:/g, '');
   const water = sport === 'swim';
   return (
-    <svg className="art-fill" viewBox="0 0 358 170" preserveAspectRatio="xMidYMid slice" aria-hidden>
+    <svg className="art-fill" viewBox="0 0 358 170" preserveAspectRatio="none" aria-hidden>
       <defs>
         <linearGradient id={`${u}s`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={water ? '#B3CEC6' : '#F2B48C'} /><stop offset="0.7" stopColor={water ? '#DCEBE6' : '#F7D58A'} /><stop offset="1" stopColor={water ? '#8DB6AC' : '#EDC15A'} /></linearGradient>
         <linearGradient id={`${u}d`} x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#FAF6EC" stopOpacity="0.85" /><stop offset="0.55" stopColor="#FAF6EC" stopOpacity="0" /></linearGradient>

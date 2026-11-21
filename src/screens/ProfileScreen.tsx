@@ -164,7 +164,7 @@ export function ProfileScreen() {
         <AutoText label="Prova ou marco" value={p.event} onChange={(v) => set({ event: v })} placeholder="Ex.: triathlon sprint em março" />
       </Fold>
 
-      <Fold id="alimentacao" title="Alimentação" tone="honey" bodyClass="pf" summary={sumDiet} defaultOpen={sec === 'alimentacao'}>
+      <Fold id="alimentacao" title="Dieta" tone="honey" bodyClass="pf" summary={sumDiet} defaultOpen={sec === 'alimentacao'}>
         <span className="label">Restrições</span>
         <MultiOpts label="Restrições" values={diet.restrictions} onToggle={(r) => set({ diet: { ...diet, restrictions: toggleIn(diet.restrictions, r) } })} cols={2} options={RESTR.map((r) => [r, r])} />
         <span className="label">Gosta</span>

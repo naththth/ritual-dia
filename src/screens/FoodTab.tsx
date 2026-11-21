@@ -12,6 +12,7 @@ import { lastMealOf, nextMealType } from '../domain/repeat';
 import { FuelNext, useFuel } from './fuel-ui';
 import { fmt, itemNutr, portionText, shortFoodName, totals } from '../domain/nutrition';
 import { FoodStack, FoodThumb, MACRO_COLORS, MacroLine } from './food-ui';
+import { WaterGlass } from '../ui/art';
 import { fillFoodImages } from '../domain/foodImage';
 import { remove } from '../db/db';
 import { DEFAULT_MEAL_TIMES } from './today';
@@ -87,7 +88,7 @@ export function FoodTab() {
     <div className="screen" data-testid="food-tab">
       <TopBar />
       <div className="row between" style={{ margin: '8px 0 10px' }}>
-        <h1 className="page-title" style={{ margin: 0 }}>Alimentação</h1>
+        <h1 className="page-title page-big" style={{ margin: 0 }}>Dieta</h1>
         <SpecialistButton domain="food" />
       </div>
       <AreaNav area="alimentacao" />
@@ -130,7 +131,8 @@ export function FoodTab() {
         </section>
       )}
 
-      <section className="water-card" data-testid="food-water">
+      <section className="water-card wc2" data-testid="food-water">
+        <span className="wc-glass"><WaterGlass level={ml / (settings.waterGoalMl ?? 2500)} /></span>
         <div className="row between" style={{ alignItems: 'center' }}>
           <span className="row" style={{ gap: 8 }}><Droplets size={18} /><b>Água</b></span>
           <span className="num" style={{ fontWeight: 750 }}>{ml >= 1000 ? (ml / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' L' : ml + ' mL'}{settings.waterGoalMl ? <span className="small muted"> de {(settings.waterGoalMl / 1000).toLocaleString('pt-BR')} L</span> : null}</span>
@@ -170,6 +172,7 @@ export function FoodTab() {
                   {!(open && !meal) && <span className="mc-sub">{sub}</span>}
                 </span>
                 {meal && !open && <FoodStack foods={mealFoods} />}
+                {!meal && isNext && tpl && <span className="mc-next-photos"><FoodStack foods={tpl.items.map((i) => foods.find((f) => f.id === i.foodId))} /></span>}
                 <ChevronDown size={18} className="mc-chev" aria-hidden />
               </button>
               {!meal && !open && !skipped && <button className="mc-add" aria-label={`Registrar ${mt.label.toLowerCase()}`} onClick={() => nav(`/alimentacao/refeicao?m=${mt.id}`)} data-testid={`add-${mt.id}`}><Plus size={20} /></button>}

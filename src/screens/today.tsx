@@ -14,7 +14,7 @@ import { paceLabel } from '../domain/fit';
 import { WaterSheet } from './WaterSheet';
 import { dosesFor, slotsFor, toMin as tmin, fromMin } from '../domain/mind';
 import { markDose } from '../domain/mindload';
-import { MACRO_COLORS } from './food-ui';
+import { FoodThumb, MACRO_COLORS } from './food-ui';
 import { PlateArt, SportScene, WaterGlass } from '../ui/art';
 import { ArrowUpRight } from 'lucide-react';
 
@@ -35,6 +35,8 @@ export interface TLItem {
   marker?: boolean;
   action?: { label: string; run: () => Promise<unknown> | void; testId?: string };
   open: string;
+  /** Alimentos da refeição (feita ou do plano), para mostrar as fotos. */
+  foods?: any[];
 }
 
 const MOD_STYLE: Record<Mod, { bg: string; ink: string; pill: string }> = {
@@ -116,7 +118,8 @@ export function useTimeline(date: DateKey): TLItem[] | undefined {
       detail: meal ? mealSummary(meal.items, foods) : tpl && !skipped ? mealSummary(tpl.items, foods) : skipped ? 'Não hoje' : 'Não registrado',
       done: !!meal, skipped,
       action: !meal && tpl && !skipped ? { label: 'Comi isso', run: () => mealFromTemplate(tpl, date, m.id, true), testId: `act-meal-${m.id}` } : !meal ? { label: 'Registrar', run: () => undefined } : undefined,
-      open: `/alimentacao/refeicao?m=${m.id}`
+      open: `/alimentacao/refeicao?m=${m.id}`,
+      foods: (meal ? meal.items : tpl && !skipped ? tpl.items : []).map((it: { foodId: string }) => foods.find((f) => f.id === it.foodId)).filter(Boolean)
     });
   }
 
@@ -250,7 +253,9 @@ export function NowAndTimeline({ date, hideNow }: { date: DateKey; hideNow?: boo
                   {isNext ? (
                     <div className="tl-next" style={nextStyle(i)}>
                       {i.mod === 'training' && <SportScene sport={sportOf(i.title)} />}
-                      {i.mod === 'food' && <span className="tn-art"><PlateArt size={150} /></span>}
+                      {i.mod === 'food' && (i.foods?.some((f) => f.image)
+                        ? <span className="tn-photos">{i.foods.filter((f) => f.image).slice(0, 3).map((f, k) => <FoodThumb key={k} food={f} size={[92, 68, 60][k]} radius={999} />)}</span>
+                        : <span className="tn-art"><PlateArt size={150} /></span>)}
                       <button className="tap tn-in" onClick={() => nav(i.open)} style={{ textAlign: 'left' }}>
                         <span className="tn-k" style={{ display: 'block' }}>Próximo</span>
                         <span className="tn-t tl2-title" style={{ display: 'block' }}>{i.title}</span>
@@ -263,7 +268,7 @@ export function NowAndTimeline({ date, hideNow }: { date: DateKey; hideNow?: boo
                     </div>
                   ) : (
                     <div className="tl2-card">
-                      <span className="tl2-dot" style={i.mod === 'journal' ? { background: 'var(--wine)', color: 'var(--wine-ink)' } : { background: i.done || i.skipped ? (i.done ? st.bg : 'var(--paper-2)') : st.bg, color: st.ink }}>{i.icon}</span>
+                      {i.mod === 'food' && i.done && i.foods?.find((f) => f.image) ? <span className="tl2-thumb-w"><FoodThumb food={i.foods.find((f) => f.image)} size={40} radius={14} /></span> : <span className="tl2-dot" style={i.mod === 'journal' ? { background: 'var(--wine)', color: 'var(--wine-ink)' } : { background: i.done || i.skipped ? (i.done ? st.bg : 'var(--paper-2)') : st.bg, color: st.ink }}>{i.icon}</span>}
                       <button className="tl2-body tap" onClick={() => nav(i.open)}>
                         <span className="tl2-title">{i.title}</span>
                         {i.detail && <span className="tl2-detail">{i.detail}</span>}
@@ -315,7 +320,7 @@ export function TodayStats({ date }: { date: DateKey }) {
     <div className="bento" data-testid="today-stats">
       {showN && (
         <button className="bt bt-food" onClick={() => nav('/alimentacao')}>
-          <span className="bt-head"><span className="row" style={{ gap: 8 }}><span className="bt-ic" style={{ background: 'var(--honey)', color: 'var(--honey-ink)' }}><Flame size={16} /></span>Comida</span></span>
+          <span className="bt-head"><span className="row" style={{ gap: 8 }}><span className="bt-ic" style={{ background: 'var(--honey)', color: 'var(--honey-ink)' }}><Flame size={16} /></span>Dieta</span></span>
           <span className="bt-ring" style={{ position: 'relative', width: 132, height: 132 }}>
             <svg width="132" height="132" viewBox="0 0 132 132" aria-hidden>
               <circle cx="66" cy="66" r={R} fill="none" stroke="var(--paper-2)" strokeWidth="12" />

@@ -9,7 +9,7 @@ const GROUPS: { title: string; items: Item[] }[] = [
   { title: 'Áreas', items: [
     { to: '/', label: 'Hoje', icon: <Sun size={20} /> },
     { to: '/treino', label: 'Treino', icon: <Dumbbell size={20} />, match: '/treino' },
-    { to: '/alimentacao', label: 'Alimentação', icon: <Utensils size={20} />, match: '/alimentacao' },
+    { to: '/alimentacao', label: 'Dieta', icon: <Utensils size={20} />, match: '/alimentacao' },
     { to: '/cuidados', label: 'Cuidados', icon: <Sparkles size={20} />, match: '/cuidados' },
     { to: '/mente', label: 'Mente', icon: <Brain size={20} />, match: '/mente' },
     { to: '/carreira', label: 'Carreira', icon: <Briefcase size={20} />, match: '/carreira' }

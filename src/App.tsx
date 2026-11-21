@@ -1,3 +1,4 @@
+import { ErrorBoundary } from './ui/ErrorBoundary';
 import { Drawer } from './screens/drawer';
 import { CareerWorkPage, CareerBrandPage, CareerGrowPage } from './screens/career';
 import { useEffect, useState, useRef } from 'react';
@@ -96,6 +97,8 @@ function Shell() {
   const area = p === '/' ? 'hoje' : p.startsWith('/mente') ? 'mente' : p.startsWith('/cuidados') || p.startsWith('/pele') ? 'cuidados' : p.startsWith('/evolucao') || p.startsWith('/indicadores') ? 'evolucao' : p.startsWith('/treino') ? 'treino' : p.startsWith('/alimentacao') ? 'comida' : p.startsWith('/semana') ? 'semana' : 'geral';
   return (
     <div className="app" data-area={area}>
+      {/* Erro numa tela fica só nela: a barra de baixo continua e trocar de tela limpa o erro. */}
+      <ErrorBoundary key={loc.pathname} inline>
       <Routes>
         <Route path="/" element={<DayScreen />} />
         <Route path="/calendario" element={<CalendarScreen />} />
@@ -146,6 +149,7 @@ function Shell() {
         <Route path="/revisao" element={<ProductReview />} />
         <Route path="*" element={<DayScreen />} />
       </Routes>
+      </ErrorBoundary>
       <AddButton />
       <RegisterSheet open={reg} onClose={() => setReg(false)} />
       <Drawer open={menu} onClose={() => setMenu(false)} />

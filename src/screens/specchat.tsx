@@ -355,7 +355,7 @@ function FoodProposalCard({ p, busy, onApprove, onDiscard }: { p: FoodProposal; 
       })}
       {all && all.missing > 0 ? <span className="tiny muted">{all.missing} {all.missing === 1 ? 'item sem dados nutricionais' : 'itens sem dados nutricionais'}, fora da conta.</span> : null}
       {p.note ? <span className="small">{p.note}</span> : null}
-      {p.status === 'aprovado' && <span className="small muted">Já está no seu dia, na aba Alimentação.</span>}
+      {p.status === 'aprovado' && <span className="small muted">Já está no seu dia, na aba Dieta.</span>}
       <ProposalActions pending={!p.status} busy={busy} onApprove={onApprove} onDiscard={onDiscard} label="Usar no dia" />
     </div>
   );

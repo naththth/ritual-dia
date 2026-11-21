@@ -228,10 +228,10 @@ function DoseTile({ date, doses, label }: { date: DateKey; doses: Dose[]; label:
 function BasicsStep({ date, d, onDone }: { date: DateKey; d: RitualData; onDone: () => void }) {
   const nav = useNavigate();
   const b = d.r?.basics ?? {};
-  // O ritual só anota que você comeu; o que foi o café é registrado na Alimentação, nunca presumido pelo plano.
+  // O ritual só anota que você comeu; o que foi o café é registrado na Dieta, nunca presumido pelo plano.
   const cafeOn = !!d.cafeMeal || !!b.cafe;
   const toggleCafe = () => {
-    if (d.cafeMeal) { toast('Já registrado na Alimentação', () => nav('/alimentacao/refeicao?m=cafe'), 'default', { label: 'Ver', important: true }); return; }
+    if (d.cafeMeal) { toast('Já registrado na Dieta', () => nav('/alimentacao/refeicao?m=cafe'), 'default', { label: 'Ver', important: true }); return; }
     void saveRitual(date, 'am', { basics: { ...b, cafe: !b.cafe } });
   };
   return (
@@ -241,7 +241,7 @@ function BasicsStep({ date, d, onDone }: { date: DateKey; d: RitualData; onDone:
       <div className="rt-tiles">
         {d.doses.length > 0 && <DoseTile date={date} doses={d.doses} label="Remédios" />}
         <Tile on={!!b.banho} icon={<Bath size={20} />} title="Banho" onClick={() => void saveRitual(date, 'am', { basics: { ...b, banho: !b.banho } })} testId="rt-basic-banho" />
-        <Tile on={cafeOn} icon={<Coffee size={20} />} title="Café da manhã" sub={d.cafeMeal ? 'Na Alimentação' : b.cafe ? 'Falta dizer o quê' : undefined} onClick={toggleCafe} testId="rt-basic-cafe" />
+        <Tile on={cafeOn} icon={<Coffee size={20} />} title="Café da manhã" sub={d.cafeMeal ? 'Na Dieta' : b.cafe ? 'Falta dizer o quê' : undefined} onClick={toggleCafe} testId="rt-basic-cafe" />
       </div>
       {!d.cafeMeal && <button className="link small" style={{ alignSelf: 'center', marginTop: 12 }} onClick={() => nav('/alimentacao/refeicao?m=cafe')} data-testid="rt-cafe-log">Registrar o que comi</button>}
       <Foot primary="Seguir" onPrimary={onDone} testId="rt-basics" />
@@ -366,7 +366,7 @@ function SummaryStep({ date, d, onDone }: { date: DateKey; d: RitualData; onDone
         </div>
       )}
       <div className="rt-sum-grid">
-        <div className="rt-sum"><span className="rt-sum-k"><Utensils size={15} /> Comida</span><b className="num">{day?.mealsLogged ? `${fmt(day.kcal ?? 0)}` : '—'}</b><span className="small">{day?.mealsLogged ? `kcal${t?.kcal ? ` de ${fmt(t.kcal)}` : ''} · ${fmt(day.protein ?? 0)} g prot.` : 'sem registro'}</span></div>
+        <div className="rt-sum"><span className="rt-sum-k"><Utensils size={15} /> Dieta</span><b className="num">{day?.mealsLogged ? `${fmt(day.kcal ?? 0)}` : '—'}</b><span className="small">{day?.mealsLogged ? `kcal${t?.kcal ? ` de ${fmt(t.kcal)}` : ''} · ${fmt(day.protein ?? 0)} g prot.` : 'sem registro'}</span></div>
         <div className="rt-sum"><span className="rt-sum-k"><Coffee size={15} /> Café</span><b className="num">{day?.caffeineMg ? `${day.caffeineMg}` : '0'}</b><span className="small">mg{day?.lastCaffeine ? ` · último ${day.lastCaffeine}` : ''}</span></div>
         <div className="rt-sum"><span className="rt-sum-k"><Target size={15} /> Tarefas</span><b className="num">{done}{planned ? ` de ${planned}` : ''}</b><span className="small">concluídas</span></div>
         <div className="rt-sum"><span className="rt-sum-k"><Sun size={15} /> Sono</span><b className="num">{day?.sleepH ? day.sleepH.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) : '—'}</b><span className="small">h na noite passada</span></div>

@@ -20,7 +20,7 @@ import { SpecialistButton } from './specchat';
 export const AREAS = {
   treino: { title: 'Treino', tabs: [{ to: '/treino', label: 'Semana' }, { to: '/treino/plano', label: 'Plano' }, { to: '/treino/sessoes', label: 'Sessões' }] },
   cuidados: { title: 'Cuidados', tabs: [{ to: '/cuidados', label: 'Hoje' }, { to: '/cuidados/rotina', label: 'Rotina' }, { to: '/cuidados/produtos', label: 'Produtos' }] },
-  alimentacao: { title: 'Alimentação', tabs: [{ to: '/alimentacao', label: 'Hoje' }, { to: '/alimentacao/plano', label: 'Plano' }, { to: '/alimentacao/alimentos', label: 'Alimentos' }, { to: '/alimentacao/refeicoes', label: 'Refeições' }] },
+  alimentacao: { title: 'Dieta', tabs: [{ to: '/alimentacao', label: 'Hoje' }, { to: '/alimentacao/plano', label: 'Plano' }, { to: '/alimentacao/alimentos', label: 'Alimentos' }, { to: '/alimentacao/refeicoes', label: 'Refeições' }] },
   carreira: { title: 'Carreira', tabs: [{ to: '/carreira', label: 'Trabalho' }, { to: '/carreira/marca', label: 'Marca' }, { to: '/carreira/crescer', label: 'Desenvolvimento' }] },
   mente: { title: 'Mente', tabs: [{ to: '/mente', label: 'Hoje' }, { to: '/mente/tomo', label: 'Remédios' }, { to: '/mente/painel', label: 'Painel' }, { to: '/mente/ajustes', label: 'Ajustes' }] }
 } as const;
@@ -157,7 +157,7 @@ export function HabitsGoalsPage() {
   return (
     <div className="screen" data-testid="habits-goals">
       <TopBar />
-      <h1 className="page-title">Hábitos e metas</h1>
+      <h1 className="page-title page-big">Hábitos<br /><span className="lt">e metas</span></h1>
       <h2 className="section-title" style={{ marginTop: 18 }}>Hábitos</h2>
       <Habits />
       <h2 className="section-title" style={{ marginTop: 24 }}>Metas</h2>

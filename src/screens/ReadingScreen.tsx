@@ -119,6 +119,23 @@ export function ReadingScreen() {
   return (
     <div className="screen no-nav" data-testid="reading-screen">
       <PageHead title="Leitura" withDate={false} />
+      {(() => {
+        const cur = books.filter((b) => b.status === 'lendo').sort((a, b) => b.updatedAt - a.updatedAt)[0];
+        if (!cur) return null;
+        const pct = cur.pages && cur.currentPage ? Math.min(100, Math.round((cur.currentPage / cur.pages) * 100)) : undefined;
+        return (
+          <button className="read-hero" onClick={() => setOpen(cur)} data-testid="reading-now">
+            <span className="rh-cover"><Cover b={cur} /></span>
+            <span className="rh-txt">
+              <span className="h2-k">Lendo agora</span>
+              <b>{cur.title}</b>
+              {cur.authors?.length ? <span className="small">{cur.authors.join(', ')}</span> : null}
+              {pct != null && <><span className="rh-pct"><span className="num">{pct}%</span> pág. {cur.currentPage} de {cur.pages}</span><span className="rh-bar"><i style={{ width: `${pct}%` }} /></span></>}
+              <span className="rh-go">Anotar página</span>
+            </span>
+          </button>
+        );
+      })()}
       <section className="block b-rose">
         <div className="row between"><span className="big-num num">{doneYear}{goal ? <span className="small" style={{ fontFamily: 'var(--f-ui)' }}> de {goal} livros em {year}</span> : <span className="small" style={{ fontFamily: 'var(--f-ui)' }}> lidos em {year}</span>}</span></div>
         {goal ? <div className="macro-bar" style={{ background: 'rgba(111,38,56,.18)' }}><i style={{ width: `${Math.min(100, (doneYear / goal) * 100)}%`, background: 'var(--rose-ink)' }} /></div> : null}

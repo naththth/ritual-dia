@@ -62,7 +62,7 @@ export function WeightScreen() {
   return (
     <div className="screen" data-testid="weight-screen">
       <PageHead title="Peso" withDate={false} />
-      <section className="block b-olive">
+      <section className="block b-olive wt-hero">
         {st.current ? (
           <>
             <div className="row between" style={{ alignItems: 'flex-end' }}>
