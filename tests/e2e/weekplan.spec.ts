@@ -109,7 +109,9 @@ test('domingo à tarde a treinadora propõe a semana seguinte; aprovar põe no p
   const weekT = (await records(page, 'wtemplate')).filter((t) => t.weekOf === '2026-11-09');
   expect(weekT.length).toBe(7); // ioga seg, corrida qua, corrida qui, pedal sex, pedal longo sáb, corrida longa dom, ioga dom
   const run = weekT.find((t) => t.name.includes('corrida principal'));
-  expect(run.steps[0].target).toMatch(/FC/);
+  expect(run.runSteps[0].target).toMatch(/FC/);
+  expect(run.steps).toBeUndefined();
+  expect(weekT.find((t) => t.modalityId === 'mod:ciclismo').steps.length).toBeGreaterThan(0);
   const tw = (await records(page, 'tweek'))[0];
   expect(tw).toMatchObject({ status: 'aprovada', provider: 'teste' });
   if (process.env.SHOTS) await page.getByTestId('week-plan-compact').screenshot({ path: '/tmp/claude-0/shots/weekplan-ok.png' });

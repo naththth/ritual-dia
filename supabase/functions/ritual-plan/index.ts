@@ -59,7 +59,7 @@ const anthropic = (key: string): Call => async (system, user) => {
 
 /** Gemini com pensamento alto, como reserva. */
 const gemini = (key: string): Call => async (system, user) => {
-  const models = Array.from(new Set([Deno.env.get('GEMINI_MODEL') ?? 'gemini-flash-latest', 'gemini-3.8-flash', 'gemini-3.6-flash']));
+  const models = Array.from(new Set([Deno.env.get('GEMINI_MODEL') ?? 'gemini-flash-latest', 'gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash']));
   let last = '';
   for (const model of models) {
     const body = (withLevel: boolean) => JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: [{ text: user }] }], generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 32768, temperature: 0.4, ...(withLevel ? { thinkingConfig: { thinkingLevel: 'high' } } : {}) } });

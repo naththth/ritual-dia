@@ -85,7 +85,7 @@ export function TrainingScreen() {
                 const skipped = skips?.some((s) => s.domain === 'training' && s.ref === t.id);
                 return (
                   <div key={t.id} className="row-item">
-                    <div className="grow"><div className="t">{t.name}</div><div className="s">{modName(t.modalityId)}, {t.duration} min, {t.intensity}</div>{t.steps?.length ? <StepsView steps={t.steps} /> : null}</div>
+                    <div className="grow"><div className="t">{t.name}</div><div className="s">{modName(t.modalityId)}, {t.duration} min, {t.intensity}</div>{(t.steps ?? t.runSteps)?.length ? <StepsView steps={(t.steps ?? t.runSteps)!} /> : null}</div>
                     {done ? <span className="small" style={{ fontWeight: 700 }}>Feito</span> : skipped ? <span className="small muted">Não hoje</span> : (
                       <>
                         <button className="btn btn-ink btn-sm" onClick={() => workoutFromTemplate(t, date, true)}>Feito</button>

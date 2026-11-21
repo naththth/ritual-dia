@@ -191,12 +191,12 @@ export function TrainingTab() {
                       <button className="pill-act pa-blue" onClick={() => skipPlanned(date, 'training', t.id, `${t.name} trocado por ${modName(swapped.modalityId).toLowerCase()}`)} data-testid="swap-yes">Sim, troquei</button>
                     </div>
                   )}
-                  {t.steps?.length && !openSet.has(t.id) ? <StepsView steps={t.steps} bars /> : null}
+                  {(t.steps ?? t.runSteps)?.length && !openSet.has(t.id) ? <StepsView steps={(t.steps ?? t.runSteps)!} bars /> : null}
                 </>}>
                 {t.note && !isMuscle(t.modalityId) ? <div className="small wt-note">{t.note}</div> : null}
                 {t.muscles?.length ? <div className="small" style={{ marginTop: 6 }}>Foco: {t.muscles.join(', ').toLowerCase()}</div> : null}
                 {isMuscle(t.modalityId) && <PlannedStrength t={t} history={history ?? []} date={date} onDone={(exs) => workoutFromTemplate(t, date, true, exs)} />}
-                {t.steps?.length ? <StepsView steps={t.steps} /> : null}
+                {(t.steps ?? t.runSteps)?.length ? <StepsView steps={(t.steps ?? t.runSteps)!} /> : null}
                 <div className="row wrap" style={{ gap: 8, marginTop: 12 }}>
                   {!isMuscle(t.modalityId) && <button className="pill-act pa-blue" data-testid="train-done" onClick={() => workoutFromTemplate(t, date, true)}>Feito</button>}
                   <button className="pill-act pa-ghost" onClick={() => fileRef.current?.click()}>Importar o arquivo</button>

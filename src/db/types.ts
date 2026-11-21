@@ -339,6 +339,8 @@ export interface WorkoutTemplate extends Base {
   oneOff?: DateKey;
   /** Sessão montada para uma semana da periodização: vale no plano daquela semana e não aparece no catálogo. */
   weekOf?: DateKey;
+  /** Blocos da corrida (alvo por FC, esforço e esteira). Ficam fora de 'steps' porque o que tem 'steps' vai ao MyWhoosh como pedal. */
+  runSteps?: WorkoutStep[];
   name: string;
   modalityId: string;
   duration: number;

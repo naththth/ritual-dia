@@ -249,8 +249,7 @@ async function syncIntervals(userId: string, days = 14) {
     const d = addDays(today, i);
     for (const id of dayIds(d)) {
       const t = recs.find((x) => x.kind === 'wtemplate' && x.id === id);
-      // Só pedal vai ao MyWhoosh; corrida e o resto ficam no app (os blocos da corrida são por FC e esforço, não por FTP).
-      if (!t?.steps?.length || t.modalityId !== 'mod:ciclismo' || recs.some((x) => x.kind === 'skip' && x.date === d && x.ref === id)) continue;
+      if (!t?.steps?.length || recs.some((x) => x.kind === 'skip' && x.date === d && x.ref === id)) continue;
       events.push({ category: 'WORKOUT', type: 'VirtualRide', start_date_local: `${d}T00:00:00`, name: t.name, description: workoutText(t), external_id: `ritual:${d}:${id}`, moving_time: t.steps.reduce((a: number, s: any) => a + s.minutes * 60, 0) });
     }
   }

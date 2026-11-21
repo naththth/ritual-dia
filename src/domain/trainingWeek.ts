@@ -175,7 +175,9 @@ export async function approveWeek(tw: TrainingWeek): Promise<TrainingWeek> {
     const fixed = s.templateId ? await get<'wtemplate'>(s.templateId) : undefined;
     if (fixed) { training[s.day].push(fixed.id); continue; }
     const rec = await create('wtemplate', {
-      name: s.name, modalityId: s.modalityId, duration: s.duration, intensity: s.intensity, steps: s.steps, note: s.note, time: s.time, weekOf: tw.date
+      name: s.name, modalityId: s.modalityId, duration: s.duration, intensity: s.intensity, note: s.note, time: s.time, weekOf: tw.date,
+      // Só o pedal leva 'steps' (vai ao MyWhoosh); a corrida guarda os blocos à parte e fica no app.
+      ...(s.modalityId === 'mod:ciclismo' ? { steps: s.steps } : { runSteps: s.steps })
     });
     training[s.day].push(rec.id);
   }
