@@ -2323,3 +2323,12 @@ html:has(.save-bar) { scroll-padding-bottom: calc(170px + var(--safe-b)); }
 .hb-grid i.on { background: var(--olive-ink, #33360F); }
 .gl-bar { display: block; height: 8px; border-radius: 9px; background: var(--paper-2); margin: 8px 0 6px; }
 .gl-bar i { display: block; height: 8px; border-radius: 9px; background: var(--wine); }
+
+/* Barra de salvar com menos peso que o menu: clara, baixa, e acima do círculo do Hoje (sem encavalar) */
+.save-bar { bottom: calc(112px + var(--safe-b)) !important; left: 16px !important; right: 16px !important; padding: 6px !important; gap: 6px !important; background: rgba(250,246,236,.94) !important; -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: 0 6px 20px rgba(42,26,16,.14) !important; border: 1px solid var(--line); }
+.save-bar .btn { min-height: 44px; height: 44px; font-size: 15px; }
+.save-bar .btn-soft, .save-bar .btn-ghost { background: transparent !important; color: var(--ink-2) !important; flex: 0 0 auto; padding: 0 16px; }
+.save-bar .btn-ink, .save-bar .btn-wine { background: var(--wine) !important; color: var(--wine-ink) !important; }
+body:has(.save-bar) .screen { padding-bottom: calc(200px + var(--safe-b)); }
+html:has(.save-bar) { scroll-padding-bottom: calc(190px + var(--safe-b)); }
+body:has(.save-bar) .toasts { bottom: calc(164px + var(--safe-b)); }
