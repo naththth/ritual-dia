@@ -157,3 +157,17 @@ describe('explicação da semana', () => {
     expect(explainWeek(macro, skeletonFor(macro, 5, 3, fixed)).join(' ')).toMatch(/Semana leve/);
   });
 });
+
+describe('dia de desafio', () => {
+  it('não tem musculação nem LPO', () => {
+    const m2 = { ...macro, frame: { ...macro.frame, 6: [{ key: 'strength' as const, templateId: 'wtemplate:b' }, { key: 'bike_long' as const }] } };
+    const last = skeletonFor(m2, 19, 12, fixed);
+    expect(last.days[6].map((x) => x.key)).toEqual(['bike_long']);
+    expect(last.days[6][0].event?.label).toBe('50 km de pedal');
+    // véspera (sexta) também sem musculação
+    const m3 = { ...m2, frame: { ...m2.frame, 5: [{ key: 'strength' as const, templateId: 'wtemplate:a' }, { key: 'run_easy' as const, minutes: 25 }] } };
+    expect(skeletonFor(m3, 19, 12, fixed).days[5].map((x) => x.key)).toEqual(['run_easy']);
+    // fora da semana do desafio, a musculação de sábado continua
+    expect(skeletonFor(m2, 10, 8, fixed).days[6].map((x) => x.key)).toEqual(['strength', 'bike_long']);
+  });
+});

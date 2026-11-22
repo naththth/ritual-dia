@@ -54,7 +54,7 @@ export function levelsOf(m: MacroCycle): number {
   return Math.max(1, k);
 }
 
-const RUN_TEST = 'Teste de 30 min: aquece 10 min, corre 30 min no mais forte que consegue manter constante (sem caminhar, se der) e solta 5 min. A FC média dos últimos 20 min vira o seu limiar e define as zonas.';
+const RUN_TEST = 'Teste de 30 min: aquece até 10 min (o que couber no tempo da sessão) e corre 30 min no mais forte que consegue manter constante, sem caminhar se der; a volta à calma é caminhando. A FC média dos últimos 20 min vira o seu limiar e define as zonas.';
 
 /** Intenção de cada sessão por fase. Texto que a IA recebe como ordem e que ela vê na proposta. */
 function intent(key: SlotKey, phase: Phase, deload: boolean, firstTest: boolean): string {
@@ -142,6 +142,8 @@ export function skeletonFor(m: MacroCycle, index: number, level: number, fixedMi
       const minutes = firstTest ? Math.min(s.minutes ?? 45, 45) : minutesFor(m, s, f, phase, deload, taperStep, fixed);
       return { key: s.key, minutes, intent: intent(s.key, phase, deload, firstTest), templateId: s.templateId };
     });
+    // Dia de desafio não tem musculação nem LPO: o corpo vai inteiro para a prova.
+    if (evs.length) days[d] = days[d].filter((x) => x.key !== 'strength' && x.key !== 'lpo');
     // Desafio num dia sem sessão do esporte no esqueleto: entra mesmo assim.
     for (const ev of evs) if (!days[d].some((x) => x.event === ev)) {
       days[d].push({ key: ev.sport === 'corrida' ? 'run_long' : 'bike_long', minutes: ev.sport === 'corrida' ? m.runLong[1] : m.bikeLong[1], intent: `Desafio: ${ev.label}.`, event: ev });
@@ -149,7 +151,9 @@ export function skeletonFor(m: MacroCycle, index: number, level: number, fixedMi
     // Na semana do desafio, o dia antes de um desafio fica sem endurance pesado.
     const tomorrow = addDays(date, 1);
     if (m.events.some((e) => e.date === tomorrow)) {
-      days[d] = days[d].map((x) => (SLOT_SPORT[x.key] && !x.event ? { ...x, minutes: Math.min(x.minutes, 25), intent: 'Ativação curta e leve na véspera do desafio.' } : x));
+      days[d] = days[d]
+        .filter((x) => x.key !== 'strength' || !!x.event) // véspera de desafio sem musculação
+        .map((x) => (SLOT_SPORT[x.key] && !x.event ? { ...x, minutes: Math.min(x.minutes, 25), intent: 'Ativação curta e leve na véspera do desafio.' } : x));
     }
   }
   return { index, total, start, phase, deload, level, levels, days };
