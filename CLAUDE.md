@@ -14,7 +14,7 @@ Regras que atravessam tudo (README e `docs/ajustes-claude.md`):
 - Datas de calendário são `YYYY-MM-DD` locais, nunca convertidas para UTC.
 - Estilo visual pelos tokens de `src/styles/app.css`; texto nunca cortado no celular.
 
-Divergência a resolver: `docs/ajustes-claude.md` manda commitar direto em `main` e publicar o `gh-pages`. Em sessões na nuvem, siga a branch de trabalho definida pela sessão e **não publique nem faça push em `main` sem pedido explícito**.
+Branch: o trabalho pelo Cowork é direto em `main`, como manda `docs/ajustes-claude.md` (commit em `main`, publicação do `gh-pages` só com testes passando e `main` sincronizado). Exceção: se a sessão tiver uma branch de trabalho própria definida pelo ambiente, trabalhe nela e peça autorização antes de levar o conteúdo para `main`.
 
 ## Comandos
 
