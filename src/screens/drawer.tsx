@@ -16,7 +16,7 @@ const GROUPS: { title: string; items: Item[] }[] = [
   ] },
   { title: 'Organizar', items: [
     { to: '/listas', label: 'Tarefas', icon: <ListChecks size={20} /> },
-    { to: '/habitos', label: 'Hábitos e metas', icon: <Target size={20} /> },
+    { to: '/habitos', label: 'Metas e hábitos', icon: <Target size={20} /> },
     { to: '/calendario', label: 'Calendário', icon: <CalendarDays size={20} /> }
   ] },
   { title: 'Você', items: [

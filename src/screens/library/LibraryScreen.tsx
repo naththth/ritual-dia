@@ -1,3 +1,5 @@
+import { toggleHabit } from '../../domain/actions';
+import { habitDay } from '../../domain/rules';
 import { FoodStack, FoodThumb } from '../food-ui';
 import { ActivityArt, activityKind } from '../../ui/activity';
 import { useEffect, useState, type ReactNode } from 'react';
@@ -301,6 +303,8 @@ export function Habits() {
   const [delEl, del] = useDelete();
   const date = useApp((s) => s.date);
   const logs = useByRange('hlog', addDays(date, -27), date);
+  const wks = useByRange('workout', addDays(date, -27), date);
+  const doneOn = (h: Habit, d: string) => { const st = habitDay(h, d, logs ?? [], wks ?? []); return st.done; };
   const save = async () => {
     if (!edit?.title?.trim()) return;
     if (edit.id) await update<'habit'>(edit.id, edit); else await create('habit', { ...edit, order: (habits?.length ?? 0) + 1 } as Habit);
@@ -314,10 +318,13 @@ export function Habits() {
       {(habits ?? []).filter((h) => !!h.archived === arch).sort((a, b) => a.order - b.order).map((h) => (
         <div key={h.id} className="lib-item hb-card">
           <button className="grow tap" onClick={() => setEdit(h)}>
-            <span className="hb-top"><span style={{ fontWeight: 700, fontSize: 16 }}>{h.title}</span><span className="hb-n num">{(logs ?? []).filter((l) => l.habitId === h.id && l.done && l.date > addDays(date, -7)).length}<small>{h.freq === 'diaria' ? '/7' : h.freq === 'semanal' ? `/${h.target}` : ''}</small></span></span>
-            <span className="hb-grid" aria-label="Últimas 4 semanas">{Array.from({ length: 28 }, (_, i) => addDays(date, i - 27)).map((d) => <i key={d} className={(logs ?? []).some((l) => l.habitId === h.id && l.done && l.date === d) ? 'on' : ''} />)}</span>
+            <span className="hb-top"><span style={{ fontWeight: 700, fontSize: 16 }}>{h.title}</span><span className="hb-n num">{Array.from({ length: 7 }, (_, i) => addDays(date, -i)).filter((d) => doneOn(h, d)).length}<small>{h.freq === 'diaria' ? '/7' : h.freq === 'semanal' ? `/${h.target}` : ''}</small></span></span>
+            <span className="hb-grid" aria-label="Últimas 4 semanas">{Array.from({ length: 28 }, (_, i) => addDays(date, i - 27)).map((d) => <i key={d} className={doneOn(h, d) ? 'on' : ''} />)}</span>
             <span className="small muted">{h.freq === 'diaria' ? 'Diário' : `${h.target}x ${h.freq === 'semanal' ? 'por semana' : 'por mês'}, sem dias fixos`}{h.modalityId ? `. Conta com treinos de ${mods?.find((m) => m.id === h.modalityId)?.name}` : ''}. {logs?.filter((l) => l.habitId === h.id && l.done).length ?? 0} marcações em 4 semanas</span>
           </button>
+          {h.modalityId
+            ? <span className="hb-src auto">Conta sozinho com os treinos de {mods?.find((m) => m.id === h.modalityId)?.name ?? 'treino'}</span>
+            : <button className={`hb-src mark ${doneOn(h, date) ? 'on' : ''}`} onClick={() => void toggleHabit(h, date, habitDay(h, date, logs ?? [], wks ?? []).manual)} data-testid={`habit-mark-${h.id}`}>{doneOn(h, date) ? 'Feito hoje' : 'Fiz hoje'}</button>}
           {arch && <button className="icon-btn" aria-label="Restaurar" onClick={() => update<'habit'>(h.id, { archived: false })}><ArchiveRestore size={20} /></button>}
         </div>
       ))}

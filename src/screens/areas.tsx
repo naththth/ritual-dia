@@ -157,7 +157,7 @@ export function HabitsGoalsPage() {
   return (
     <div className="screen" data-testid="habits-goals">
       <TopBar />
-      <h1 className="page-title page-big">Hábitos<br /><span className="lt">e metas</span></h1>
+      <h1 className="page-title page-big">Metas<br /><span className="lt">e hábitos</span></h1>
       <h2 className="section-title" style={{ marginTop: 18 }}>Hábitos</h2>
       <Habits />
       <h2 className="section-title" style={{ marginTop: 24 }}>Metas</h2>

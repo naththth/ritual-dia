@@ -1,4 +1,5 @@
 // Área Carreira: trabalho atual, marca pessoal, conquistas, oportunidades e desenvolvimento, com a especialista de carreira.
+import { get as getRecord } from '../db/db';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Award, BellRing, BookOpen, Check, ChevronDown, ExternalLink, Newspaper, Plus, RefreshCw, Sparkles, Trash2, Zap, FileText } from 'lucide-react';
@@ -326,7 +327,13 @@ function DevPicks() {
     try { await loadPicks(force); } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   };
   // Primeira visita da semana: a especialista já traz as sugestões, sem precisar pedir.
-  useEffect(() => { if (pick === null && !tried.current && aiAvailable()) { tried.current = true; void run(false); } }, [pick]);
+  useEffect(() => {
+    if (pick !== null || tried.current || !aiAvailable()) return;
+    // Espera a sincronização trazer as sugestões que já existem antes de pedir uma busca nova.
+    const t = setTimeout(async () => { if (tried.current) return; const cur = await getRecord<'devpick'>(pickId(week)); if (!cur) { tried.current = true; void run(false); } }, 2500);
+    return () => clearTimeout(t);
+  }, [pick]);
+  const history = (useAll('devpick') ?? []).filter((p) => !p.deleted && p.week < week).sort((a, b) => b.week.localeCompare(a.week)).slice(0, 6);
   if (pick === undefined || !books) return null;
   const has = pick && !pick.deleted && (pick.noticia || pick.artigo || pick.livro);
   const lv = has ? pick!.livro : undefined;
@@ -337,8 +344,10 @@ function DevPicks() {
     haptic(); toast('Foi para Quero ler, na Leitura');
   };
   return (
+    <>
     <section className="block b-paper" data-testid="dev-picks">
       <div className="bh"><h2>Para esta semana</h2>{has && <button className="link small" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }} disabled={busy} onClick={() => void run(true)} data-testid="picks-again"><RefreshCw size={14} /> {busy ? 'Buscando…' : 'Outras'}</button>}</div>
+      {!has && busy && <div className="picks-skel" aria-hidden><i /><i /><i /></div>}
       {!has && busy && <p className="small muted" style={{ marginTop: 0 }}>A especialista está buscando na web uma notícia, um artigo e um livro para você. Leva cerca de um minuto; pode sair da tela que as sugestões ficam guardadas.</p>}
       {!has && !busy && <>
         <p className="small muted" style={{ marginTop: 0 }}>Toda semana a especialista traz uma notícia, um artigo e um livro ligados aos seus pilares e ao seu momento.</p>
@@ -364,6 +373,20 @@ function DevPicks() {
         </div>}
       </div>}
     </section>
+    {history.length > 0 && (
+      <section className="dev-hist" data-testid="dev-history">
+        <h2 className="sec-h">Semanas anteriores</h2>
+        {history.map((h) => (
+          <div key={h.id} className="dh-week">
+            <span className="dh-k">Semana de {shortLabel(h.week)}</span>
+            {h.noticia && <a className="dh-row" href={h.noticia.url} target="_blank" rel="noopener noreferrer"><span className="dh-ic n"><Newspaper size={16} /></span><span className="grow"><b>{h.noticia.titulo}</b><span className="small muted">{h.noticia.fonte}</span></span><ExternalLink size={15} /></a>}
+            {h.artigo && <a className="dh-row" href={h.artigo.url} target="_blank" rel="noopener noreferrer"><span className="dh-ic a"><FileText size={16} /></span><span className="grow"><b>{h.artigo.titulo}</b><span className="small muted">{h.artigo.fonte}</span></span><ExternalLink size={15} /></a>}
+            {h.livro && <div className="dh-row"><span className="dh-ic l">{h.livro.cover ? <img src={h.livro.cover} alt="" /> : <BookOpen size={16} />}</span><span className="grow"><b>{h.livro.titulo}</b><span className="small muted">{h.livro.autor ?? h.livro.authors?.join(', ')}</span></span></div>}
+          </div>
+        ))}
+      </section>
+    )}
+    </>
   );
 }
 

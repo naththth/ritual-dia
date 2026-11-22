@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Droplets, Dumbbell, Moon, MoonStar, Ruler, SquareCheck, Sun, Sunrise, Utensils, ListPlus, Upload, Coffee, Pill, Smile } from 'lucide-react';
+import { Droplets, Dumbbell, Moon, MoonStar, Ruler, Sun, Sunrise, Utensils, ListPlus, Upload, Coffee, Pill, Smile } from 'lucide-react';
 import { CoffeeSheet } from './mind';
 import { WaterSheet } from './WaterSheet';
 import { importFitFiles } from '../domain/fitImport';
@@ -60,7 +60,6 @@ export function RegisterSheet({ open, onClose }: { open: boolean; onClose: () =>
     { icon: <Coffee size={22} />, label: 'Café', color: 'var(--lilac)', on: () => { onClose(); afterSheetClose(() => setCoffee(true)); }, testId: 'reg-coffee' },
     { icon: <Pill size={22} />, label: 'Remédios e vitaminas', color: 'var(--lilac)', on: () => go('/mente/tomo') },
     { icon: <Smile size={22} />, label: 'Como estou', color: 'var(--lilac)', on: () => go(`/mente/checkin?p=${new Date().getHours() < 12 ? 'am' : 'pm'}&d=${date}`) },
-    { icon: <SquareCheck size={22} />, label: 'Hábito', color: 'var(--olive)', on: () => { onClose(); afterSheetClose(() => setSub('habit')); } },
     { icon: <ListPlus size={22} />, label: 'Nova tarefa', color: 'var(--wine-ink)', on: () => { onClose(); afterSheetClose(() => setSub('task')); } },
     { icon: <Ruler size={22} />, label: 'Medida de meta', color: 'var(--paper-2)', on: () => { onClose(); afterSheetClose(() => setSub('measure')); } }
   ];

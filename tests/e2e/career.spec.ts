@@ -280,15 +280,16 @@ test('a barra de baixo fica fixa em qualquer tela, com Hoje no centro e o + na p
   await expect(page.getByTestId('reg-coffee')).toBeVisible();
 });
 
-test('Registrar: Hábito, Nova tarefa e Medida de meta abrem a própria folha; Remédios leva à aba Remédios', async ({ page }) => {
+test('Registrar: Nova tarefa e Medida de meta abrem a própria folha; Remédios leva à aba Remédios', async ({ page }) => {
   await seed(page);
   const open = async (label: string) => {
     await page.goto('./#/');
     await page.getByTestId('fab').click();
     await page.locator('[data-testid="register-sheet"] button').filter({ hasText: label }).first().click();
   };
-  await open('Hábito');
-  await expect(page.locator('.sheet .sh-head h3').filter({ hasText: 'Hábitos' })).toBeVisible();
+  // Hábito saiu do Registrar: os hábitos contam sozinhos (treino) ou com um toque no card, em Metas
+  await page.getByTestId('fab').click();
+  await expect(page.locator('[data-testid="register-sheet"] button').filter({ hasText: 'Hábito' })).toHaveCount(0);
   await page.keyboard.press('Escape');
   await open('Nova tarefa');
   await expect(page.locator('.sheet .sh-head h3').filter({ hasText: /tarefa/i })).toBeVisible();

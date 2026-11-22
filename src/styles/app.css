@@ -2397,3 +2397,39 @@ body:has(.save-bar) .toasts { bottom: calc(164px + var(--safe-b)); }
 .wp-why p { margin: 0; font-size: 14px; line-height: 1.4; color: var(--ink); }
 .wp-nudge { width: 100%; text-align: left; display: grid; gap: 4px; background: var(--card); border: 0; box-shadow: 0 1px 0 rgba(42, 26, 16, .06); border-left: 4px solid var(--wine); font: inherit; color: var(--ink); cursor: pointer; }
 .wp-nudge b { font-family: var(--f-display); font-size: 19px; line-height: 1.2; }
+/* Folha de água */
+.ws-hero { display: flex; align-items: center; gap: 16px; background: var(--blue); color: var(--blue-ink); border-radius: 26px; padding: 16px 18px; margin-bottom: 12px; }
+.ws-txt { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
+.ws-txt .big-num { font-family: var(--f-display); font-weight: 700; font-size: 40px; line-height: 1; color: var(--blue-ink); }
+.ws-bar { display: block; height: 8px; border-radius: 9px; background: rgba(255,255,255,.55); margin-top: 6px; }
+.ws-bar i { display: block; height: 8px; border-radius: 9px; background: var(--blue-ink); }
+.ws-presets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.ws-p { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 6px; border-radius: 20px; background: var(--card); }
+.ws-p b { font-size: 14px; }
+.ws-custom { display: flex; gap: 8px; margin-top: 10px; }
+.ws-custom input { flex: 1; min-width: 0; }
+.ws-row { background: var(--card); border-radius: 16px; padding: 4px 6px 4px 14px; margin-bottom: 6px; min-height: 48px; border-bottom: 0 !important; }
+/* Tarefas: sem a faixa lateral; a categoria vira um ponto colorido ao lado do nome dela */
+.task-card::before { display: none; }
+.task-card { padding: 10px 12px; }
+.task-card .s::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--cat, var(--line-2)); margin-right: 6px; vertical-align: 1px; }
+/* Desenvolvimento */
+.picks-skel { display: grid; gap: 8px; margin-bottom: 10px; }
+.picks-skel i { display: block; height: 76px; border-radius: 18px; background: linear-gradient(90deg, var(--paper-2) 0%, var(--card) 50%, var(--paper-2) 100%); background-size: 200% 100%; animation: skel 1.4s ease-in-out infinite; }
+@keyframes skel { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { .picks-skel i { animation: none; } }
+.dev-hist { margin-top: 6px; }
+.dh-week { background: var(--card); border-radius: 22px; padding: 12px 14px; margin-bottom: 10px; }
+.dh-k { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-2); }
+.dh-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); color: inherit; text-decoration: none; }
+.dh-row:last-child { border-bottom: 0; }
+.dh-row b { display: block; font-size: 14.5px; line-height: 1.3; }
+.dh-ic { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; flex: 0 0 auto; overflow: hidden; }
+.dh-ic.n { background: var(--honey); color: var(--honey-ink); } .dh-ic.a { background: var(--lilac); color: var(--lilac-ink); } .dh-ic.l { background: var(--rose); }
+.dh-ic img { width: 100%; height: 100%; object-fit: cover; }
+.hb-card { flex-direction: column; align-items: stretch !important; gap: 8px; }
+.hb-card > .grow { width: 100%; text-align: left; }
+.hb-src { align-self: flex-start; font-size: 12.5px; font-weight: 700; border-radius: 999px; padding: 6px 12px; }
+.hb-src.auto { background: color-mix(in srgb, var(--blue) 60%, var(--card)); color: var(--blue-ink); }
+.hb-src.mark { background: var(--ink); color: var(--paper); min-height: 36px; }
+.hb-src.mark.on { background: var(--olive); color: var(--olive-ink, #33360F); }
