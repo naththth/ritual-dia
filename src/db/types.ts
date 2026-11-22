@@ -17,7 +17,7 @@ export type Kind =
   | 'modality' | 'wtemplate' | 'workout'
   | 'plan' | 'skip' | 'extra' | 'brief' | 'devreq'
   | 'wellness' | 'journal' | 'note' | 'book' | 'readlog' | 'review' | 'healthdoc' | 'cycle'
-  | 'intake' | 'intakelog' | 'mood' | 'caffeine' | 'medchange' | 'chatstore' | 'ritual' | 'post' | 'win' | 'opp' | 'devitem' | 'careerbase' | 'devpick' | 'macro' | 'tweek';
+  | 'intake' | 'intakelog' | 'mood' | 'caffeine' | 'medchange' | 'chatstore' | 'ritual' | 'post' | 'win' | 'opp' | 'devitem' | 'careerbase' | 'devpick' | 'macro' | 'tweek' | 'pauta' | 'newsprefs';
 
 export type Priority = 'alta' | 'media' | 'baixa';
 export const PRIORITIES: Priority[] = ['alta', 'media', 'baixa'];
@@ -615,8 +615,31 @@ export interface Post extends Base {
   metrics?: PostMetrics;
 }
 
+/** Pauta: as 5 notícias do dia, montadas no servidor (função ritual-news) e guardadas como pauta:AAAA-MM-DD. */
+export type PautaArea = 'carreira' | 'dinheiro' | 'saude' | 'vida';
+export interface PautaImpacto { area: PautaArea; nivel: 'alto' | 'medio' | 'baixo'; texto: string }
+export interface PautaItem {
+  id: string; lente: string; titulo: string; fonte?: string; url: string; data?: string; minutos?: number;
+  resumo: string; porque?: string; impactos: PautaImpacto[]; acao?: string; tambem?: string[];
+  /** Imagem de capa da matéria (og:image); sem ela, o app desenha a capa da lente. */
+  imagem?: string; verificado?: boolean;
+}
+export interface Pauta extends Base {
+  kind: 'pauta'; date: DateKey; status: 'gerando' | 'pronta' | 'erro'; erro?: string; iniciada?: number; tentativas?: number;
+  itens?: PautaItem[]; fio?: { titulo: string; texto: string }; motor?: string; geradaEm?: number;
+  lidas?: string[]; salvas?: string[]; votos?: Record<string, 'mais' | 'menos'>; tarefas?: string[];
+}
+export type PautaCapa = 'carreira' | 'mercado' | 'dinheiro' | 'saude' | 'mundo' | 'vida';
+export interface PautaLente { id: string; nome: string; nivel: 'sempre' | 'asvezes' | 'nao'; capa: PautaCapa }
+export interface PautaSinal { lente: string; titulo: string; voto: 'mais' | 'menos'; date: DateKey }
+/** Ajustes da Pauta (um registro só, id newsprefs). */
+export interface NewsPrefs extends Base {
+  kind: 'newsprefs'; hora: string; resumo: 'curto' | 'padrao' | 'profundo'; avisarRitual: boolean;
+  lentes: PautaLente[]; preferir: string[]; evitar: string[]; contexto: string; sinais: PautaSinal[];
+}
+
 export type AnyRecord =
-  | ChatStore | RitualDay | Post | CareerBase | DevPick | Win | Opp | DevItem | Intake | IntakeLog | MoodCheckin | Caffeine | MedChange
+  | Pauta | NewsPrefs | ChatStore | RitualDay | Post | CareerBase | DevPick | Win | Opp | DevItem | Intake | IntakeLog | MoodCheckin | Caffeine | MedChange
   | Settings | Category | Task | SuggestionLog | Habit | HabitLog | Goal | GoalEntry
   | Product | SkinLog | Photo | Food | MealTemplate | Meal | Water
   | Modality | WorkoutTemplate | Workout | Plan | Skip | DayBrief
@@ -630,7 +653,7 @@ export type KindMap = {
   modality: Modality; wtemplate: WorkoutTemplate; workout: Workout;
   plan: Plan; skip: Skip; extra: PlanExtra; brief: DayBrief; devreq: DevRequest;
   wellness: Wellness; journal: Journal; note: Note; book: Book; readlog: ReadLog; review: Review; healthdoc: HealthDoc; cycle: CycleDay;
-  intake: Intake; intakelog: IntakeLog; mood: MoodCheckin; caffeine: Caffeine; medchange: MedChange; chatstore: ChatStore; ritual: RitualDay; post: Post; careerbase: CareerBase; win: Win; opp: Opp; devitem: DevItem; devpick: DevPick; macro: MacroCycle; tweek: TrainingWeek;
+  intake: Intake; intakelog: IntakeLog; mood: MoodCheckin; caffeine: Caffeine; medchange: MedChange; chatstore: ChatStore; ritual: RitualDay; post: Post; careerbase: CareerBase; win: Win; opp: Opp; devitem: DevItem; devpick: DevPick; macro: MacroCycle; tweek: TrainingWeek; pauta: Pauta; newsprefs: NewsPrefs;
 };
 
 /** Perfil e objetivos. Tudo opcional: a IA usa o que houver e diz o que falta. */

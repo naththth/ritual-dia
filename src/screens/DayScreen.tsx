@@ -18,6 +18,7 @@ import { RitualBar } from './ritual';
 import { TodayFocus } from './focus';
 import { WeekTeaser } from './week';
 import { WeekPlanNudge } from './weekplan';
+import { PautaToday } from './pauta';
 
 export function DayScreen() {
   const date = useApp((s) => s.date);
@@ -26,10 +27,11 @@ export function DayScreen() {
     <div className="screen" data-testid="day-screen">
       <TopBar />
       <DateHeader />
-      {/* Ordem pelo uso: rituais e números do dia, o que muda hoje (especialistas e radar num bloco só); depois o dia
+      {/* Ordem pelo uso: rituais e números do dia, a Pauta recolhida, o que muda hoje (especialistas e radar num bloco só); depois o dia
           (linha do tempo), a leitura do dia e as tarefas. Sono, ciclo e hábitos ficam em Indicadores; Mente, no menu. */}
       <RitualBar date={date} />
       <TodayStats date={date} />
+      <PautaToday date={date} />
       <WeekPlanNudge />
       <WeekTeaser date={date} />
       <TodayFocus date={date} />

@@ -1,6 +1,7 @@
 // Rituais guiados. Manhã (antes do trabalho): como acordou, o básico, uma pergunta e o foco, a marca e a leitura do dia.
 // Noite: como foi, o dia em resumo, uma pergunta e o amanhã. Não repete as áreas: lê o que elas registraram e pergunta o que elas não perguntam.
 import { useEffect, useState } from 'react';
+import { PautaRitualLine } from './pauta';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { SkyScene } from '../ui/art';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -328,6 +329,7 @@ function DayStep({ date, d, onDone }: { date: DateKey; d: RitualData; onDone: ()
         {d.training.map((t) => <div key={t.id} className="rt-item"><span className="rt-ic"><Dumbbell size={18} /></span><span className="grow"><b>{t.name}</b><br /><span className="small">{t.time ? `${t.time} · ` : ''}{t.duration} min{t.done ? ' · feito' : t.skipped ? ' · fica para outro dia' : ''}</span></span></div>)}
         {a.foco?.map((x) => <div key={x} className="rt-item"><span className="rt-ic"><Target size={18} /></span><span className="grow"><b>{x}</b></span></div>)}
         {a.deitar && <div className="rt-item"><span className="rt-ic"><Moon size={18} /></span><span className="grow"><b>Deitar às {a.deitar}</b></span></div>}
+        <PautaRitualLine date={date} />
       </div>
       {!busy && <button className="link small" style={{ alignSelf: 'center', marginTop: 10 }} onClick={() => void run()}><RefreshCw size={13} style={{ verticalAlign: '-2px' }} /> Outra leitura</button>}
       <Foot primary="Começar o dia" onPrimary={onDone} testId="rt-start" />

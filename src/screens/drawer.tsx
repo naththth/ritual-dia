@@ -1,8 +1,10 @@
 // Menu lateral: todas as áreas e telas do app, agrupadas. A barra de baixo fica com as quatro mais usadas.
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Activity, BookOpen, Brain, Briefcase, CalendarDays, ChartNoAxesColumn, Droplet, Dumbbell, ListChecks, Scale, Settings, Sparkles, Sun, Target, UserRound, Utensils, Wand2, X } from 'lucide-react';
+import { Activity, BookOpen, Brain, Briefcase, CalendarDays, ChartNoAxesColumn, Droplet, Dumbbell, ListChecks, Newspaper, Scale, Settings, Sparkles, Sun, Target, UserRound, Utensils, Wand2, X } from 'lucide-react';
 import { useRecord } from '../db/hooks';
+import { itensOf, pautaId, readCount } from '../domain/pauta';
+import { todayKey } from '../lib/dates';
 
 type Item = { to: string; label: string; icon: JSX.Element; match?: string };
 const GROUPS: { title: string; items: Item[] }[] = [
@@ -12,7 +14,8 @@ const GROUPS: { title: string; items: Item[] }[] = [
     { to: '/alimentacao', label: 'Dieta', icon: <Utensils size={20} />, match: '/alimentacao' },
     { to: '/cuidados', label: 'Cuidados', icon: <Sparkles size={20} />, match: '/cuidados' },
     { to: '/mente', label: 'Mente', icon: <Brain size={20} />, match: '/mente' },
-    { to: '/carreira', label: 'Carreira', icon: <Briefcase size={20} />, match: '/carreira' }
+    { to: '/carreira', label: 'Carreira', icon: <Briefcase size={20} />, match: '/carreira' },
+    { to: '/pauta', label: 'Pauta', icon: <Newspaper size={20} />, match: '/pauta' }
   ] },
   { title: 'Organizar', items: [
     { to: '/listas', label: 'Tarefas', icon: <ListChecks size={20} /> },
@@ -36,6 +39,8 @@ export function Drawer({ open, onClose }: { open: boolean; onClose: () => void }
   const nav = useNavigate();
   const loc = useLocation();
   const base = useRecord<'careerbase'>('careerbase');
+  const pauta = useRecord<'pauta'>(pautaId(todayKey()));
+  const novas = itensOf(pauta).length - readCount(pauta);
   useEffect(() => { onClose(); }, [loc.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!open) return;
@@ -59,7 +64,7 @@ export function Drawer({ open, onClose }: { open: boolean; onClose: () => void }
             <span className="dr-k">{g.title}</span>
             {g.items.map((i) => (
               <button key={i.to} className={`dr-item ${on(i) ? 'on' : ''}`} style={{ animationDelay: `${(k++) * 18}ms` }} onClick={() => nav(i.to)} data-testid={`dr-${i.to.replace('/', '') || 'hoje'}`}>
-                {i.icon}<span>{i.label}</span>{i.to === '/carreira' && base?.workName && <span className="dr-sub">{base.workName}</span>}
+                {i.icon}<span>{i.label}</span>{i.to === '/carreira' && base?.workName && <span className="dr-sub">{base.workName}</span>}{i.to === '/pauta' && novas > 0 && <span className="dr-sub">{novas === 1 ? '1 nova' : `${novas} novas`}</span>}
               </button>
             ))}
           </div>

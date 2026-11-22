@@ -32,6 +32,7 @@ import { Onboarding } from './screens/Onboarding';
 import { ProductReview } from './screens/ProductReview';
 import { RegisterSheet } from './screens/RegisterSheet';
 import { RitualScreen } from './screens/ritual';
+import { PautaNewsScreen, PautaScreen, PautaSettingsScreen } from './screens/pauta';
 import { WeekScreen } from './screens/week';
 import { CheckinScreen, IntakeScreen, MindPanelPage, MindScreen, MindSettingsPage, ReportScreen } from './screens/mind';
 import { registerSW } from 'virtual:pwa-register';
@@ -144,6 +145,9 @@ function Shell() {
         <Route path="/carreira/oportunidades" element={<Navigate to="/carreira" replace />} />
         <Route path="/carreira/crescer" element={<CareerGrowPage />} />
         <Route path="/captura" element={<Navigate to="/carreira" replace />} />
+        <Route path="/pauta" element={<PautaScreen />} />
+        <Route path="/pauta/ajustes" element={<PautaSettingsScreen />} />
+        <Route path="/pauta/:date/:id" element={<PautaNewsScreen />} />
         <Route path="/biblioteca/:section" element={<LibraryScreen />} />
         <Route path="/plano/:domain" element={<PlanScreen />} />
         <Route path="/revisao" element={<ProductReview />} />
