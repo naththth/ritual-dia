@@ -1,5 +1,7 @@
 # Ritual - instruções do projeto
 
+Modelo padrão da sessão: Sonnet (`.claude/settings.json`). O Opus entra só pelo `especialista-opus`, a pedido dela.
+
 PWA pessoal da Nathalie (React + TypeScript + Vite + Dexie, sincronização com Supabase). Visão geral e regras de privacidade: `README.md`.
 
 ## Instruções existentes (leia antes de mexer)
@@ -34,7 +36,7 @@ Notas:
 ## Fluxo de trabalho
 
 1. **Ideias e melhorias:** antes de construir, defina o objetivo e os critérios de aceite (o que ela vai ver mudado e como confirmar). Se o pedido for ambíguo a ponto de um palpite errado gerar retrabalho, traga uma proposta concreta para aprovação.
-2. **Tarefas pequenas:** implemente e verifique na sessão principal (`tsc`, `npm test`, e o e2e do que foi tocado).
+2. **Tarefas pequenas:** implemente e verifique na sessão principal (`tsc`, `npm test`, e o e2e do que foi tocado). Para a suíte completa, ou quando a saída for longa, delegue ao subagente `agente-testes`: ele roda tudo e devolve só o que falhou, sem diagnosticar.
 3. **Mudanças relevantes** (lógica nova, mexe em sincronização, planos, dados ou funções do Supabase, várias telas): peça revisão ao subagente `revisor-sonnet`. Passe o objetivo, os critérios de aceite, o diff e os resultados dos testes. Ele só lê e aponta problemas; quem aplica as correções é a sessão principal, que roda os testes de novo depois.
 4. **Decisões difíceis:** sugira o `especialista-opus` quando houver decisão de arquitetura, migração complexa ou bloqueio que persista após investigação. Explique o motivo da sugestão e **espere o pedido explícito dela** antes de acioná-lo.
 5. **Correção repetida:** se um mesmo tipo de correção aparecer de novo, proponha registrá-la como instrução neste arquivo ou, se o comportamento for verificável, como teste de regressão (unitário em `tests/unit` ou e2e em `tests/e2e`). Proponha; não registre sem aprovação.
