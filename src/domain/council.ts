@@ -73,7 +73,7 @@ export async function buildCouncil(days: MindDay[], alerts: MindAlert[], today: 
       approve: { label: `Pôr em ${WEEKDAY_SHORT[isoWeekday(target)]}`, run: async () => {
         await upsert('extra', `extra:${target}:training:${t!.id}`, { date: target, domain: 'training', ref: t!.id, by: 'treinadora' });
         const st = await get<'settings'>('settings');
-        if (t!.steps?.length && st?.intervals?.connected) {
+        if ((t!.steps?.length || t!.runSteps?.length) && st?.intervals?.connected) {
           try { const { syncNow } = await import('../sync/sync'); const { syncIntervalsNow } = await import('../sync/services'); await syncNow(); await syncIntervalsNow(4); } catch { /* segue sem o envio */ }
         }
         return `${t!.name} entrou em ${day(target)}.`;

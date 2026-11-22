@@ -104,7 +104,8 @@ function CoachSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
     try {
       const r = await approveProposal(m.proposal);
       commit(msgs.map((x, k) => (k === i ? { ...x, proposal: { ...m.proposal!, status: 'aprovado', sent: r.sent }, done: [...(x.done ?? []), ...r.done], undo: [...(x.undo ?? []), ...r.undo], undone: false } : x)));
-      toast(r.sent === 'enviado' ? 'Treino no app e a caminho do MyWhoosh' : r.sent === 'falhou' ? 'Treino no app; o envio ao intervals falhou, tento de novo na próxima hora' : 'Treino no app', undefined, r.sent === 'falhou' ? 'error' : 'default');
+      const run = m.proposal.modalityId === 'mod:corrida';
+      toast(r.sent === 'enviado' ? (run ? 'Corrida no app e a caminho do relógio' : 'Treino no app e a caminho do MyWhoosh') : r.sent === 'falhou' ? 'Treino no app; o envio ao intervals falhou, tento de novo na próxima hora' : 'Treino no app', undefined, r.sent === 'falhou' ? 'error' : 'default');
     } catch (e: any) { toast(`Não consegui aplicar: ${e.message}`, undefined, 'error'); }
     finally { setApproving(null); }
   };
@@ -239,13 +240,16 @@ function groupSteps(steps: WorkoutStep[]) {
 }
 const zone = (pct: number) => (pct < 56 ? 'Z1' : pct < 76 ? 'Z2' : pct < 91 ? 'Z3' : pct < 106 ? 'Z4' : pct < 121 ? 'Z5' : 'Z6');
 
-/** O treino proposto, bloco a bloco, com watts pelo FTP; só entra no app e no MyWhoosh depois do aprovo. */
+/** O treino proposto, bloco a bloco (watts pelo FTP no pedal, alvo de FC na corrida); só entra no app, no MyWhoosh ou no relógio depois do aprovo. */
 function ProposalCard({ p, busy, onApprove, onDiscard }: { p: CoachProposal; busy: boolean; onApprove: () => void; onDiscard: () => void }) {
   const settings = useSettings();
   const ftp = settings?.ftp;
   const day = `${DAYS[new Date(p.date + 'T12:00:00').getDay() || 7]} ${p.date.slice(8, 10)}/${p.date.slice(5, 7)}`;
   const max = Math.max(...(p.steps ?? []).map((s) => s.pct), 100);
   const pending = !p.status;
+  // Corrida vai ao relógio (Garmin) com alvo de FC; pedal vai ao MyWhoosh com watts.
+  const run = p.modalityId === 'mod:corrida';
+  const dest = run ? 'relógio' : 'MyWhoosh';
   return (
     <div className={`nf coach-proposal${p.status === 'descartado' ? ' struck' : ''}`} data-testid="coach-proposal">
       <b>{p.status === 'aprovado' ? 'Aprovado' : p.status === 'descartado' ? 'Descartado' : 'Proposta de treino'}</b>
@@ -260,7 +264,7 @@ function ProposalCard({ p, busy, onApprove, onDiscard }: { p: CoachProposal; bus
               <li key={k}>
                 {g.reps > 1 && <span className="cp-reps">{g.reps}×</span>}
                 {g.steps.map((s, j) => (
-                  <span key={j} className={j ? 'cp-sub' : undefined}><span>{s.label}</span><span className="num">{dur(s.minutes)} · {s.pct}%{ftp ? ` · ${Math.round((ftp * s.pct) / 100)} W` : ''} · {zone(s.pct)}</span></span>
+                  <span key={j} className={j ? 'cp-sub' : undefined}><span>{s.label}</span><span className="num">{run ? `${dur(s.minutes)}${s.target ? ` · ${s.target}` : ''}` : `${dur(s.minutes)} · ${s.pct}%${ftp ? ` · ${Math.round((ftp * s.pct) / 100)} W` : ''} · ${zone(s.pct)}`}</span></span>
                 ))}
               </li>
             ))}
@@ -270,11 +274,11 @@ function ProposalCard({ p, busy, onApprove, onDiscard }: { p: CoachProposal; bus
       {p.note ? <span className="small">{p.note}</span> : null}
       {pending ? (
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-          <button className="pill-act pa-blue" onClick={onApprove} disabled={busy} data-testid="coach-approve"><Check size={14} style={{ verticalAlign: '-2px' }} /> {busy ? 'Enviando…' : p.steps?.length ? 'Aprovar e mandar pro MyWhoosh' : 'Aprovar'}</button>
+          <button className="pill-act pa-blue" onClick={onApprove} disabled={busy} data-testid="coach-approve"><Check size={14} style={{ verticalAlign: '-2px' }} /> {busy ? 'Enviando…' : p.steps?.length && (run || p.modalityId === 'mod:ciclismo') ? `Aprovar e mandar pro ${dest}` : 'Aprovar'}</button>
           <button className="link" onClick={onDiscard} disabled={busy}>Descartar</button>
         </div>
       ) : p.status === 'aprovado' ? (
-        <span className="small muted">{p.sent === 'enviado' ? 'No intervals.icu: escolha no MyWhoosh em Treinos agendados.' : p.sent === 'falhou' ? 'O envio ao intervals falhou agora; o app tenta de novo na próxima hora.' : p.steps?.length ? 'Conecte o intervals.icu em Ajustes para ir ao MyWhoosh.' : 'Está no seu dia.'}</span>
+        <span className="small muted">{p.sent === 'enviado' ? (run ? 'No intervals.icu: chega ao relógio na próxima sincronização do Garmin, em Treinos do dia.' : 'No intervals.icu: escolha no MyWhoosh em Treinos agendados.') : p.sent === 'falhou' ? 'O envio ao intervals falhou agora; o app tenta de novo na próxima hora.' : p.steps?.length && (run || p.modalityId === 'mod:ciclismo') ? `Conecte o intervals.icu em Ajustes para ir ao ${dest}.` : 'Está no seu dia.'}</span>
       ) : null}
       {pending && <span className="tiny muted">Quer mudar algo? É só falar abaixo que eu refaço.</span>}
     </div>

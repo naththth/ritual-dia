@@ -166,14 +166,14 @@ export function IntervalsSection() {
     try {
       const r = await syncIntervalsNow(30);
       await update<'settings'>('settings', { intervals: { ...(conn ?? {}), connected: true, lastSync: Date.now() } });
-      toast(`${r.pushed} treinos enviados ao MyWhoosh; ${r.activities} atividades e ${r.wellness} dias de sono e passos recebidos`, undefined, 'default', { important: true });
+      toast(`${r.pushed} treinos enviados (MyWhoosh e relógio); ${r.activities} atividades e ${r.wellness} dias de sono e passos recebidos`, undefined, 'default', { important: true });
     } catch (e: any) { toast(e.message, undefined, 'error'); } finally { setBusy(false); }
   };
   return (
     <Fold title="MyWhoosh e Garmin" icon={<Link2 size={19} />} testId="intervals" summary={conn?.connected ? `Conectado pelo intervals.icu${conn.lastSync ? ` · ${new Date(conn.lastSync).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}` : ''}` : 'Não conectado'}>
       {!session ? <p className="small">Entre com Google para conectar.</p> : conn?.connected ? (
         <>
-          <p className="small" style={{ marginTop: 4 }}>Conectado pelo intervals.icu. A cada hora o Ritual envia os pedais planejados dos próximos 7 dias (eles aparecem no calendário do MyWhoosh) e recebe os treinos feitos, sono, VFC, FC de repouso e passos.{conn.lastSync ? ` Última atualização: ${new Date(conn.lastSync).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}.` : ''}</p>
+          <p className="small" style={{ marginTop: 4 }}>Conectado pelo intervals.icu. A cada hora o Ritual envia os treinos planejados dos próximos 7 dias: os pedais aparecem no MyWhoosh e as corridas vão ao relógio, com alvo de FC em cada bloco. E recebe os treinos feitos, sono, VFC, FC de repouso e passos.{conn.lastSync ? ` Última atualização: ${new Date(conn.lastSync).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}.` : ''}</p>
           <div className="row wrap" style={{ gap: 8 }}>
             <button className="btn btn-ink btn-sm" onClick={run} disabled={busy} data-testid="intervals-sync"><RefreshCw size={15} />{busy ? 'Atualizando…' : 'Atualizar agora'}</button>
             <button className="btn btn-soft btn-sm" onClick={async () => { await removeIntervalsKey(); await update<'settings'>('settings', { intervals: { connected: false } }); toast('Desconectado'); }}>Desconectar</button>

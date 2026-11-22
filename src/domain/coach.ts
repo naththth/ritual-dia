@@ -137,7 +137,7 @@ async function context(text: string, history: CoachMsg[]) {
       treinos: plannedTraining(planFor(plans, 'training', d), d, extras).map((id) => tmpls.find((t) => t.id === id)).filter(Boolean).map((t) => ({
         template_id: t!.id, nome: t!.name, modalidade_id: t!.modalityId, minutos: t!.duration, intensidade: t!.intensity, horario: t!.time,
         avulso: !!t!.oneOff, pulado: skips.some((s) => s.date === d && s.ref === t!.id),
-        blocos: t!.steps?.map((st) => ({ rotulo: st.label, minutos: st.minutes, pct: st.pct }))
+        blocos: (t!.steps ?? t!.runSteps)?.map((st) => ({ rotulo: st.label, minutos: st.minutes, pct: st.pct, alvo: st.target }))
       }))
     })),
     pulados: skips.map((s) => ({ data: s.date, template_id: s.ref, nome: tname(s.ref) })),
@@ -317,9 +317,10 @@ export async function askCoach(text: string, history: CoachMsg[]): Promise<Coach
         if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < todayKey()) { failed.push('A proposta veio sem uma data válida.'); continue; }
         const modalityId = validMod(a.modalidade_id) ? a.modalidade_id : 'mod:ciclismo';
         const steps: WorkoutStep[] = (Array.isArray(a.blocos) ? a.blocos : [])
-          .map((b: any) => ({ label: String(b?.rotulo ?? '').trim() || 'Bloco', minutes: Number(b?.minutos), pct: Number(b?.pct) }))
+          .map((b: any) => ({ label: String(b?.rotulo ?? '').trim() || 'Bloco', minutes: Number(b?.minutos), pct: Number(b?.pct), target: String(b?.alvo ?? '').trim() || undefined }))
           .filter((b: WorkoutStep) => b.minutes > 0 && b.minutes <= 240 && b.pct >= 30 && b.pct <= 200)
-          .map((b: WorkoutStep) => ({ ...b, minutes: Math.round(b.minutes * 100) / 100, pct: Math.round(b.pct) }));
+          // Alvo escrito (FC, esforço, esteira) só na corrida; no pedal o alvo é o % do FTP.
+          .map((b: WorkoutStep) => { const { target, ...rest } = b; return { ...rest, minutes: Math.round(b.minutes * 100) / 100, pct: Math.round(b.pct), ...(modalityId === 'mod:corrida' && target ? { target } : {}) }; });
         if (modalityId === 'mod:ciclismo' && !steps.length) { failed.push('A proposta de pedal veio sem blocos.'); continue; }
         const minutes = steps.length ? Math.round(steps.reduce((t, b) => t + b.minutes, 0)) : Math.round(Number(a.minutos) || 0);
         if (!minutes) { failed.push('A proposta veio sem duração.'); continue; }
@@ -454,7 +455,8 @@ export async function undoCoach(m: CoachMsg) {
   for (const u of [...(m.undo ?? [])].reverse()) await restore(u.before, u.id);
 }
 
-/** Aprovado por ela: o treino entra no dia (no lugar do que ela indicou) e vai para o intervals.icu, que leva ao MyWhoosh. */
+/** Aprovado por ela: o treino entra no dia (no lugar do que ela indicou) e vai para o intervals.icu,
+ *  que leva o pedal ao MyWhoosh e a corrida ao relógio (Garmin), com alvo de FC em cada bloco. */
 export async function approveProposal(p: CoachProposal): Promise<{ undo: { id: string; before?: AnyRecord }[]; done: string[]; sent: CoachProposal['sent'] }> {
   const undo: { id: string; before?: AnyRecord }[] = [];
   const snap = async (id: string) => { if (!undo.some((u) => u.id === id)) undo.push({ id, before: await db.records.get(id) }); };
@@ -480,7 +482,9 @@ export async function approveProposal(p: CoachProposal): Promise<{ undo: { id: s
   }
   const tplId = uid('wtemplate');
   undo.push({ id: tplId });
-  await upsert('wtemplate', tplId, { name: p.name, modalityId: p.modalityId, duration: p.minutes, intensity: p.intensity, time: p.time, steps: p.steps, note: p.note, oneOff: p.date, archived: true });
+  await upsert('wtemplate', tplId, { name: p.name, modalityId: p.modalityId, duration: p.minutes, intensity: p.intensity, time: p.time, note: p.note, oneOff: p.date, archived: true,
+    // Corrida guarda os blocos em 'runSteps' (alvo por FC), como a semana periodizada; pedal em 'steps' (% do FTP).
+    ...(p.modalityId === 'mod:corrida' ? { runSteps: p.steps } : { steps: p.steps }) });
   const extraId = `extra:${p.date}:training:${tplId}`;
   undo.push({ id: extraId });
   await upsert('extra', extraId, { date: p.date, domain: 'training', ref: tplId, by: 'treinadora' });
@@ -488,14 +492,15 @@ export async function approveProposal(p: CoachProposal): Promise<{ undo: { id: s
 
   let sent: CoachProposal['sent'] = 'sem_conexao';
   const settings = await get<'settings'>('settings');
-  if (p.steps?.length && settings?.intervals?.connected) {
+  const goes = !!p.steps?.length && (p.modalityId === 'mod:ciclismo' || p.modalityId === 'mod:corrida');
+  if (goes && settings?.intervals?.connected) {
     try {
       const { syncNow } = await import('../sync/sync');
       const { syncIntervalsNow } = await import('../sync/services');
       await syncNow();
       await syncIntervalsNow(3);
       sent = 'enviado';
-      done.push('Enviei ao intervals.icu: o treino aparece no MyWhoosh em instantes.');
+      done.push(p.modalityId === 'mod:corrida' ? 'Enviei ao intervals.icu: a corrida vai para o relógio na próxima sincronização do Garmin.' : 'Enviei ao intervals.icu: o treino aparece no MyWhoosh em instantes.');
     } catch { sent = 'falhou'; }
   }
   return { undo, done, sent };

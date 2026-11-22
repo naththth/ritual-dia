@@ -201,7 +201,7 @@ export function WeekPlanCard() {
       setBusy('Colocando a semana no plano…');
       try {
         const done = await approveWeek(pending);
-        toast(settings?.intervals?.connected ? 'Semana aprovada. Os pedais vão para o MyWhoosh em instantes.' : 'Semana aprovada e no plano.', async () => { await undoWeek(done); });
+        toast(settings?.intervals?.connected ? 'Semana aprovada. Pedais vão para o MyWhoosh e corridas para o relógio.' : 'Semana aprovada e no plano.', async () => { await undoWeek(done); });
       } catch (e: any) { toast(e.message, undefined, 'error'); } finally { setBusy(null); }
     };
     return (
@@ -245,7 +245,7 @@ export function WeekPlanCard() {
           <button className="btn btn-ink grow" onClick={approve} data-testid="week-approve"><Check size={18} />Aprovar semana</button>
           <button className="btn btn-soft" onClick={() => setAsking(!asking)} data-testid="week-adjust">Pedir ajuste</button>
         </div>
-        <p className="tiny muted" style={{ margin: '10px 0 0' }}>Pedais vão para o MyWhoosh depois do aprovo; corrida e ioga ficam no app.</p>
+        <p className="tiny muted" style={{ margin: '10px 0 0' }}>Depois do aprovo, pedais vão para o MyWhoosh e corridas para o relógio, com alvo de FC; ioga fica no app.</p>
       </section>
     );
   }

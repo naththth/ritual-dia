@@ -5,6 +5,7 @@ import webpush from "npm:web-push@3.6.7";
 // Serviços do Ritual que precisam rodar no servidor:
 //  - cron: a cada 5 min envia lembretes (inclui alarme de acordar e aviso de deitar)
 //  - intervals_sync / cron de hora em hora: envia pedais planejados ao intervals.icu (que repassa ao MyWhoosh)
+//    e corridas planejadas com alvo de FC (que o intervals manda ao Garmin, sem passar pelo MyWhoosh)
 //    e traz atividades, sono, VFC e passos
 //  - push_test: notificação de teste (usuária logada)
 //  - vapid: chave pública para assinar notificações
@@ -209,6 +210,73 @@ function workoutText(t: any) {
   return (t.steps ?? []).map((s: any) => `${s.label}\n- ${dur(Number(s.minutes))} ${Math.round(s.pct)}%`).join('\n\n');
 }
 
+/* runWorkout:início — corrida no relógio. Bloco puro, testado em tests/unit/runWorkout.test.ts (o teste lê este trecho). */
+// O intervals.icu não entende FC em bpm absoluto no texto do treino: entende % da FC máxima ("70-76% HR") e zonas ("Z2 HR").
+// Por isso o alvo escrito pela treinadora ("FC 135-148 bpm", "abaixo de 145 bpm", "Z2") vira % da FC máxima da corrida
+// configurada no intervals; o Garmin recebe de volta a faixa em bpm e avisa quando ela sai dela.
+interface RunHr { maxHr: number; zones?: number[] }
+const RUN_HR_MIN = 60, RUN_HR_MAX = 230;
+function runHrRange(raw: string, hr: RunHr): [number, number] | 'zona' | undefined {
+  const t = raw.toLowerCase().replace(/[–—]/g, '-');
+  const ok = (n: number) => n >= RUN_HR_MIN && n <= RUN_HR_MAX;
+  const fc = /\bfc\b|bpm|batimento|frequ[eê]ncia card/.test(t);
+  if (fc) {
+    const r = t.match(/(\d{2,3})\s*(?:-|a|até|ate|e)\s*(\d{2,3})/);
+    if (r && ok(+r[1]) && ok(+r[2]) && +r[1] < +r[2]) return [+r[1], +r[2]];
+    const up = t.match(/(?:abaixo d[eo]|at[eé]|menos de|menor que|no m[aá]ximo|m[aá]x(?:imo)?\.?|<|≤)\s*(\d{2,3})/);
+    if (up && ok(+up[1])) return [Math.round(hr.maxHr * 0.5), +up[1]];
+    const lo = t.match(/(?:acima d[eo]|mais de|maior que|no m[ií]nimo|>|≥)\s*(\d{2,3})/);
+    if (lo && ok(+lo[1])) return [+lo[1], Math.min(hr.maxHr, +lo[1] + 12)];
+  }
+  if (/\bz(?:ona)?\s*[1-5]\b/.test(t)) return 'zona';
+  return undefined;
+}
+/** Alvo de FC de um bloco no formato do intervals ("69.6-76.3% HR" ou "Z2 HR"), ou nada (bloco livre, por esforço). */
+function runHrTarget(step: { label?: string; target?: string }, hr: RunHr): string | undefined {
+  for (const txt of [step.target ?? '', step.label ?? '']) {
+    const r = runHrRange(txt, hr);
+    if (!r) continue;
+    if (r === 'zona') {
+      const z = txt.toLowerCase().replace(/[–—]/g, '-').match(/\bz(?:ona)?\s*([1-5])(?:\s*(?:-|a|e)\s*z?(?:ona)?\s*([1-5]))?\b/)!;
+      const a = +z[1], b = z[2] ? +z[2] : a;
+      if (a === b || !hr.zones?.length) return `Z${a} HR`;
+      const lo = a === 1 ? Math.round(hr.maxHr * 0.5) : hr.zones[a - 2] + 1, hi = hr.zones[Math.min(b, hr.zones.length) - 1];
+      return lo < hi ? `${pctHr(lo, hr)}-${pctHr(hi, hr)}% HR` : `Z${a} HR`;
+    }
+    return `${pctHr(r[0], hr)}-${pctHr(r[1], hr)}% HR`;
+  }
+  return undefined;
+}
+// Arredonda para cima na 1ª casa: o intervals converte de volta truncando, e assim o relógio recebe o bpm exato.
+const pctHr = (bpm: number, hr: RunHr) => String(Math.ceil((bpm / hr.maxHr) * 1000 - 1e-9) / 10);
+/** Nome curto do bloco para a tela do relógio: sem parênteses, números, zonas ou o alvo escrito (o alvo vai à parte). */
+function runStepName(label: string) {
+  let s = String(label ?? '').split(/[(:;,/·]| - /)[0];
+  s = s.split(/\b(?:fc|bpm|mantendo|ritmo|pace|esfor[cç]o|zona|z\d|rpe|abaixo|acima|at[eé])\b/i)[0];
+  s = s.replace(/\d+([.,]\d+)?\s*(min|km\/h|km|bpm|x|s)?\b/gi, ' ').replace(/\s{2,}/g, ' ').trim().replace(/\s+(de|da|do|em|a|com|e|no|na)$/i, '').trim();
+  return (s ? s[0].toUpperCase() + s.slice(1) : 'Bloco').slice(0, 32);
+}
+const runDur = (min: number) => { const secs = Math.max(5, Math.round(min * 60)); const m = Math.floor(secs / 60), r = secs % 60; return `${m ? `${m}m` : ''}${r ? `${r}s` : ''}`; };
+/** Texto do treino de corrida: repetições seguidas viram "Nx", cada bloco com nome, duração e faixa de FC. */
+function runWorkoutText(steps: { label: string; minutes: number; target?: string }[], hr: RunHr) {
+  const lines = steps.filter((s) => Number(s.minutes) > 0).map((s) => `- ${runStepName(s.label)} ${runDur(Number(s.minutes))}${(() => { const t = runHrTarget(s, hr); return t ? ` ${t}` : ''; })()}`);
+  const out: string[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    let best = { len: 1, reps: 1 };
+    for (let len = 1; len <= 3 && i + len * 2 <= lines.length; len++) {
+      let reps = 1;
+      while (i + (reps + 1) * len <= lines.length && lines.slice(i + reps * len, i + (reps + 1) * len).every((l, k) => l === lines[i + k])) reps++;
+      if (reps > 1 && reps * len > best.reps * best.len) best = { len, reps };
+    }
+    if (best.reps > 1) out.push(`${best.reps}x\n${lines.slice(i, i + best.len).join('\n')}`);
+    else out.push(lines[i]);
+    i += best.reps * best.len;
+  }
+  return out.join('\n\n');
+}
+/* runWorkout:fim */
+
 async function syncIntervals(userId: string, days = 14) {
   const { data: sec } = await admin.from('user_secrets').select('secret, meta').eq('user_id', userId).eq('provider', 'intervals').maybeSingle();
   if (!sec) return { error: 'Chave do intervals.icu não cadastrada.' };
@@ -228,13 +296,16 @@ async function syncIntervals(userId: string, days = 14) {
   const recs0 = await userRecords(userId, ['settings']);
   const ftp = Number(recs0.find((x) => x.kind === 'settings')?.ftp) || 0;
   let ftpSynced: number | undefined;
+  const ss: any[] = (await call('sport-settings')) ?? [];
+  // FC máxima da corrida (Ajustes do intervals): base dos alvos de FC que vão ao Garmin.
+  const runSet = ss.find((x) => (x.types ?? []).includes('Run'));
+  const runHr: RunHr | undefined = Number(runSet?.max_hr) > 100 ? { maxHr: Number(runSet.max_hr), zones: Array.isArray(runSet.hr_zones) ? runSet.hr_zones.map(Number) : undefined } : undefined;
   if (ftp > 50) {
-    const ss: any[] = (await call('sport-settings')) ?? [];
     const ride = ss.find((x) => (x.types ?? []).includes('VirtualRide') || (x.types ?? []).includes('Ride'));
     if (ride && ride.ftp !== ftp) { await call(`sport-settings/${ride.id}`, { method: 'PUT', body: JSON.stringify({ ftp }) }); ftpSynced = ftp; }
   }
 
-  // 1) Envia os pedais planejados dos próximos 7 dias (o intervals repassa ao MyWhoosh e ao Garmin).
+  // 1) Envia os pedais (o intervals repassa ao MyWhoosh) e as corridas (o intervals repassa ao Garmin) dos próximos 7 dias.
   const recs = await userRecords(userId, ['plan', 'wtemplate', 'skip', 'extra']);
   const plans = recs.filter((x) => x.kind === 'plan');
   // Treinos do dia: plano semanal + avulsos combinados com a treinadora para aquela data.
@@ -249,9 +320,16 @@ async function syncIntervals(userId: string, days = 14) {
     const d = addDays(today, i);
     for (const id of dayIds(d)) {
       const t = recs.find((x) => x.kind === 'wtemplate' && x.id === id);
-      // Só pedal vai ao MyWhoosh; corrida e o resto ficam no app (os blocos da corrida são por FC e esforço, não por FTP).
-      if (!t?.steps?.length || t.modalityId !== 'mod:ciclismo' || recs.some((x) => x.kind === 'skip' && x.date === d && x.ref === id)) continue;
-      events.push({ category: 'WORKOUT', type: 'VirtualRide', start_date_local: `${d}T00:00:00`, name: t.name, description: workoutText(t), external_id: `ritual:${d}:${id}`, moving_time: t.steps.reduce((a: number, s: any) => a + s.minutes * 60, 0) });
+      if (!t || recs.some((x) => x.kind === 'skip' && x.date === d && x.ref === id)) continue;
+      // Pedal: blocos em % do FTP, vai ao MyWhoosh. Corrida: blocos com alvo de FC, vai ao relógio como treino de corrida
+      // (tipo Run, que o MyWhoosh não pega). Corrida antiga pode ter os blocos em 'steps'; a nova guarda em 'runSteps'.
+      if (t.modalityId === 'mod:ciclismo' && t.steps?.length) {
+        events.push({ category: 'WORKOUT', type: 'VirtualRide', start_date_local: `${d}T00:00:00`, name: t.name, description: workoutText(t), external_id: `ritual:${d}:${id}`, moving_time: t.steps.reduce((a: number, s: any) => a + s.minutes * 60, 0) });
+      } else if (t.modalityId === 'mod:corrida' && runHr) {
+        const rs: any[] = t.runSteps?.length ? t.runSteps : t.steps ?? [];
+        if (!rs.length) continue;
+        events.push({ category: 'WORKOUT', type: 'Run', start_date_local: `${d}T00:00:00`, name: t.name, description: runWorkoutText(rs, runHr), external_id: `ritual:${d}:${id}`, moving_time: Math.round(rs.reduce((a: number, s: any) => a + Number(s.minutes) * 60, 0)) });
+      }
     }
   }
   if (events.length) await call('events/bulk?upsert=true', { method: 'POST', body: JSON.stringify(events) });
@@ -353,7 +431,7 @@ async function syncIntervals(userId: string, days = 14) {
     if (error) throw new Error(error.message);
   }
   await admin.from('user_secrets').update({ meta: { ...(sec.meta ?? {}), lastSync: nowIso } }).eq('user_id', userId).eq('provider', 'intervals');
-  return { wellness: (wellness ?? []).length, activities: acts, pushed: events.length, ftpSynced };
+  return { wellness: (wellness ?? []).length, activities: acts, pushed: events.length, runs: events.filter((e) => e.type === 'Run').length, ftpSynced };
 }
 
 async function userFrom(req: Request) {
@@ -371,6 +449,14 @@ Deno.serve(async (req: Request) => {
     const action = url.searchParams.get('action') ?? body.action;
 
     if (action === 'vapid') return json({ key: await secret('vapid_public') });
+
+    // Diagnóstico da publicação: hash do código que está rodando, para conferir com o do repositório.
+    if (action === 'source_hash') {
+      if (req.headers.get('x-cron-secret') !== (await secret('cron_secret'))) return json({ error: 'forbidden' }, 403);
+      const src = await Deno.readFile(new URL(import.meta.url));
+      const h = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', src))).map((b) => b.toString(16).padStart(2, '0')).join('');
+      return json({ sha256: h, bytes: src.length });
+    }
 
     if (action === 'cron') {
       if (req.headers.get('x-cron-secret') !== (await secret('cron_secret'))) return json({ error: 'forbidden' }, 403);
