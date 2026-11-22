@@ -27,6 +27,7 @@ Como o Claude faz ajustes no Ritual. A Nathalie pede o ajuste direto na conversa
 4. Publique (ela pediu publicação direta quando os testes passam):
    - Commit direto em `main`, mensagem em português, e push normal.
    - App: `npm run build`; clone a branch `gh-pages` numa pasta temporária (`git clone --branch gh-pages --single-branch`), apague tudo nela (`git rm -rq .`), copie o conteúdo de `dist` e garanta `.nojekyll`; confira que os arquivos fora de `assets/` são os mesmos da publicação anterior; commit e `git push` normal. Nunca use push forçado.
+   - Mais de uma sessão pode publicar ao mesmo tempo. Só publique o `gh-pages` depois que o push do `main` entrou e o `HEAD` local for idêntico a `origin/main` (confira de novo logo antes do push do `gh-pages`); se o `main` andou, faça rebase, verifique de novo e só então publique. Encadeie com `set -e` ou `&&`, para um push recusado parar tudo: um build sem o commit mais novo apaga do app o que a outra sessão publicou.
    - Função alterada: antes, confira com `get_edge_function` que a versão publicada bate com a do repositório (se não bater, não sobrescreva: avise). Publique com `deploy_edge_function`, conteúdo completo e o verify_jwt de sempre. Depois, baixe a publicada e compare byte a byte com o repositório.
    - Estrutura do banco só com `apply_migration` e só se indispensável. Dados grandes demais para SQL: tabela temporária só de entrada, apagada na mesma operação, com aprovação dela.
 
