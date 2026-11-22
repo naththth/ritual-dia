@@ -17,7 +17,7 @@ import { NowAndTimeline, TodayStats } from './today';
 import { RitualBar } from './ritual';
 import { TodayFocus } from './focus';
 import { WeekTeaser } from './week';
-import { WeekPlanNudge } from './weekplan';
+import { TestResultCard, WeekPlanNudge } from './weekplan';
 import { PautaToday } from './pauta';
 
 export function DayScreen() {
@@ -33,6 +33,7 @@ export function DayScreen() {
       <TodayStats date={date} />
       <PautaToday date={date} />
       <WeekPlanNudge />
+      <TestResultCard />
       <WeekTeaser date={date} />
       <TodayFocus date={date} />
       <NowAndTimeline date={date} hideNow />

@@ -153,3 +153,32 @@ test('pedir ajuste refaz a semana com o pedido; semana seguinte segura se quase 
   expect(ctx.semana.degrau_da_progressao).toBe(1);
   expect(ctx.semana_anterior.feito_minutos).toEqual({ corrida: 0, ciclismo: 0 });
 });
+
+test('depois do teste de limiar, ela confirma o número e as zonas passam a valer', async ({ page }) => {
+  // Semana 2 aprovada; quarta 11/11 foi o teste. Quinta 12/11 o card aparece no Hoje com a FC média da sessão.
+  await seed(page, '2026-11-08T18:00:00-03:00');
+  await page.goto('./#/treino');
+  await page.getByTestId('week-approve').click();
+  await expect(page.getByTestId('week-plan-compact')).toBeVisible();
+  await page.evaluate(async () => {
+    const req = indexedDB.open('ritual');
+    const db: IDBDatabase = await new Promise((r) => { req.onsuccess = () => r(req.result); });
+    const tx = db.transaction('records', 'readwrite');
+    tx.objectStore('records').put({ id: 'workout:teste-limiar', kind: 'workout', createdAt: 1, updatedAt: 1, deleted: 0, date: '2026-11-11', modalityId: 'mod:corrida', duration: 45, intensity: 'intensa', metrics: { avgHr: 158, maxHr: 176 } });
+    await new Promise((r) => { tx.oncomplete = r; });
+  });
+  await page.clock.setFixedTime(new Date('2026-11-12T08:00:00-03:00'));
+  await page.goto('./#/');
+  await page.reload();
+  const card = page.getByTestId('test-result');
+  await expect(card).toContainText('Qual foi o seu limiar na corrida?');
+  await expect(card).toContainText('qua 11/11');
+  await expect(page.getByTestId('test-value')).toHaveValue('158');
+  await page.getByTestId('test-value').fill('166');
+  await expect(page.getByTestId('test-zones')).toContainText('Z2 141 a 148 bpm');
+  if (process.env.SHOTS) await card.screenshot({ path: '/tmp/claude-0/shots/test-result.png' });
+  await page.getByTestId('test-save').click();
+  await expect(card).toHaveCount(0);
+  const s = (await records(page, 'settings'))[0];
+  expect(s).toMatchObject({ runLthr: 166, runLthrAt: '2026-11-11' });
+});

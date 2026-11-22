@@ -1,3 +1,5 @@
+import { runZones } from '../domain/periodization';
+import { todayKey } from '../lib/dates';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Download, Upload, RefreshCw, LogOut, Smartphone, FileUp, Plus, Target, Utensils, Sparkles } from 'lucide-react';
@@ -129,6 +131,9 @@ export function SettingsScreen() {
           <span className="label">FTP no pedal (watts)</span>
           <NumberInput value={settings.ftp} int optional min={0} max={600} onChange={(n) => update<'settings'>('settings', { ftp: n })} label="FTP" />
           <p className="field-hint">Os treinos de pedal mostram cada bloco em watts a partir deste valor.</p>
+          <span className="label">Limiar na corrida (FC, bpm)</span>
+          <NumberInput value={settings.runLthr} int optional min={0} max={230} onChange={(n) => update<'settings'>('settings', { runLthr: n, runLthrAt: n ? todayKey() : undefined })} label="Limiar na corrida" />
+          <p className="field-hint">{settings.runLthr ? `Zonas: ${Object.entries(runZones(settings.runLthr)).map(([z, r]) => `${z} ${r}`).join(' · ')}.` : 'Vem do teste de 30 min da periodização. Define as zonas de FC das corridas.'}</p>
           </Fold>
           <Fold title="Refeições e água" icon={<Utensils size={19} />} testId="set-meals"
             summary={`${settings.mealTypes.length} refeições · botões de ${settings.waterPresets.join(', ')} mL`}>

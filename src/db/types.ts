@@ -35,6 +35,13 @@ export interface Settings extends Base {
   reviewDone?: boolean;
   owners: string[];
   ftp?: number;
+  /** Data do último teste de FTP registrado. */
+  ftpAt?: DateKey;
+  /** FC de limiar na corrida (bpm), do teste de 30 min; define as zonas de FC da corrida. */
+  runLthr?: number;
+  runLthrAt?: DateKey;
+  /** Testes da periodização que ela disse que não fez (chave: test:<tipo>:<data>). */
+  testsSkipped?: Record<string, DateKey>;
   aiContext?: string; // observações livres para a IA (rotina, restrições)
   /** Preferências dela por plano; a IA segue, com ressalva só para combinações claramente danosas. */
   aiPrefs?: { skin?: string; training?: string; food?: string; mind?: string; career?: string };
@@ -734,7 +741,7 @@ export interface MacroCycle extends Base {
   bikeLong: [number, number]; // minutos do pedal longo: começo e pico
   active: boolean;
 }
-export interface WeekSession { key: SlotKey; minutes: number; intent: string; templateId?: string; event?: MacroEvent }
+export interface WeekSession { key: SlotKey; minutes: number; intent: string; templateId?: string; event?: MacroEvent; test?: 'run_lthr' | 'ftp' }
 /** Esqueleto calculado pelo app (não pela IA): fase, nível da progressão e alvo de cada sessão. */
 export interface WeekSkeleton {
   index: number; total: number; start: DateKey;

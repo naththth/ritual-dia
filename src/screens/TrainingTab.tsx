@@ -27,7 +27,7 @@ import { SessionHero, FeelCard, SessionExercises } from './session-ui';
 import { aiAvailable, askAI, applyTrainingResult } from '../domain/ai';
 import { fmt } from '../domain/nutrition';
 import { CoachButton } from './coach';
-import { WeekPlanCard } from './weekplan';
+import { TestResultCard, WeekPlanCard } from './weekplan';
 import { aiWorkoutFeedback, feedbackBasis } from '../domain/wfeedback';
 import { syncIntervalsNow } from '../sync/services';
 import { useSync } from '../sync/sync';
@@ -159,6 +159,7 @@ export function TrainingTab() {
         </div>
       )}
 
+      <TestResultCard />
       <WeekPlanCard />
       <section className="block b-blue tday-block" style={{ marginTop: 12 }} data-testid="training-day">
         <div className="bh row between" style={{ alignItems: 'baseline', gap: 8 }}>

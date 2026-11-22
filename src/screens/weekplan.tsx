@@ -2,10 +2,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check, RefreshCw, Sparkles, Undo2, ChevronDown, Flag } from 'lucide-react';
-import { useRecord, useSettings } from '../db/hooks';
+import { useAll, useByRange, useRecord, useSettings } from '../db/hooks';
+import { update } from '../db/db';
 import type { MacroCycle, ProposedSession, TrainingWeek } from '../db/types';
 import { addDays, dayNum, isoWeekday, todayKey, weekStart, WEEKDAY_SHORT, type DateKey } from '../lib/dates';
-import { PHASE_LABEL, countdown, explainWeek, isDeload, macroWeeks, phaseOf, weekIndex, weekToPropose } from '../domain/periodization';
+import { PHASE_LABEL, countdown, explainWeek, runZones, isDeload, macroWeeks, phaseOf, weekIndex, weekToPropose } from '../domain/periodization';
 import { MACRO_ID, approveWeek, proposeWeek, tweekId, undoWeek } from '../domain/trainingWeek';
 import { aiAvailable } from '../domain/ai';
 import { toast } from '../state/store';
@@ -282,6 +283,77 @@ export function WeekPlanCard() {
           </div>
         </div>
       )}
+    </section>
+  );
+}
+
+/** Teste da semana que já aconteceu e ainda não teve o resultado guardado (até 14 dias depois). */
+export function usePendingTest() {
+  const today = todayKey();
+  const weeks = useAll('tweek');
+  const settings = useSettings();
+  const runs = useByRange('workout', addDays(today, -14), today);
+  if (!weeks || !settings || !runs) return undefined;
+  const out: { kind: 'run_lthr' | 'ftp'; date: DateKey; estimate?: number }[] = [];
+  for (const tw of weeks) {
+    if (tw.deleted || tw.status !== 'aprovada') continue;
+    for (const [d, ss] of Object.entries(tw.skeleton.days)) for (const sess of ss) {
+      if (!sess.test) continue;
+      const date = addDays(tw.date, Number(d) - 1);
+      if (date > today || date < addDays(today, -14)) continue;
+      const at = sess.test === 'run_lthr' ? settings.runLthrAt : settings.ftpAt;
+      if (at && at >= date) continue;
+      if (settings.testsSkipped?.[`test:${sess.test}:${date}`]) continue;
+      const same = runs.filter((w) => !w.deleted && w.date === date && w.modalityId === (sess.test === 'run_lthr' ? 'mod:corrida' : 'mod:ciclismo'));
+      const estimate = sess.test === 'run_lthr' ? Math.max(0, ...same.map((w) => w.metrics?.avgHr ?? 0)) || undefined : undefined;
+      out.push({ kind: sess.test, date, estimate });
+    }
+  }
+  return out.sort((a, b) => (a.date < b.date ? 1 : -1))[0];
+}
+
+/** Depois do teste: ela confirma o número e ele vira referência (zonas de FC da corrida ou watts do pedal). */
+export function TestResultCard() {
+  const t = usePendingTest();
+  const settings = useSettings();
+  const [val, setVal] = useState('');
+  useEffect(() => { setVal(t?.estimate ? String(t.estimate) : ''); }, [t?.date, t?.kind, t?.estimate]);
+  if (!t || !settings) return null;
+  const run = t.kind === 'run_lthr';
+  const n = Number(val);
+  const ok = run ? n >= 120 && n <= 210 : n >= 80 && n <= 450;
+  const day = `${WEEKDAY_SHORT[isoWeekday(t.date)]} ${ddmm(t.date)}`;
+  const save = async () => {
+    const before = run ? { runLthr: settings.runLthr, runLthrAt: settings.runLthrAt } : { ftp: settings.ftp, ftpAt: settings.ftpAt };
+    await update<'settings'>('settings', run ? { runLthr: n, runLthrAt: t.date } : { ftp: n, ftpAt: t.date });
+    toast(run ? `Limiar de ${n} bpm guardado. As próximas corridas usam essas zonas.` : `FTP de ${n} W guardado. Os pedais passam a usar esses watts.`, async () => { await update<'settings'>('settings', before as any); });
+  };
+  const skip = async () => {
+    await update<'settings'>('settings', { testsSkipped: { ...(settings.testsSkipped ?? {}), [`test:${t.kind}:${t.date}`]: todayKey() } });
+  };
+  return (
+    <section className="block wp wp-test" data-testid="test-result">
+      <span className="wp-k">Resultado do teste · {day}</span>
+      <b className="wp-t sm">{run ? 'Qual foi o seu limiar na corrida?' : 'Qual foi o seu FTP novo?'}</b>
+      <p className="small" style={{ margin: '0 0 10px' }}>
+        {run
+          ? 'No Garmin, abra a corrida do teste e veja a FC média dos últimos 20 minutos do bloco forte. Esse é o seu limiar.'
+          : 'O MyWhoosh mostra o FTP no fim do teste de rampa. Se não fez o teste, toque em "Não fiz".'}
+        {run && t.estimate ? ` Deixei a FC média da sessão inteira (${t.estimate} bpm) como ponto de partida: o limiar costuma ser um pouco maior.` : ''}
+      </p>
+      <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+        <input type="number" inputMode="numeric" value={val} onChange={(e) => setVal(e.target.value)} aria-label={run ? 'FC de limiar em bpm' : 'FTP em watts'} data-testid="test-value" style={{ maxWidth: 120 }} />
+        <span className="small">{run ? 'bpm' : 'W'}</span>
+      </div>
+      {run && ok && (
+        <p className="tiny muted" style={{ margin: '8px 0 0' }} data-testid="test-zones">
+          {Object.entries(runZones(n)).map(([z, r]) => `${z} ${r}`).join(' · ')}
+        </p>
+      )}
+      <div className="wp-actions" style={{ marginTop: 12 }}>
+        <button className="btn btn-ink grow" disabled={!ok} onClick={save} data-testid="test-save"><Check size={18} />Salvar</button>
+        <button className="btn btn-soft" onClick={skip} data-testid="test-skip">Não fiz</button>
+      </div>
     </section>
   );
 }

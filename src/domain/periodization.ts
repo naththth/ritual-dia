@@ -54,6 +54,18 @@ export function levelsOf(m: MacroCycle): number {
   return Math.max(1, k);
 }
 
+const FTP_TEST = 'Teste de FTP em rampa no MyWhoosh: aquece 10 min e faz o teste de rampa até não conseguir manter a cadência (a carga sobe a cada minuto). O FTP novo é cerca de 75% da melhor potência de 1 minuto; o MyWhoosh mostra o resultado no fim.';
+/** Primeira semana da Construção e do Específico. */
+export function ftpTestWeek(m: MacroCycle, index: number): boolean {
+  const ph = phaseOf(m, index);
+  return (ph === 'construcao' || ph === 'especifico') && index > 1 && phaseOf(m, index - 1) !== ph;
+}
+/** Zonas de FC da corrida a partir do limiar (Friel): Z1 abaixo de 85%, Z2 85-89%, Z3 90-94%, Z4 95-99%, Z5 100% ou mais. */
+export function runZones(lthr: number): Record<string, string> {
+  const p = (x: number) => Math.round(lthr * x);
+  // Faixas contínuas: cada zona termina 1 bpm antes de a seguinte começar.
+  return { Z1: `até ${p(0.85) - 1} bpm`, Z2: `${p(0.85)} a ${p(0.9) - 1} bpm`, Z3: `${p(0.9)} a ${p(0.95) - 1} bpm`, Z4: `${p(0.95)} a ${lthr - 1} bpm`, Z5: `${lthr} bpm ou mais` };
+}
 const RUN_TEST = 'Teste de 30 min: aquece até 10 min (o que couber no tempo da sessão) e corre 30 min no mais forte que consegue manter constante, sem caminhar se der; a volta à calma é caminhando. A FC média dos últimos 20 min vira o seu limiar e define as zonas.';
 
 /** Intenção de cada sessão por fase. Texto que a IA recebe como ordem e que ela vê na proposta. */
@@ -139,8 +151,10 @@ export function skeletonFor(m: MacroCycle, index: number, level: number, fixedMi
       // Semana 2: a corrida principal vira o teste de limiar (até lá, as zonas saem do esforço percebido).
       const firstTest = s.key === 'run_main' && index === 2;
       // O teste pede 10 min de aquecimento + 30 de teste + 5 de volta à calma.
-      const minutes = firstTest ? Math.min(s.minutes ?? 45, 45) : minutesFor(m, s, f, phase, deload, taperStep, fixed);
-      return { key: s.key, minutes, intent: intent(s.key, phase, deload, firstTest), templateId: s.templateId };
+      if (firstTest) return { key: s.key, minutes: Math.min(s.minutes ?? 45, 45), intent: intent(s.key, phase, deload, true), test: 'run_lthr' };
+      // Reteste de FTP no pedal de dia útil na primeira semana da Construção e do Específico (watts recalibrados para a fase).
+      if (s.key === 'bike' && !deload && ftpTestWeek(m, index)) return { key: s.key, minutes: Math.min(s.minutes ?? 45, 45), intent: FTP_TEST, test: 'ftp' };
+      return { key: s.key, minutes: minutesFor(m, s, f, phase, deload, taperStep, fixed), intent: intent(s.key, phase, deload, false), templateId: s.templateId };
     });
     // Dia de desafio não tem musculação nem LPO: o corpo vai inteiro para a prova.
     if (evs.length) days[d] = days[d].filter((x) => x.key !== 'strength' && x.key !== 'lpo');

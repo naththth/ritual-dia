@@ -171,3 +171,17 @@ describe('dia de desafio', () => {
     expect(skeletonFor(m2, 10, 8, fixed).days[6].map((x) => x.key)).toEqual(['strength', 'bike_long']);
   });
 });
+
+describe('testes do ciclo', () => {
+  it('limiar de corrida na semana 2 e FTP no começo da Construção e do Específico', async () => {
+    const { ftpTestWeek, runZones } = await import('../../src/domain/periodization');
+    expect(skeletonFor(macro, 2, 1, fixed).days[3][0].test).toBe('run_lthr');
+    expect([8, 14].every((i) => ftpTestWeek(macro, i))).toBe(true);
+    expect([7, 9, 13, 15, 18].some((i) => ftpTestWeek(macro, i))).toBe(false);
+    const w8 = skeletonFor(macro, 8, 6, fixed);
+    expect(w8.days[5][0]).toMatchObject({ key: 'bike', test: 'ftp' });
+    expect(w8.days[5][0].intent).toMatch(/rampa/);
+    expect(skeletonFor(macro, 10, 7, fixed).days[5][0].test).toBeUndefined();
+    expect(runZones(170)).toMatchObject({ Z1: 'até 144 bpm', Z2: '145 a 152 bpm', Z3: '153 a 161 bpm', Z4: '162 a 169 bpm', Z5: '170 bpm ou mais' });
+  });
+});

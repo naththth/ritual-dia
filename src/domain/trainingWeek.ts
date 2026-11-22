@@ -7,7 +7,7 @@ import { trainingLoad } from './load';
 import { metricsForAI } from './workoutMetrics';
 import { wellnessForAI } from './wellness';
 import {
-  PHASE_LABEL, SLOT_LABEL, SLOT_SPORT, countdown, doneBySport, macroWeeks, nextLevel, plannedBySport, skeletonFor, weekIndex
+  PHASE_LABEL, SLOT_LABEL, SLOT_SPORT, countdown, runZones, doneBySport, macroWeeks, nextLevel, plannedBySport, skeletonFor, weekIndex
 } from './periodization';
 
 export const MACRO_ID = 'macro:atual';
@@ -77,10 +77,14 @@ export async function weekContext(m: MacroCycle, monday: DateKey, skeleton: Week
       dia: d, nome_dia: DAY[d], data: addDays(monday, d - 1),
       sessoes: (skeleton.days[d] ?? []).map((s) => ({
         chave: s.key, tipo: SLOT_LABEL[s.key], minutos_alvo: s.minutes, intencao: s.intent,
-        sessao_fixa: s.templateId ? tname(s.templateId) ?? SLOT_LABEL[s.key] : undefined, desafio: s.event?.label
+        sessao_fixa: s.templateId ? tname(s.templateId) ?? SLOT_LABEL[s.key] : undefined, desafio: s.event?.label,
+        teste: s.test === 'run_lthr' ? 'limiar de corrida' : s.test === 'ftp' ? 'FTP em rampa' : undefined
       }))
     })),
     ftp: settings?.ftp ?? null,
+    ftp_medido_em: settings?.ftpAt,
+    limiar_corrida_fc: settings?.runLthr ?? null,
+    zonas_corrida_fc: settings?.runLthr ? runZones(settings.runLthr) : null,
     fc_max_vista_na_corrida: maxHr || null,
     corridas_6_semanas: runs.map((w) => ({ data: w.date, minutos: w.duration, km: (w.metrics as any)?.distanceKm, pace: pace(w), fc_media: w.metrics?.avgHr, fc_max: w.metrics?.maxHr, esforco: w.rpe, como_foi: w.feeling })),
     pedais_6_semanas: rides.map((w) => ({ data: w.date, minutos: w.duration, tss: w.metrics?.tss, np: w.metrics?.np, potencia_media: w.metrics?.avgPower, fc_media: w.metrics?.avgHr, esforco: w.rpe, esporte: metricsForAI(w)?.esporte })),
