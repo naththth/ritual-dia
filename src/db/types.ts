@@ -741,7 +741,11 @@ export interface MacroCycle extends Base {
   bikeLong: [number, number]; // minutos do pedal longo: começo e pico
   active: boolean;
 }
-export interface WeekSession { key: SlotKey; minutes: number; intent: string; templateId?: string; event?: MacroEvent; test?: 'run_lthr' | 'ftp' }
+export interface WeekSession {
+  key: SlotKey; minutes: number; intent: string; templateId?: string; event?: MacroEvent; test?: 'run_lthr' | 'ftp';
+  /** Compromisso dela que entrou pelo pedido de ajuste (ex.: competição de LPO): vira sessão com este nome. */
+  commitment?: string;
+}
 /** Esqueleto calculado pelo app (não pela IA): fase, nível da progressão e alvo de cada sessão. */
 export interface WeekSkeleton {
   index: number; total: number; start: DateKey;
@@ -764,6 +768,8 @@ export interface TrainingWeek extends Base {
   sessions: ProposedSession[];
   mensagem: string;
   pedido?: string;
+  /** Esqueleto calculado pela regra, antes do pedido dela mudar dias e sessões; a progressão da semana seguinte lê este. */
+  baseSkeleton?: WeekSkeleton;
   provider?: string;
   /** Depois do aprovo: o plano que recebeu a semana e como ele estava antes, para desfazer. */
   planId?: string;

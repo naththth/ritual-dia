@@ -1,6 +1,6 @@
 // Semana de treino da periodização: o app calcula o esqueleto, a treinadora preenche, ela aprova.
 import { all, byDateRange, create, get, remove, update, upsert } from '../db/db';
-import type { Intensity, MacroCycle, ProposedSession, TrainingWeek, WeekSkeleton, Workout, WorkoutStep } from '../db/types';
+import type { Intensity, MacroCycle, ProposedSession, SlotKey, TrainingWeek, WeekSession, WeekSkeleton, Workout, WorkoutStep } from '../db/types';
 import { addDays, todayKey, weekStart, type DateKey } from '../lib/dates';
 import { askAI } from './ai';
 import { trainingLoad } from './load';
@@ -43,7 +43,7 @@ export async function skeletonForWeek(m: MacroCycle, monday: DateKey): Promise<{
   const load = trainingLoad(hist, addDays(today, -120), today).slice(-1)[0];
   const wel = await byDateRange('wellness', addDays(today, -30), today);
   const done = prevUsable ? doneBySport(await byDateRange('workout', prevMonday, addDays(prevMonday, 6))) : undefined;
-  const { level, holds } = nextLevel(m, index, prevUsable ? { level: prevUsable.skeleton.level, skeleton: prevUsable.skeleton } : undefined, done, { tsb: load?.tsb, hrvLow: hrvLow(wel, today) });
+  const { level, holds } = nextLevel(m, index, prevUsable ? { level: prevUsable.skeleton.level, skeleton: prevUsable.baseSkeleton ?? prevUsable.skeleton } : undefined, done, { tsb: load?.tsb, hrvLow: hrvLow(wel, today) });
   return { skeleton: skeletonFor(m, index, level, fixed), holds };
 }
 
@@ -109,6 +109,10 @@ export function sessionsFrom(skeleton: WeekSkeleton, r: any, tmplName: (id: stri
   for (let d = 1; d <= 7; d++) {
     const used = new Set<any>();
     for (const s of skeleton.days[d] ?? []) {
+      if (s.commitment) {
+        out.push({ day: d, key: s.key, name: s.commitment, modalityId: MOD[s.key], duration: s.minutes, intensity: 'intensa', note: s.intent });
+        continue;
+      }
       if (s.templateId && !s.event) {
         out.push({ day: d, key: s.key, templateId: s.templateId, name: tmplName(s.templateId) ?? SLOT_LABEL[s.key], modalityId: MOD[s.key], duration: s.minutes, intensity: 'moderada' });
         continue;
@@ -144,6 +148,50 @@ export function sessionsFrom(skeleton: WeekSkeleton, r: any, tmplName: (id: stri
   return out;
 }
 
+const COMMIT_KEYS: SlotKey[] = ['lpo', 'strength', 'yoga', 'yoga_class'];
+
+/**
+ * Pedido dela que mexe na estrutura (dias, folgas, compromissos): a treinadora devolve como a semana fica,
+ * sempre apontando para sessões do esqueleto original. Ela pode mudar de dia, encurtar e tirar sessões,
+ * nunca criar treino de endurance novo nem alongar. Desafio do ciclo não sai do dia. Sem ajuste válido, devolve undefined.
+ */
+export function adjustSkeleton(base: WeekSkeleton, r: any): WeekSkeleton | undefined {
+  const plan: any[] | undefined = Array.isArray(r?.esqueleto_ajustado) ? r.esqueleto_ajustado : undefined;
+  const commits: any[] = Array.isArray(r?.compromissos) ? r.compromissos : [];
+  if (!plan && !commits.length) return undefined;
+  const days: Record<string, WeekSession[]> = {};
+  for (let d = 1; d <= 7; d++) days[d] = [];
+  const used = new Set<WeekSession>();
+  if (plan) {
+    for (const day of plan) {
+      const d = Number(day?.dia);
+      if (!(d >= 1 && d <= 7) || !Array.isArray(day?.sessoes)) continue;
+      for (const it of day.sessoes) {
+        const from = Number(it?.de_dia);
+        const orig = (base.days[from] ?? []).find((s) => s.key === String(it?.chave) && !used.has(s));
+        if (!orig || orig.event) continue;
+        used.add(orig);
+        const m = Number(it?.minutos);
+        const minutes = orig.templateId ? orig.minutes : Number.isFinite(m) && m >= 5 && m <= orig.minutes ? Math.round(m / 5) * 5 || 5 : orig.minutes;
+        days[d].push({ ...orig, minutes });
+      }
+    }
+  } else {
+    for (let d = 1; d <= 7; d++) for (const s of base.days[d] ?? []) if (!s.event) { used.add(s); days[d].push({ ...s }); }
+  }
+  // Desafio do ciclo fica onde está.
+  for (let d = 1; d <= 7; d++) for (const s of base.days[d] ?? []) if (s.event) days[d].unshift({ ...s });
+  for (const c of commits) {
+    const d = Number(c?.dia);
+    const key = String(c?.chave) as SlotKey;
+    const name = String(c?.nome ?? '').trim().slice(0, 60);
+    const m = Math.round(Number(c?.minutos));
+    if (!(d >= 1 && d <= 7) || !COMMIT_KEYS.includes(key) || !name) continue;
+    days[d].push({ key, minutes: m >= 15 && m <= 600 ? m : 120, intent: String(c?.nota ?? '').trim() || name, commitment: name });
+  }
+  return { ...base, days };
+}
+
 /** Monta (ou refaz) a proposta da semana com a treinadora. Não mexe no plano: só guarda a proposta para ela aprovar. */
 export async function proposeWeek(monday: DateKey, pedido?: string): Promise<TrainingWeek> {
   const m = await loadMacro();
@@ -154,10 +202,12 @@ export async function proposeWeek(monday: DateKey, pedido?: string): Promise<Tra
   const ctx = await weekContext(m, monday, skeleton, holds, pedido);
   const r = await askAI<any>('training_week', ctx);
   const tmpls = await all('wtemplate');
-  const sessions = sessionsFrom(skeleton, r, (id) => tmpls.find((t) => t.id === id)?.name);
+  // Só o pedido dela muda dias e sessões; sem pedido, vale o esqueleto da regra.
+  const adjusted = pedido ? adjustSkeleton(skeleton, r) : undefined;
+  const sessions = sessionsFrom(adjusted ?? skeleton, r, (id) => tmpls.find((t) => t.id === id)?.name);
   // Se já havia uma versão aprovada, ela continua valendo no plano até esta nova ser aprovada.
   return upsert('tweek', tweekId(monday), {
-    date: monday, status: 'proposta', skeleton, holds, sessions,
+    date: monday, status: 'proposta', skeleton: adjusted ?? skeleton, baseSkeleton: adjusted ? skeleton : undefined, holds, sessions,
     mensagem: String(r?.mensagem ?? '').trim(), pedido: pedido || undefined, provider: typeof r?._provedor === 'string' ? r._provedor : undefined,
     approvedAt: undefined
   });

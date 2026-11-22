@@ -5,7 +5,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
   'Access-Control-Allow-Methods': 'POST, OPTIONS'
 };
 const J = { ...CORS, 'Content-Type': 'application/json' };
@@ -22,9 +22,10 @@ O jeito dela: ama treino de corpo todo e quer ficar forte, para a vida e para se
 Critérios: musculação sempre de corpo todo (agachar, dobrar o quadril, empurrar, puxar, core), 2 a 4 séries de 6 a 12 repetições com 1 a 3 de reserva, multiarticulares primeiro, progressão de carga registrada, semana mais leve a cada 4 a 6 semanas; em déficit calórico ou com GLP-1, volume de força suficiente para preservar massa magra é inegociável. Endurance: distribuição polarizada, uma sessão de qualidade e base em Z2; dose a semana por FTP, TSS, forma, VFC, sono e esforço percebido. Quando houver um ciclo com desafios (contexto.desafios ou contexto.periodizacao), o endurance segue a periodização do app, rumo aos desafios; a força continua na semana, sem roubar a recuperação.
 Limites: dor articular ou muscular persistente não é para treinar por cima: troque o exercício e, se continuar, oriente avaliação. Tontura, dor no peito, falta de ar desproporcional ou queda brusca de rendimento: parar e procurar médico. Não contradiz treinador presencial.`;
 
-const TASK = `Você monta a semana de treino dela dentro de um ciclo periodizado. O app já decidiu, por regra, a fase, o degrau da progressão, as semanas leves, as travas e o alvo de cada sessão (contexto.esqueleto): você não muda dia, tipo nem duração. Seu trabalho é transformar cada sessão de corrida, pedal e ioga em treino concreto, coerente com a fase e com o que ela vem conseguindo fazer.
-Leia antes: semana (número, fase, semana leve, degrau), travas_da_progressao (por que a progressão segurou ou voltou), desafios e quanto falta, corridas e pedais das últimas 6 semanas (pace, FC, potência, esforço, como foi), carga (fitness, fadiga, forma), sono e recuperação, semana_anterior (planejado x feito e as sessões propostas) e pedido_dela (se houver, atenda dentro do esqueleto; o que não couber, explique na mensagem).
+const TASK = `Você monta a semana de treino dela dentro de um ciclo periodizado. O app já decidiu, por regra, a fase, o degrau da progressão, as semanas leves, as travas e o alvo de cada sessão (contexto.esqueleto): sem pedido_dela, você não muda dia, tipo nem duração. Seu trabalho é transformar cada sessão de corrida, pedal e ioga em treino concreto, coerente com a fase e com o que ela vem conseguindo fazer.
+Leia antes: semana (número, fase, semana leve, degrau), travas_da_progressao (por que a progressão segurou ou voltou), desafios e quanto falta, corridas e pedais das últimas 6 semanas (pace, FC, potência, esforço, como foi), carga (fitness, fadiga, forma), sono e recuperação, semana_anterior (planejado x feito e as sessões propostas) e pedido_dela (quando houver, ele vem antes do esqueleto; veja abaixo).
 Para cada sessão do esqueleto SEM sessao_fixa, devolva uma sessão com dia e chave iguais aos do esqueleto, nome curto e específico (ex.: "Corrida · 6 x 3 min em Z4", "MyWhoosh · Sweet spot 3 x 10 min", "Ioga · quadril e posterior"), minutos iguais ao alvo, intensidade e roteiro de 1 a 3 frases com o objetivo e como executar. Sessão com sessao_fixa (musculação, LPO, aula) não entra na resposta: o app mantém a de sempre.
+Pedido dela (pedido_dela): é o que ela precisa nesta semana e manda na estrutura. Leia as datas de cada dia em esqueleto[].data e resolva "amanhã", "terça" e afins por contexto.hoje. Se o pedido mexe em dias, folgas, volume ou compromissos (competição, prova, viagem, aula extra, dia sem poder treinar), devolva 'esqueleto_ajustado' com os 7 dias, cada um com as sessões que ficam naquele dia, apontando para o esqueleto original por de_dia e chave; o que não aparecer em nenhum dia sai da semana. Você pode levar uma sessão para outro dia, encurtar (minutos menores que o alvo) e tirar sessões; não pode criar treino de corrida ou pedal que não está no esqueleto nem alongar o alvo. Sessão com 'desafio' fica no dia dela e não entra no esqueleto_ajustado (o app mantém). Compromisso que ela citar e que não é treino do ciclo (ex.: competição de LPO no sábado e no domingo) vai em 'compromissos', um por dia, com chave lpo, strength, yoga ou yoga_class conforme a modalidade, nome curto (ex.: "Competição de LPO"), minutos estimados e nota de 1 frase (aquecimento, hidratação, o que evitar). Siga a distribuição que ela pediu, dia a dia, sempre que for segura; preserve o que dá para preservar do ciclo e, com competição, alivie as pernas e a intensidade nos 2 dias antes e deixe o dia anterior leve ou de folga, se ela não disser outra coisa. Depois preencha 'sessoes' já nos dias novos. Se o pedido só muda intensidade ou conteúdo, omita esqueleto_ajustado. Sem pedido_dela, nunca devolva esqueleto_ajustado nem compromissos. Na 'mensagem', com pedido, comece dizendo em 1 frase como a semana ficou por dia e, se algo do pedido não foi seguido, por quê.
 Pedal (MyWhoosh): blocos em % do FTP que somam exatamente os minutos (aquecimento, parte principal, volta à calma); intervalos de menos de 1 minuto são permitidos (frações, ex.: 0.5). Zonas: Z1 até 55%, Z2 56 a 75%, Z3 76 a 90%, sweet spot 88 a 94%, Z4 91 a 105%, Z5 106 a 120%.
 Corrida: blocos que somam os minutos, cada um com 'alvo' em texto: faixa de FC em bpm, esforço percebido de 1 a 10 e sugestão de velocidade na esteira em km/h coerente com os paces recentes dela; 'pct' só dá a altura do desenho (50 leve, 70 moderado, 90 forte, 100 muito forte). Com limiar_corrida_fc no contexto, os alvos de FC saem de zonas_corrida_fc (Z2 nas sessões leves e no longo, Z4 na qualidade); sem ele, use esforço percebido e FC relativa à fc_max_vista_na_corrida. Se ela ainda alterna corrida e caminhada, a base usa blocos corre/caminha, com a caminhada diminuindo de semana a semana.
 Sessão com 'teste' (limiar de corrida ou FTP em rampa): siga o protocolo da intenção ao pé da letra, com blocos simples (aquecimento, teste, volta à calma), e diga no roteiro como registrar o resultado no app depois.
@@ -32,7 +33,7 @@ Ioga (chave yoga, sem blocos): mobilidade que complementa a semana (quadril, pos
 Desafio (sessão com 'desafio'): estratégia no roteiro (aquecimento, ritmo do começo, onde apertar, hidratação) e blocos com o plano de ritmo.
 Princípios: distribuição polarizada (a maior parte leve; a qualidade fica na sessão que o esqueleto indicar); semana leve sem qualidade; progressão dentro da fase: não repita as sessões da semana anterior, varie estímulo e estrutura mantendo a intenção; no dia seguinte ao LPO e à musculação, nada forte de pernas na corrida; com forma muito negativa, sono ruim ou déficit calórico alto, puxe para o lado leve e diga isso.
 'mensagem': 2 a 4 frases, em primeira pessoa como treinadora, dizendo o foco da semana, o que mudou em relação à anterior e por quê (cite as travas quando houver).
-Formato: {"mensagem":"","sessoes":[{"dia":1,"chave":"yoga","nome":"","minutos":20,"intensidade":"leve|moderada|intensa","roteiro":"","blocos":[{"rotulo":"","minutos":0,"pct":0,"alvo":""}]}]}`;
+Formato: {"mensagem":"","esqueleto_ajustado":[{"dia":1,"sessoes":[{"chave":"strength","de_dia":5,"minutos":45}]}],"compromissos":[{"dia":6,"chave":"lpo","nome":"","minutos":180,"nota":""}],"sessoes":[{"dia":1,"chave":"yoga","nome":"","minutos":20,"intensidade":"leve|moderada|intensa","roteiro":"","blocos":[{"rotulo":"","minutos":0,"pct":0,"alvo":""}]}]}`;
 
 type Call = (system: string, user: string) => Promise<string>;
 
@@ -80,20 +81,26 @@ const gemini = (key: string): Call => async (system, user) => {
   throw new Error(`Gemini: ${last}`);
 };
 
-/** O gateway já validou o JWT (verify_jwt); aqui só confere que é a usuária logada. */
-function loggedIn(req: Request) {
+/** O gateway já validou o JWT (verify_jwt); aqui confere que é a usuária logada ou o teste interno com o segredo do agendador. */
+async function loggedIn(req: Request) {
   const token = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '');
   try {
     const part = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
     const payload = JSON.parse(atob(part + '='.repeat((4 - (part.length % 4)) % 4)));
-    return payload.role === 'authenticated' && !!payload.sub;
-  } catch { return false; }
+    if (payload.role === 'authenticated' && !!payload.sub) return true;
+  } catch { /* */ }
+  const probe = req.headers.get('x-cron-secret');
+  if (!probe) return false;
+  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const r = await fetch(`${Deno.env.get('SUPABASE_URL')}/rest/v1/app_secrets?key=eq.cron_secret&select=value`, { headers: { apikey: key, authorization: `Bearer ${key}` } });
+  const rows = r.ok ? await r.json() : [];
+  return !!rows?.[0]?.value && rows[0].value === probe;
 }
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   try {
-    if (!loggedIn(req)) return new Response(JSON.stringify({ error: 'Entre com Google para usar a IA.' }), { status: 401, headers: J });
+    if (!(await loggedIn(req))) return new Response(JSON.stringify({ error: 'Entre com Google para usar a IA.' }), { status: 401, headers: J });
     const { task, context } = await req.json();
     if (task !== 'training_week') return new Response(JSON.stringify({ error: 'Tarefa desconhecida' }), { status: 400, headers: J });
     const ctx = JSON.stringify(context ?? {});

@@ -107,7 +107,7 @@ function autoTarget(active: MacroCycle, today: DateKey, ws: DateKey, cur: Traini
 
 /** Como a semana foi calculada: a regra do ciclo em frases curtas, para ela entender (e poder discordar). */
 function WhyBlock({ m, tw, prev }: { m: MacroCycle; tw: TrainingWeek; prev?: TrainingWeek | null }) {
-  const lines = explainWeek(m, tw.skeleton, prev && prev.status !== 'descartada' ? prev.skeleton : undefined);
+  const lines = explainWeek(m, tw.baseSkeleton ?? tw.skeleton, prev && prev.status !== 'descartada' ? prev.baseSkeleton ?? prev.skeleton : undefined);
   return (
     <div className="wp-why" data-testid="week-why">
       <b>Como esta semana foi montada</b>
