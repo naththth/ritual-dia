@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MacroCycle, Workout } from '../../src/db/types';
-import { isDeload, levelsOf, macroWeeks, nextLevel, phaseOf, plannedBySport, skeletonFor, weekToPropose, doneBySport } from '../../src/domain/periodization';
+import { explainWeek, isDeload, levelsOf, macroWeeks, nextLevel, phaseOf, plannedBySport, skeletonFor, weekToPropose, doneBySport } from '../../src/domain/periodization';
 import { hrvLow, sessionsFrom } from '../../src/domain/trainingWeek';
 
 // Ciclo fictício: 19 semanas, pedal 50 km no sábado e corrida 10 km no domingo da última semana.
@@ -143,5 +143,17 @@ describe('proposta da treinadora', () => {
 describe('teste de limiar', () => {
   it('cabe aquecimento, 30 min de teste e volta à calma', () => {
     expect(skeletonFor(macro, 2, 1, fixed).days[3][0].minutes).toBe(45);
+  });
+});
+
+describe('explicação da semana', () => {
+  it('fase, degrau, longos com o quanto mudaram e a próxima semana leve', () => {
+    const prev = skeletonFor(macro, 2, 1, fixed);
+    const lines: string[] = explainWeek(macro, skeletonFor(macro, 3, 2, fixed), prev);
+    expect(lines[0]).toMatch(/^Base/);
+    expect(lines.join(' ')).toMatch(/Degrau 3 de 13/);
+    expect(lines.join(' ')).toMatch(/Corrida longa: \d+ min \(era \d+\)/);
+    expect(lines.join(' ')).toMatch(/Próxima semana leve: 04\/02/);
+    expect(explainWeek(macro, skeletonFor(macro, 5, 3, fixed)).join(' ')).toMatch(/Semana leve/);
   });
 });

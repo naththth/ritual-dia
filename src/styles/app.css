@@ -2392,3 +2392,8 @@ body:has(.save-bar) .toasts { bottom: calc(164px + var(--safe-b)); }
 .ind-tile .r.off { color: #4A1428 !important; }
 .ind-tile .r.ok { color: #0B3E40 !important; }
 .ind-tile.t-teal .r.ok, .ind-tile.t-teal .r.off { background: rgba(255,255,255,.85) !important; color: #0B3E40 !important; }
+.wp-why { border-left: 3px solid var(--blue-2); padding: 2px 0 2px 12px; margin: 0 0 12px; display: grid; gap: 4px; }
+.wp-why b { font-size: 13px; color: var(--blue-ink); }
+.wp-why p { margin: 0; font-size: 14px; line-height: 1.4; color: var(--ink); }
+.wp-nudge { width: 100%; text-align: left; display: grid; gap: 4px; background: var(--card); border: 0; box-shadow: 0 1px 0 rgba(42, 26, 16, .06); border-left: 4px solid var(--wine); font: inherit; color: var(--ink); cursor: pointer; }
+.wp-nudge b { font-family: var(--f-display); font-size: 19px; line-height: 1.2; }

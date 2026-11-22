@@ -76,9 +76,14 @@ const records = (page: Page, kind: string) => page.evaluate(async (k) => {
 test('domingo à tarde a treinadora propõe a semana seguinte; aprovar põe no plano; desfazer volta', async ({ page }) => {
   // Domingo 08/11, 18h: semana 2 (09 a 15/11), com o teste de limiar na quarta.
   await seed(page, '2026-11-08T18:00:00-03:00');
-  await page.goto('./#/treino');
+  // No Hoje, o aviso leva ao Treino, onde a semana inteira está para ler e aprovar.
+  await page.goto('./#/');
+  await expect(page.getByTestId('week-nudge')).toContainText('Sua semana de treino está pronta');
+  await page.getByTestId('week-nudge').click();
   const card = page.getByTestId('week-plan');
   await expect(card).toContainText('Semana 2 de 19 · Base');
+  await expect(page.getByTestId('week-why')).toContainText('Base: construir o motor aeróbico');
+  await expect(page.getByTestId('week-why')).toContainText('Próxima semana leve: 30/11');
   await expect(card).toContainText('Sua semana de 09/11 a 15/11');
   await expect(card).toContainText(/125\s*dias para pedalar 50 km/);
   await expect(card).toContainText('Semana 2: base leve.');

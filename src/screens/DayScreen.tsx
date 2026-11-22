@@ -17,6 +17,7 @@ import { NowAndTimeline, TodayStats } from './today';
 import { RitualBar } from './ritual';
 import { TodayFocus } from './focus';
 import { WeekTeaser } from './week';
+import { WeekPlanNudge } from './weekplan';
 
 export function DayScreen() {
   const date = useApp((s) => s.date);
@@ -29,6 +30,7 @@ export function DayScreen() {
           (linha do tempo), a leitura do dia e as tarefas. Sono, ciclo e hábitos ficam em Indicadores; Mente, no menu. */}
       <RitualBar date={date} />
       <TodayStats date={date} />
+      <WeekPlanNudge />
       <WeekTeaser date={date} />
       <TodayFocus date={date} />
       <NowAndTimeline date={date} hideNow />

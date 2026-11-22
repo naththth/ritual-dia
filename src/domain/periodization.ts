@@ -223,3 +223,27 @@ export function weekToPropose(m: MacroCycle, today: DateKey, hour: number): Date
   if (wd <= 3 && inRange(ws)) return ws;
   return null;
 }
+
+const PHASE_WHY: Record<Phase, string> = {
+  base: 'Base: construir o motor aeróbico. Quase tudo leve, para o corpo aguentar mais volume nas próximas fases.',
+  construcao: 'Construção: entra uma sessão de qualidade por esporte e os longos seguem crescendo.',
+  especifico: 'Específico: treinar no ritmo dos desafios, com longos perto da distância.',
+  polimento: 'Polimento: o volume cai e a intensidade fica, para você chegar inteira aos desafios.'
+};
+
+/** Como o app chegou nesta semana, em frases curtas: fase, degrau, longos (e quanto mudaram) e a próxima semana leve. */
+export function explainWeek(m: MacroCycle, sk: WeekSkeleton, prev?: WeekSkeleton): string[] {
+  const out = [PHASE_WHY[sk.phase]];
+  if (sk.deload) out.push('Semana leve: o volume cai cerca de 25% para o corpo absorver o que foi feito. Sem qualidade.');
+  else if (sk.phase !== 'polimento') out.push(`Degrau ${sk.level + 1} de ${sk.levels} da progressão: sobe um a cada semana cumprida.`);
+  const long = (s: WeekSkeleton, key: SlotKey) => Object.values(s.days).flat().find((x) => x.key === key && !x.event)?.minutes;
+  for (const [key, label] of [['run_long', 'Corrida longa'], ['bike_long', 'Pedal longo']] as const) {
+    const now = long(sk, key);
+    if (now == null) continue;
+    const before = prev ? long(prev, key) : undefined;
+    out.push(`${label}: ${now} min${before != null && before !== now ? ` (era ${before})` : ''}.`);
+  }
+  const nextDl = Array.from({ length: sk.total - sk.index }, (_, i) => sk.index + 1 + i).find((i) => isDeload(m, i));
+  if (nextDl) out.push(`Próxima semana leve: ${weekStartOf(m, nextDl).slice(8, 10)}/${weekStartOf(m, nextDl).slice(5, 7)}.`);
+  return out;
+}

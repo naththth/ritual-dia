@@ -1,10 +1,11 @@
 // Semana da periodização no alto do Treino: proposta para aprovar ou, depois do aprovo, onde ela está no ciclo.
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Check, RefreshCw, Sparkles, Undo2, ChevronDown, Flag } from 'lucide-react';
 import { useRecord, useSettings } from '../db/hooks';
 import type { MacroCycle, ProposedSession, TrainingWeek } from '../db/types';
 import { addDays, dayNum, isoWeekday, todayKey, weekStart, WEEKDAY_SHORT, type DateKey } from '../lib/dates';
-import { PHASE_LABEL, countdown, isDeload, macroWeeks, phaseOf, weekIndex, weekToPropose } from '../domain/periodization';
+import { PHASE_LABEL, countdown, explainWeek, isDeload, macroWeeks, phaseOf, weekIndex, weekToPropose } from '../domain/periodization';
 import { MACRO_ID, approveWeek, proposeWeek, tweekId, undoWeek } from '../domain/trainingWeek';
 import { aiAvailable } from '../domain/ai';
 import { toast } from '../state/store';
@@ -91,6 +92,66 @@ function SessionRow({ s }: { s: ProposedSession }) {
   );
 }
 
+/** Semana que deve ganhar proposta agora, se ainda não tem nenhuma (uma tentativa por sessão do app). */
+function autoTarget(active: MacroCycle, today: DateKey, ws: DateKey, cur: TrainingWeek | null, nxt: TrainingWeek | null): DateKey | null {
+  const next = addDays(ws, 7);
+  const target = weekToPropose(active, today, new Date().getHours());
+  if (!target) return null;
+  if (target !== ws && target !== next) return null;
+  if ((target === ws ? cur : nxt)) return null;
+  const k = `auto-week:${target}`;
+  try { if (sessionStorage.getItem(k)) return null; sessionStorage.setItem(k, '1'); } catch { /* */ }
+  return target;
+}
+
+/** Como a semana foi calculada: a regra do ciclo em frases curtas, para ela entender (e poder discordar). */
+function WhyBlock({ m, tw, prev }: { m: MacroCycle; tw: TrainingWeek; prev?: TrainingWeek | null }) {
+  const lines = explainWeek(m, tw.skeleton, prev && prev.status !== 'descartada' ? prev.skeleton : undefined);
+  return (
+    <div className="wp-why" data-testid="week-why">
+      <b>Como esta semana foi montada</b>
+      {lines.map((l) => <p key={l}>{l}</p>)}
+    </div>
+  );
+}
+
+/** No Hoje: aviso de que a semana de treino está pronta para ler e aprovar, levando ao Treino. */
+export function WeekPlanNudge() {
+  const today = todayKey();
+  const ws = weekStart(today);
+  const cur = useRecord<'tweek'>(tweekId(ws));
+  const nxt = useRecord<'tweek'>(tweekId(addDays(ws, 7)));
+  const macro = useRecord<'macro'>(MACRO_ID);
+  const nav = useNavigate();
+  const [busy, setBusy] = useState(false);
+  // O Hoje é a tela de entrada: a proposta da semana também sai daqui, sem precisar abrir o Treino.
+  useEffect(() => {
+    const active = macro && macro.active && !macro.deleted ? macro : undefined;
+    if (!active || cur === undefined || nxt === undefined || busy || !aiAvailable()) return;
+    const target = autoTarget(active, today, ws, cur, nxt);
+    if (!target) return;
+    setBusy(true);
+    proposeWeek(target).catch(() => {}).finally(() => setBusy(false));
+  }, [macro?.id, cur, nxt, today]);
+  const pending = [cur, nxt].find((t): t is TrainingWeek => !!t && t.status === 'proposta' && !t.deleted);
+  if (busy && !pending) {
+    return (
+      <div className="block wp-nudge" data-testid="week-nudge-busy">
+        <span className="wp-k">Treino</span>
+        <span className="small" style={{ display: 'flex', gap: 8, alignItems: 'center' }}><Sparkles size={16} className="wp-pulse" />A treinadora está montando a sua semana…</span>
+      </div>
+    );
+  }
+  if (!pending) return null;
+  return (
+    <button className="block wp-nudge" onClick={() => nav('/treino')} data-testid="week-nudge">
+      <span className="wp-k">Semana {pending.skeleton.index} de {pending.skeleton.total} · {PHASE_LABEL[pending.skeleton.phase]}</span>
+      <b>Sua semana de treino está pronta</b>
+      <span className="small">Toque para ler os 7 dias e aprovar, ou pedir ajuste.</span>
+    </button>
+  );
+}
+
 export function WeekPlanCard() {
   const macro = useRecord<'macro'>(MACRO_ID);
   const today = todayKey();
@@ -115,14 +176,8 @@ export function WeekPlanCard() {
   // Domingo à tarde (ou no começo da semana, se ela não abriu no domingo), a proposta sai sozinha.
   useEffect(() => {
     if (!active || cur === undefined || nxt === undefined || busy || !aiAvailable()) return;
-    const target = weekToPropose(active, today, new Date().getHours());
-    if (!target) return;
-    const have = target === ws ? cur : target === next ? nxt : undefined;
-    if (have) return;
-    if (target !== ws && target !== next && target !== active.start) return;
-    const k = `auto-week:${target}`;
-    try { if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, '1'); } catch { /* */ }
-    void propose(target, undefined, true);
+    const target = autoTarget(active, today, ws, cur, nxt);
+    if (target) void propose(target, undefined, true);
   }, [active?.id, cur, nxt, today]);
 
   if (!active || cur === undefined || nxt === undefined) return null;
@@ -161,6 +216,7 @@ export function WeekPlanCard() {
             {pending.holds.map((h) => <p key={h} className="small" style={{ margin: 0 }}>{h}</p>)}
           </div>
         )}
+        <WhyBlock m={active} tw={pending} prev={pending.date === next ? cur : undefined} />
         {pending.planId && <p className="tiny muted" style={{ margin: '0 0 8px' }}>A versão aprovada antes continua no plano até você aprovar esta.</p>}
         <div className="wp-days">
           {days.map((d) => {
@@ -218,6 +274,7 @@ export function WeekPlanCard() {
           <CycleMap m={active} current={idx} />
           {before && !approved && <button className="btn btn-ink btn-block" style={{ marginTop: 12 }} disabled={!aiAvailable()} onClick={() => propose(active.start)} data-testid="week-first"><Sparkles size={17} /> Montar a primeira semana{!aiAvailable() ? ' (entre com Google)' : ''}</button>}
           {approved?.mensagem && <p className="wp-msg">{approved.mensagem}</p>}
+          {approved && <WhyBlock m={active} tw={approved} prev={undefined} />}
           {approved?.holds.map((h) => <p key={h} className="small" style={{ margin: '0 0 6px' }}>{h}</p>)}
           <div className="wp-actions">
             {(inCycle || approved) && <button className="btn btn-soft grow" disabled={!aiAvailable()} onClick={() => propose(redoWeek)} data-testid="week-redo"><RefreshCw size={17} />{approved ? 'Refazer a semana' : 'Montar a semana'}</button>}
