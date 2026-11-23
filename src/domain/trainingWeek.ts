@@ -192,8 +192,29 @@ export function adjustSkeleton(base: WeekSkeleton, r: any): WeekSkeleton | undef
   return { ...base, days };
 }
 
+// Semanas sendo montadas agora nesta página (as duas telas que mostram a semana consultam daqui).
+const inFlight = new Map<DateKey, Promise<TrainingWeek>>();
+export const isProposing = (monday: DateKey) => inFlight.has(monday);
+
 /** Monta (ou refaz) a proposta da semana com a treinadora. Não mexe no plano: só guarda a proposta para ela aprovar. */
-export async function proposeWeek(monday: DateKey, pedido?: string): Promise<TrainingWeek> {
+export function proposeWeek(monday: DateKey, pedido?: string): Promise<TrainingWeek> {
+  const running = inFlight.get(monday);
+  if (running) return running;
+  const p = (async () => {
+    // O pedido fica gravado na semana antes da chamada: se a resposta não voltar, o app retoma depois.
+    const existing = pedido ? await get<'tweek'>(tweekId(monday)) : undefined;
+    if (existing && pedido) await update<'tweek'>(existing.id, { pendingPedido: pedido, pendingAt: Date.now(), pendingError: undefined });
+    try { return await buildWeek(monday, pedido); }
+    catch (e: any) {
+      if (existing && pedido) await update<'tweek'>(existing.id, { pendingError: String(e?.message ?? e) });
+      throw e;
+    }
+  })().finally(() => inFlight.delete(monday));
+  inFlight.set(monday, p);
+  return p;
+}
+
+async function buildWeek(monday: DateKey, pedido?: string): Promise<TrainingWeek> {
   const m = await loadMacro();
   if (!m) throw new Error('Nenhum ciclo de treino ativo.');
   const idx = weekIndex(m, monday);
@@ -209,7 +230,7 @@ export async function proposeWeek(monday: DateKey, pedido?: string): Promise<Tra
   return upsert('tweek', tweekId(monday), {
     date: monday, status: 'proposta', skeleton: adjusted ?? skeleton, baseSkeleton: adjusted ? skeleton : undefined, holds, sessions,
     mensagem: String(r?.mensagem ?? '').trim(), pedido: pedido || undefined, provider: typeof r?._provedor === 'string' ? r._provedor : undefined,
-    approvedAt: undefined
+    approvedAt: undefined, pendingPedido: undefined, pendingAt: undefined, pendingError: undefined
   });
 }
 

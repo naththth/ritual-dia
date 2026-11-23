@@ -7,7 +7,7 @@ import { update } from '../db/db';
 import type { MacroCycle, ProposedSession, TrainingWeek } from '../db/types';
 import { addDays, dayNum, isoWeekday, todayKey, weekStart, WEEKDAY_SHORT, type DateKey } from '../lib/dates';
 import { PHASE_LABEL, countdown, explainWeek, runZones, isDeload, macroWeeks, phaseOf, weekIndex, weekToPropose } from '../domain/periodization';
-import { MACRO_ID, approveWeek, proposeWeek, tweekId, undoWeek } from '../domain/trainingWeek';
+import { MACRO_ID, approveWeek, isProposing, proposeWeek, tweekId, undoWeek } from '../domain/trainingWeek';
 import { aiAvailable } from '../domain/ai';
 import { toast } from '../state/store';
 import { StepsView } from './ai-ui';
@@ -181,16 +181,27 @@ export function WeekPlanCard() {
     if (target) void propose(target, undefined, true);
   }, [active?.id, cur, nxt, today]);
 
+  // Pedido que ficou sem resposta (app recarregou, foi para segundo plano ou a outra tela está cuidando dele).
+  const stalled = [cur, nxt].find((t): t is TrainingWeek => !!t && !t.deleted && !!t.pendingPedido && !t.pendingError);
+  useEffect(() => {
+    if (!stalled || busy || isProposing(stalled.date) || !aiAvailable()) return;
+    const k = `week-resume:${stalled.date}:${stalled.pendingAt}`;
+    try { if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, '1'); } catch { /* */ }
+    void propose(stalled.date, stalled.pendingPedido);
+  }, [stalled?.date, stalled?.pendingAt]);
+
   if (!active || cur === undefined || nxt === undefined) return null;
   const total = macroWeeks(active);
   const pending: TrainingWeek | undefined = [cur, nxt].find((t): t is TrainingWeek => !!t && t.status === 'proposta');
   const idxNow = Math.min(total, Math.max(1, weekIndex(active, today)));
 
-  if (busy) {
+  if (busy || (stalled && isProposing(stalled.date))) {
+    const text = busy ?? 'Refazendo a semana com o seu pedido…';
     return (
       <section className="block wp wp-busy" data-testid="week-plan-busy">
         <div className="wp-k">Semana {idxNow} de {total}</div>
-        <p className="wp-msg" style={{ margin: '6px 0 0' }}><Sparkles size={16} className="wp-pulse" /> {busy}</p>
+        <p className="wp-msg" style={{ margin: '6px 0 0' }}><Sparkles size={16} className="wp-pulse" /> {text}</p>
+        <p className="tiny muted" style={{ margin: '8px 0 0' }}>Leva de 1 a 2 minutos. Se o app fechar no meio, ele retoma o pedido quando você voltar.</p>
       </section>
     );
   }
@@ -211,7 +222,15 @@ export function WeekPlanCard() {
         <h2 className="wp-t">Sua semana de {ddmm(pending.date)} a {ddmm(addDays(pending.date, 6))}</h2>
         <CycleBar m={active} current={sk.index} />
         <Countdown m={active} from={today} />
+        {pending.pendingError && pending.pendingPedido && (
+          <div className="wp-ask-err" data-testid="week-ask-error">
+            <p className="small" style={{ margin: 0 }}>Não consegui refazer com o seu pedido: {pending.pendingError}</p>
+            <p className="small muted" style={{ margin: '4px 0 8px' }}>“{pending.pendingPedido}”</p>
+            <button className="btn btn-ink btn-block" disabled={!aiAvailable()} onClick={() => propose(pending.date, pending.pendingPedido)} data-testid="week-ask-retry"><RefreshCw size={17} />Tentar de novo</button>
+          </div>
+        )}
         {pending.mensagem && <p className="wp-msg" data-testid="week-msg">{pending.mensagem}</p>}
+        {pending.pedido && <p className="small muted wp-pedido" data-testid="week-pedido">Seu pedido: “{pending.pedido}”</p>}
         {pending.holds.length > 0 && (
           <div className="wp-holds" data-testid="week-holds">
             {pending.holds.map((h) => <p key={h} className="small" style={{ margin: 0 }}>{h}</p>)}

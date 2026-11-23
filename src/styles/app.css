@@ -2224,6 +2224,8 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea
 @keyframes wp-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 .wp-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .wp-ask { display: grid; gap: 8px; margin-bottom: 12px; }
+.wp-ask-err { background: var(--paper); border-left: 3px solid var(--wine); border-radius: var(--r-s); padding: 10px 12px; margin-bottom: 12px; color: var(--wine-ink); overflow-wrap: anywhere; }
+.wp-pedido { margin: -4px 0 12px; line-height: 1.4; overflow-wrap: anywhere; }
 .wp-compact { padding-bottom: 12px; }
 .wp-compact .wp-goals { margin-bottom: 4px; }
 .wp-compact-head { width: 100%; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; background: none; border: 0; padding: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; }

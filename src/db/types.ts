@@ -770,6 +770,11 @@ export interface TrainingWeek extends Base {
   pedido?: string;
   /** Esqueleto calculado pela regra, antes do pedido dela mudar dias e sessões; a progressão da semana seguinte lê este. */
   baseSkeleton?: WeekSkeleton;
+  /** Pedido em andamento: gravado antes de chamar a treinadora, para não se perder se o app recarregar ou for para segundo plano. */
+  pendingPedido?: string;
+  pendingAt?: number;
+  /** Por que a última tentativa com o pedido falhou (o pedido fica guardado para tentar de novo). */
+  pendingError?: string;
   provider?: string;
   /** Depois do aprovo: o plano que recebeu a semana e como ele estava antes, para desfazer. */
   planId?: string;

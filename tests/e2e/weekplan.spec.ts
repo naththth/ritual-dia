@@ -43,6 +43,21 @@ async function seed(page: Page, now: string) {
         else if (s.chave.startsWith('run')) sessoes.push({ dia: d.dia, chave: s.chave, nome: `Corrida · ${s.tipo.toLowerCase()} da semana ${ctx.semana.numero}`, minutos: s.minutos_alvo, intensidade: 'leve', roteiro: 'Corre 4 min, caminha 1 min.', blocos: [{ rotulo: 'Corre e caminha', minutos: s.minutos_alvo, pct: 60, alvo: 'FC 135 a 150 · esforço 4 · esteira 7,5 km/h' }] });
         else sessoes.push({ dia: d.dia, chave: s.chave, nome: 'Ioga · quadril e posterior', minutos: s.minutos_alvo, intensidade: 'leve', roteiro: 'Mobilidade de quadril.' });
       }
+      // Pedido com competição: muda a estrutura (força na segunda, sexta livre, competição no fim de semana).
+      if (/competição/.test(ctx.pedido_dela ?? '')) {
+        const find = (k: string) => ctx.esqueleto.find((d: any) => d.sessoes.some((x: any) => x.chave === k));
+        return {
+          mensagem: 'Semana ajustada para a competição.', _provedor: 'teste',
+          esqueleto_ajustado: [
+            { dia: 1, sessoes: [{ chave: 'strength', de_dia: find('strength').dia }] },
+            { dia: 2, sessoes: [{ chave: 'lpo', de_dia: 2 }] },
+            { dia: 3, sessoes: [{ chave: 'run_main', de_dia: 3, minutos: 30 }] },
+            { dia: 4, sessoes: [] }, { dia: 5, sessoes: [] }, { dia: 6, sessoes: [] }, { dia: 7, sessoes: [] }
+          ],
+          compromissos: [{ dia: 6, chave: 'lpo', nome: 'Competição de LPO', minutos: 240 }, { dia: 7, chave: 'lpo', nome: 'Competição de LPO', minutos: 240 }],
+          sessoes: [{ dia: 3, chave: 'run_main', nome: 'Corrida · solta antes da prova', minutos: 30, intensidade: 'leve' }]
+        };
+      }
       return { mensagem: `Semana ${ctx.semana.numero}: base leve${ctx.pedido_dela ? ', com o seu pedido' : ''}.`, sessoes, _provedor: 'teste' };
     };
   });
@@ -181,4 +196,33 @@ test('depois do teste de limiar, ela confirma o número e as zonas passam a vale
   await expect(card).toHaveCount(0);
   const s = (await records(page, 'settings'))[0];
   expect(s).toMatchObject({ runLthr: 166, runLthrAt: '2026-11-11' });
+});
+
+test('pedido que se perdeu no meio (app recarregou) é retomado e pode mudar dias e incluir competição', async ({ page }) => {
+  await seed(page, '2026-11-08T18:00:00-03:00');
+  await page.goto('./#/treino');
+  await expect(page.getByTestId('week-plan')).toContainText('Semana 2 de 19');
+  // Simula o app fechando com o pedido gravado e sem resposta.
+  await page.evaluate(async () => {
+    const req = indexedDB.open('ritual');
+    const db: IDBDatabase = await new Promise((r) => { req.onsuccess = () => r(req.result); });
+    const st = db.transaction('records', 'readwrite').objectStore('records');
+    const g = st.get('tweek:2026-11-09');
+    await new Promise((r) => { g.onsuccess = r; });
+    st.put({ ...g.result, pendingPedido: 'competição de LPO no sábado e domingo; sexta descanso', pendingAt: Date.now(), updatedAt: Date.now() });
+  });
+  await page.reload();
+  await page.goto('./#/treino');
+  await expect(page.getByTestId('week-msg')).toContainText('ajustada para a competição');
+  await expect(page.getByTestId('week-pedido')).toContainText('sexta descanso');
+  const days = page.getByTestId('wp-day');
+  await expect(days.nth(0)).toContainText('Musculação');
+  await expect(days.nth(4)).toContainText('Descanso');
+  await expect(days.nth(5)).toContainText('Competição de LPO');
+  await expect(days.nth(6)).toContainText('Competição de LPO');
+  const tw = (await records(page, 'tweek')).find((t) => t.id === 'tweek:2026-11-09');
+  expect(tw.pendingPedido).toBeUndefined();
+  expect(tw.pedido).toContain('competição');
+  // A progressão da semana seguinte lê o esqueleto da regra, não o ajustado.
+  expect(tw.baseSkeleton.days['5'].length).toBeGreaterThan(0);
 });
