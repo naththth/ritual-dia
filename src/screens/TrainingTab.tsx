@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { metricCells, showsPowerZones, weekDistances, shortLine } from '../domain/workoutMetrics';
 import { useNavigate } from 'react-router-dom';
-import { Upload, Plus, Sparkles, Trash2, ChevronRight, ChevronDown, Check as CheckIcon, Activity } from 'lucide-react';
+import { Upload, Plus, Sparkles, Trash2, ChevronRight, ChevronDown, Check as CheckIcon, Activity, Pencil, SkipForward } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Fold } from '../ui/ui';
 import { TopBar , DayStrip } from './common';
@@ -19,11 +19,11 @@ import { effectiveSleep, effectiveHrv, wellnessForAI } from '../domain/wellness'
 import { db, update } from '../db/db';
 import { MicButton, appendText } from '../ui/Dictation';
 import type { StrengthExercise, Workout, WorkoutTemplate } from '../db/types';
-import { programFor, lpoProgram, lpoFromText, LPO_GROUP, defaultExercises, reconcileWithNote, noteWithExercises, parseNoteLine, loadText, topLoad, loadsPerSet, exerciseVolume, repsPerSet, repsText } from '../domain/strength';
+import { programFor, lpoProgram, lpoFromText, LPO_GROUP, defaultExercises, reconcileWithNote, noteWithExercises, parseNoteLine, topLoad, loadsPerSet, exerciseVolume, repsPerSet } from '../domain/strength';
 import { ExerciseEditor, LogExercises } from './strength-ui';
 import { Arc } from '../ui/art';
 import { ActivityArt, activityKind } from '../ui/activity';
-import { SessionHero, FeelCard, SessionExercises } from './session-ui';
+import { SessionHero, FeelCard, SessionExercises, PlanSession } from './session-ui';
 import { aiAvailable, askAI, applyTrainingResult } from '../domain/ai';
 import { fmt } from '../domain/nutrition';
 import { CoachButton } from './coach';
@@ -181,7 +181,7 @@ export function TrainingTab() {
           {pending.map((t) => {
             const swapped = dayDone.find((w) => !daySlots.some((x) => x.workoutId === w.id));
             return (
-              <TItem key={t.id} kind="planned" testId="planned-item" open={openSet.has(t.id)} onToggle={() => toggle(t.id)}
+              <TItem key={t.id} kind="planned" testId="planned-item" open={openSet.has(t.id)} onToggle={() => toggle(t.id)} wide={isMuscle(t.modalityId)}
                 title={t.name} time={t.time}
                 cover={<ActivityArt kind={activityKind(t.name, modName(t.modalityId))} exercises={isMuscle(t.modalityId) ? programFor(t, history ?? [], date).exercises : undefined} />}
                 chips={<><span className="chip">{modName(t.modalityId)}</span><span className="chip">{t.duration} min</span><span className={`chip int-${t.intensity}`}>{t.intensity}</span></>}
@@ -194,15 +194,26 @@ export function TrainingTab() {
                   )}
                   {(t.steps ?? t.runSteps)?.length && !openSet.has(t.id) ? <StepsView steps={(t.steps ?? t.runSteps)!} bars /> : null}
                 </>}>
-                {t.note && !isMuscle(t.modalityId) ? <div className="small wt-note">{t.note}</div> : null}
-                {t.muscles?.length ? <div className="small" style={{ marginTop: 6 }}>Foco: {t.muscles.join(', ').toLowerCase()}</div> : null}
-                {isMuscle(t.modalityId) && <PlannedStrength t={t} history={history ?? []} date={date} onDone={(exs) => workoutFromTemplate(t, date, true, exs)} />}
-                {(t.steps ?? t.runSteps)?.length ? <StepsView steps={(t.steps ?? t.runSteps)!} /> : null}
-                <div className="row wrap" style={{ gap: 8, marginTop: 12 }}>
-                  {!isMuscle(t.modalityId) && <button className="pill-act pa-blue" data-testid="train-done" onClick={() => workoutFromTemplate(t, date, true)}>Feito</button>}
-                  <button className="pill-act pa-ghost" onClick={() => fileRef.current?.click()}>Importar o arquivo</button>
-                  <button className="pill-act pa-ghost" data-testid="train-skip" onClick={() => skipTraining(date, t)}>Hoje não</button>
-                </div>
+                {isMuscle(t.modalityId) ? (
+                  <PlannedStrength t={t} history={history ?? []} date={date} onDone={(exs) => workoutFromTemplate(t, date, true, exs)}
+                    more={<>
+                      <button className="tp-sec" onClick={() => fileRef.current?.click()} aria-label="Importar o arquivo do relógio"><Upload size={16} />Importar</button>
+                      <button className="tp-sec" data-testid="train-skip" onClick={() => skipTraining(date, t)}><SkipForward size={16} />Hoje não</button>
+                    </>} />
+                ) : (
+                  <>
+                    {t.note ? <div className="small wt-note">{t.note}</div> : null}
+                    {t.muscles?.length ? <div className="small" style={{ marginTop: 6 }}>Foco: {t.muscles.join(', ').toLowerCase()}</div> : null}
+                    {(t.steps ?? t.runSteps)?.length ? <StepsView steps={(t.steps ?? t.runSteps)!} /> : null}
+                    <div className="tp-actions">
+                      <button className="tp-main" data-testid="train-done" onClick={() => workoutFromTemplate(t, date, true)}><CheckIcon size={18} strokeWidth={2.6} />Feito</button>
+                      <div className="tp-more">
+                        <button className="tp-sec" onClick={() => fileRef.current?.click()}><Upload size={16} />Importar arquivo</button>
+                        <button className="tp-sec" data-testid="train-skip" onClick={() => skipTraining(date, t)}><SkipForward size={16} />Hoje não</button>
+                      </div>
+                    </div>
+                  </>
+                )}
               </TItem>
             );
           })}
@@ -442,28 +453,9 @@ function WorkoutFeedback({ w, forceOpen }: { w: Workout; forceOpen?: boolean }) 
   );
 }
 
-/** Texto do treino com a carga de cada exercício do roteiro ao lado. Sem roteiro escrito, a lista vem dos exercícios. */
-function StrengthNote({ note, exercises }: { note?: string; exercises: StrengthExercise[] }) {
-  const lines = (note ?? '').split('\n');
-  const hasList = lines.some((l) => parseNoteLine(l));
-  const used = new Set<string>();
-  const kg = (e?: StrengthExercise) => { const l = e ? loadText(e) : undefined; return l ? <b> · {l}</b> : null; };
-  return (
-    <div className="small wt-note" data-testid="strength-note">
-      {(note ?? '').trim() ? lines.map((l, i) => {
-        const p = parseNoteLine(l);
-        const e = p ? exercises.find((x) => x.name === p.name && !used.has(x.id)) : undefined;
-        if (e) used.add(e.id);
-        return <span key={i}>{l}{kg(e)}{'\n'}</span>;
-      }) : null}
-      {!hasList && exercises.length ? <>{(note ?? '').trim() ? '\n' : ''}{exercises.map((e, i) => <span key={e.id}>{`${i + 1}. ${e.name} ${e.sets}x${repsText(e)}`}{kg(e)}{'\n'}</span>)}</> : null}
-    </div>
-  );
-}
-
 /** Musculação planejada: o texto do treino é o programado. Em "Editar treino" ela troca exercícios, séries,
  *  repetições e carga; ao concluir, o roteiro do texto é reescrito com o que ficou. */
-function PlannedStrength({ t, history, date, onDone }: { t: WorkoutTemplate; history: Workout[]; date: DateKey; onDone: (exs: StrengthExercise[]) => void }) {
+function PlannedStrength({ t, history, date, onDone, more }: { t: WorkoutTemplate; history: Workout[]; date: DateKey; onDone: (exs: StrengthExercise[]) => void; more: ReactNode }) {
   // Grava no modelo a sessão que vale: a do roteiro escrito (se a gravada não bate com ele) ou a sugerida pelos grupos.
   useEffect(() => {
     const fix = reconcileWithNote(t.note, t.exercises) ?? (!t.exercises?.length ? defaultExercises(t.muscles, t.note) : undefined);
@@ -475,7 +467,10 @@ function PlannedStrength({ t, history, date, onDone }: { t: WorkoutTemplate; his
     return (
       <>
         {t.note ? <div className="small wt-note">{t.note}</div> : null}
-        <button className="pill-act pa-blue" style={{ marginTop: 10 }} data-testid="train-done" onClick={() => onDone([])}>Feito</button>
+        <div className="tp-actions">
+          <button className="tp-main" data-testid="train-done" onClick={() => onDone([])}><CheckIcon size={18} strokeWidth={2.6} />Feito</button>
+          <div className="tp-more">{more}</div>
+        </div>
       </>
     );
   }
@@ -486,9 +481,9 @@ function PlannedStrength({ t, history, date, onDone }: { t: WorkoutTemplate; his
       <div data-testid="planned-strength-edit">
         {intro ? <div className="small wt-note">{intro}</div> : null}
         <div style={{ marginTop: 10 }}><ExerciseEditor value={draft} why={why} onChange={setDraft} /></div>
-        <div className="row wrap" style={{ gap: 8, marginTop: 10 }}>
-          <button className="pill-act pa-ghost" onClick={() => setDraft(null)}>Cancelar</button>
-          <button className="pill-act pa-blue" data-testid="strength-edit-save" disabled={!draft.length}
+        <div className="tp-more tp-edit-acts">
+          <button className="tp-sec" onClick={() => setDraft(null)}>Cancelar</button>
+          <button className="tp-main" data-testid="strength-edit-save" disabled={!draft.length}
             onClick={() => {
               const exs = draft;
               setDraft(null);
@@ -499,13 +494,16 @@ function PlannedStrength({ t, history, date, onDone }: { t: WorkoutTemplate; his
     );
   }
   return (
-    <div data-testid="planned-strength">
-      <StrengthNote note={t.note} exercises={exercises} />
-      <div className="row wrap" style={{ gap: 8, marginTop: 10 }}>
-        <button className="pill-act pa-blue" data-testid="train-done" onClick={() => onDone(exercises)}>Feito, como programado</button>
-        <button className="pill-act pa-ghost" data-testid="strength-edit" onClick={() => setDraft(exercises)}>Editar treino</button>
-      </div>
-    </div>
+    <PlanSession note={t.note} muscles={t.muscles} exercises={exercises} why={why}
+      actions={
+        <div className="tp-actions">
+          <button className="tp-main" data-testid="train-done" onClick={() => onDone(exercises)}><CheckIcon size={18} strokeWidth={2.6} />Feito, como programado</button>
+          <div className="tp-more">
+            <button className="tp-sec" data-testid="strength-edit" onClick={() => setDraft(exercises)}><Pencil size={16} />Editar</button>
+            {more}
+          </div>
+        </div>
+      } />
   );
 }
 

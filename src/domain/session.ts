@@ -1,7 +1,7 @@
 // Sessão de força já feita: foto de cada exercício, comparação com sessões anteriores e números do treino.
 import type { StrengthExercise, Workout } from '../db/types';
 import type { DateKey } from '../lib/dates';
-import { loadsPerSet, repsPerSet, topLoad, exerciseVolume, totalReps } from './strength';
+import { loadsPerSet, repsPerSet, topLoad, exerciseVolume, totalReps, parseNoteLine } from './strength';
 
 const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
@@ -109,3 +109,49 @@ export function coverExercise(exs: StrengthExercise[]): StrengthExercise | undef
 
 /** Grupos trabalhados, na ordem em que aparecem: "Pernas · LPO". */
 export const sessionGroups = (exs: StrengthExercise[]) => [...new Set(exs.map((e) => e.group).filter(Boolean))].join(' · ');
+
+// ── Musculação planejada: o roteiro do texto lido exercício por exercício ──
+
+const LINE_RE = /^\s*\d+[.)]\s+(.+?)\s+(\d+)\s*[x×]\s*(\d+(?:\s*-\s*\d+|(?:\s*\/\s*\d+)+)?)\s*(.*)$/i;
+
+export interface PlanLine {
+  e: StrengthExercise;
+  /** Nome como a treinadora escreveu, com a alternativa ("Supino reto com barra ou máquina"). */
+  label: string;
+  /** Repetições do roteiro: faixa ("8-10") quando bate com o exercício; senão as do exercício. */
+  reps: string;
+  /** O que vem depois das repetições, fora dos parênteses ("cada lado"). */
+  extra?: string;
+  /** O que está entre parênteses, sem o "meta:" ("30-35 kg total"). */
+  meta?: string;
+}
+
+/** Junta cada exercício do dia à linha do roteiro que o descreve; sem roteiro, usa só o exercício. */
+export function planLines(note: string | undefined, exercises: StrengthExercise[]): PlanLine[] {
+  const raw = (note ?? '').split('\n').map((l) => ({ m: l.match(LINE_RE), name: parseNoteLine(l)?.name })).filter((x): x is { m: RegExpMatchArray; name: string } => !!x.m && !!x.name);
+  const used = new Set<number>();
+  return exercises.map((e) => {
+    const reps0 = e.setReps?.length ? repsPerSet(e).join('/') : String(e.reps);
+    const j = raw.findIndex((x, k) => !used.has(k) && x.name === e.name);
+    if (j < 0) return { e, label: e.name, reps: reps0 };
+    used.add(j);
+    const m = raw[j].m;
+    const range = m[3].replace(/\s+/g, '');
+    const top = Number(range.split(/[-/]/).pop());
+    const reps = Number(m[2]) === e.sets && (top === e.reps || range === reps0) ? range : reps0;
+    const meta = m[4].match(/\(([^)]*)\)/)?.[1].replace(/^\s*meta\s*:\s*/i, '').trim();
+    const extra = m[4].replace(/\([^)]*\)/g, '').replace(/^[\s·,;-]+|[\s·,;.]+$/g, '').trim();
+    const label = m[1].trim();
+    return { e, label: label.charAt(0).toUpperCase() + label.slice(1), reps, extra: extra || undefined, meta: meta || undefined };
+  });
+}
+
+/** Texto de apoio do roteiro (descanso, execução, RIR), sem as linhas numeradas. */
+export const planIntro = (note?: string) => (note ?? '').split('\n').filter((l) => !LINE_RE.test(l)).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+
+/** Descanso citado no texto ("Descanse 90s", "Descanso de 60 a 90s"). */
+export function restText(note?: string): string | undefined {
+  const m = (note ?? '').match(/descans\w*\s+(?:de\s+)?(\d+)(?:\s*(?:a|-|–)\s*(\d+))?\s*(s\b|seg|min)/i);
+  if (!m) return undefined;
+  return `${m[1]}${m[2] ? `–${m[2]}` : ''} ${/min/i.test(m[3]) ? 'min' : 's'}`;
+}

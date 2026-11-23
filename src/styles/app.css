@@ -2135,6 +2135,49 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea
 .chip.int-intensa { background: #F2B48C !important; color: #4A1F0A; }
 .titem.has-cover > :not(.titem-cover):not(.titem-head):not(.titem-chips) { margin-left: 14px; margin-right: 14px; }
 .titem.has-cover .titem-body { padding-bottom: 14px; }
+/* Com capa, o círculo do item some: o corpo começa na mesma linha do título, sem o recuo de 48px */
+.titem.has-cover .titem-body, .titem.has-cover .titem-body.wide { padding-left: 0; padding-right: 0; }
+/* Ações do treino planejado: a principal na largura toda; as outras do mesmo tamanho, lado a lado quando cabem, texto numa linha */
+.tp-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.tp-main { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 52px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--blue-ink); color: var(--card); font-family: var(--f-display); font-weight: 650; font-size: 17px; white-space: nowrap; transition: transform .12s ease; }
+.tp-main:active, .tp-sec:active { transform: scale(.97); }
+.tp-main:disabled { background: var(--paper-2); color: var(--ink-3); }
+.tp-more { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
+@media (max-width: 359px) { .tp-more { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.tp-sec { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; min-height: 46px; padding: 0 10px; border-radius: 999px; border: 1.5px solid var(--line-2); background: transparent; color: var(--ink); font-weight: 700; font-size: 14.5px; white-space: nowrap; }
+.tp-sec svg { flex-shrink: 0; color: var(--blue-ink); }
+.tp-edit-acts { margin-top: 12px; }
+.tp-edit-acts .tp-main { width: auto; min-height: 46px; font-size: 15.5px; }
+/* Musculação planejada: números, como fazer e um card por exercício (fundo papel, porque o item já é creme) */
+.tp { display: flex; flex-direction: column; }
+.tp-nums { display: grid; gap: 8px; padding: 14px 0 2px; border-top: 1px solid var(--line); }
+.tp-num { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.tp-num b { font-family: var(--f-display); font-weight: 600; font-size: 26px; line-height: 1; letter-spacing: -.02em; color: var(--ink); }
+.tp-num b.tp-word { font-size: 17px; line-height: 1.15; letter-spacing: 0; overflow-wrap: break-word; }
+.tp-num > span:last-child { font-size: 13px; font-weight: 650; color: var(--ink-2); }
+.tp-how { margin-top: 14px; background: var(--blue-ink); color: #E4F0EC; border-radius: 20px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+.tp-how p { margin: 0; font-size: 15.5px; line-height: 1.45; white-space: pre-line; overflow-wrap: break-word; }
+.tp-exs { margin-top: 12px; gap: 8px; }
+.tp-ex { background: var(--paper); gap: 10px; }
+.tp-ex .ss-ex-head { grid-template-columns: 64px minmax(0, 1fr); cursor: default; }
+.tp-ph { position: relative; width: 64px; height: 64px; }
+.tp-ph img { width: 64px; height: 64px; border-radius: 18px; object-fit: cover; background: var(--blue); display: block; }
+.tp-ph i { position: absolute; left: -4px; top: -4px; width: 24px; height: 24px; border-radius: 12px; display: grid; place-items: center; background: var(--card); color: var(--blue-ink); font-style: normal; font-size: 13px; font-weight: 800; box-shadow: 0 0 0 2px var(--paper); }
+.tp-ex .ss-line b { font-size: 24px; }
+.tp-extra { font-size: 14px !important; font-weight: 650 !important; color: var(--ink-2) !important; }
+.tp-load { display: flex; flex-direction: column; gap: 8px; background: var(--card); border-radius: 14px; padding: 10px 12px; }
+.tp-load-row { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 12px; flex-wrap: wrap; }
+.tp-load-sub { display: flex; justify-content: space-between; align-items: center; gap: 4px 12px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 8px; font-size: 13.5px; font-weight: 650; color: var(--ink-2); }
+.tp-why { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; white-space: nowrap; }
+.tp-why.t-up { color: var(--blue-ink); } .tp-why.t-down { color: var(--wine); } .tp-why.t-same { color: var(--ink-2); }
+.tp-meta-v { font-size: 18px !important; text-align: right; }
+.tp-load-k { font-size: 13px; font-weight: 700; color: var(--ink-2); white-space: nowrap; }
+.tp-ladder { display: inline-flex; align-items: baseline; flex-wrap: wrap; gap: 2px 6px; margin-left: auto; }
+.tp-step { display: inline-flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.tp-step i { font-style: normal; color: var(--ink-3); font-size: 14px; }
+.tp-ladder b { font-family: var(--f-display); font-weight: 600; font-size: 20px; line-height: 1; color: var(--ink-2); }
+.tp-ladder b.top { color: var(--blue-ink); font-size: 22px; }
+.tp-kg { font-size: 14px; font-weight: 700; color: var(--ink-2); }
 /* Próximo treino: imagem em cima, texto embaixo (sem texto sobre o desenho) */
 .up-hero { height: auto; padding: 0; background: var(--card); display: flex; flex-direction: column; }
 .up-hero .act-cover { height: 130px; border-radius: 0; }

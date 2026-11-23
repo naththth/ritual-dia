@@ -1,10 +1,10 @@
 // Treino de força já feito, aberto: capa com a foto do levantamento principal, números da sessão,
 // "Como foi" em destaque e um card por exercício (escada para pirâmide, número grande para séries retas).
 import { useState, type ReactNode } from 'react';
-import { ChevronDown, HeartPulse, Flame, TrendingUp, Pencil } from 'lucide-react';
+import { ChevronDown, HeartPulse, Flame, TrendingUp, Pencil, Timer, ListChecks, Layers, TrendingDown, Minus } from 'lucide-react';
 import type { StrengthExercise, Workout } from '../db/types';
 import { loadsPerSet, repsPerSet, topLoad, exerciseVolume } from '../domain/strength';
-import { exercisePhotoKey, isPyramid, comparableHistory, compareChip, planText, sessionTotals, coverExercise, sessionGroups, ddmm } from '../domain/session';
+import { exercisePhotoKey, isPyramid, comparableHistory, compareChip, planText, sessionTotals, coverExercise, sessionGroups, ddmm, planLines, planIntro, restText, type PlanLine } from '../domain/session';
 
 const BASE = ((import.meta as any).env?.BASE_URL ?? '/') as string;
 export const photoUrl = (e: Pick<StrengthExercise, 'name' | 'group'>) => `${BASE}ex/${exercisePhotoKey(e.name, e.group)}.jpg`;
@@ -186,6 +186,86 @@ function ExerciseCard({ e, history, date }: { e: StrengthExercise; history: Work
           {!pyr && past.length > 0 && <p className="ss-note">{past.map((p) => `${ddmm(p.date)}: ${p.ex.sets}×${p.ex.setReps?.length ? repsPerSet(p.ex).join('/') : p.ex.reps}, ${kgs(p.top)} kg`).join(' · ')}</p>}
         </div>
       )}
+    </article>
+  );
+}
+
+// ── Musculação planejada: o mesmo desenho da sessão feita, antes de fazer ──
+
+/** Por que a carga é essa, em poucas palavras (vem da sugestão de carga pelo último treino). */
+function whyChip(why?: string): { tone: string; text: string } | undefined {
+  if (!why) return undefined;
+  if (/^subiu/.test(why)) return { tone: 'up', text: 'Subiu: você cumpriu o último' };
+  if (/^mantida/.test(why)) return { tone: 'same', text: 'Mantida: o último foi puxado' };
+  if (/abaixo/.test(why)) return { tone: 'down', text: 'Baixou: faltaram repetições' };
+  return undefined;
+}
+
+/** Treino de força planejado, aberto: números da sessão, como fazer, um card por exercício e as ações. */
+export function PlanSession({ note, muscles, exercises, why, actions }: { note?: string; muscles?: string[]; exercises: StrengthExercise[]; why: Record<string, string>; actions: ReactNode }) {
+  const lines = planLines(note, exercises);
+  const intro = planIntro(note);
+  const rest = restText(note);
+  const sets = exercises.reduce((a, e) => a + e.sets, 0);
+  const third = rest ? { icon: <Timer size={18} />, v: rest, l: 'de descanso' } : muscles?.length ? { icon: <Layers size={18} />, v: muscles.join(', ').toLowerCase(), l: 'foco' } : undefined;
+  return (
+    <div className="tp" data-testid="planned-strength">
+      <div className="tp-nums" style={{ gridTemplateColumns: `repeat(${third ? 3 : 2}, minmax(0, 1fr))` }}>
+        <div className="tp-num"><span className="ss-ic ic-blue" aria-hidden><ListChecks size={18} /></span><b className="num">{exercises.length}</b><span>{exercises.length === 1 ? 'exercício' : 'exercícios'}</span></div>
+        <div className="tp-num"><span className="ss-ic ic-honey" aria-hidden><Layers size={18} /></span><b className="num">{sets}</b><span>{sets === 1 ? 'série' : 'séries'}</span></div>
+        {third && <div className="tp-num"><span className="ss-ic ic-rose" aria-hidden>{third.icon}</span><b className={third.l === 'foco' ? 'tp-word' : 'num'}>{third.v}</b><span>{third.l}</span></div>}
+      </div>
+      {intro && (
+        <section className="tp-how" data-testid="plan-how">
+          <span className="ss-k">Como fazer</span>
+          <p>{intro}</p>
+        </section>
+      )}
+      <section className="ss-exs tp-exs" data-testid="strength-note">
+        {lines.map((l, i) => <PlanExerciseCard key={l.e.id} n={i + 1} l={l} why={why[l.e.id]} />)}
+      </section>
+      {actions}
+    </div>
+  );
+}
+
+function PlanExerciseCard({ n, l, why }: { n: number; l: PlanLine; why?: string }) {
+  const { e } = l;
+  const ls = loadsPerSet(e);
+  const pyr = isPyramid(e);
+  const top = topLoad(e);
+  const chip = whyChip(why);
+  return (
+    <article className="ss-ex tp-ex" data-testid="plan-ex">
+      <div className="ss-ex-head">
+        <span className="tp-ph"><img src={photoUrl(e)} alt="" loading="lazy" /><i className="num" aria-hidden>{n}</i></span>
+        <span className="ss-ex-main">
+          <b className="ss-ex-n">{l.label}</b>
+          <span className="ss-line"><b className="num">{e.sets}×{l.reps}</b>{l.extra ? <span className="tp-extra">{l.extra}</span> : null}</span>
+        </span>
+      </div>
+      {top != null ? (
+        <div className="tp-load">
+          <div className="tp-load-row" aria-label={pyr ? `Carga por série: ${ls.map((x) => kgs(x)).join(', ')} kg` : `Carga ${kgs(top)} kg`}>
+            <span className="tp-load-k">{pyr ? 'Carga por série' : 'Carga'}</span>
+            <span className="tp-ladder">
+              {pyr ? ls.map((x, i) => <span key={i} className="tp-step"><b className={`num ${x === top ? 'top' : ''}`}>{kgs(x)}</b>{i < ls.length - 1 ? <i aria-hidden>→</i> : null}</span>)
+                : <b className="num top">{kgs(top)}</b>}
+              <span className="tp-kg">kg</span>
+            </span>
+          </div>
+          {(l.meta || chip) && (
+            <div className="tp-load-sub">
+              {l.meta && <span data-testid="plan-meta">Meta {l.meta}</span>}
+              {chip && <span className={`tp-why t-${chip.tone}`} title={why}>{chip.tone === 'up' ? <TrendingUp size={14} /> : chip.tone === 'down' ? <TrendingDown size={14} /> : <Minus size={14} />}{chip.text}</span>}
+            </div>
+          )}
+        </div>
+      ) : l.meta ? (
+        <div className="tp-load">
+          <div className="tp-load-row"><span className="tp-load-k">Meta</span><span className="tp-ladder"><b className="top tp-meta-v" data-testid="plan-meta">{l.meta}</b></span></div>
+        </div>
+      ) : null}
     </article>
   );
 }

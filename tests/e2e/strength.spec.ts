@@ -68,8 +68,8 @@ test('musculação programada com carga, variações e lançamento do que foi fe
   expect(await sel.locator('option').allTextContents()).not.toEqual(before);
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/strength-plan.png', fullPage: true });
   await page.getByTestId('strength-edit-save').click();
-  await expect(page.getByTestId('strength-note')).toContainText('30,5 kg');
-  await expect(page.getByTestId('strength-note')).toContainText('4x10');
+  await expect(page.getByTestId('strength-note')).toContainText(/30,5\s*kg/);
+  await expect(page.getByTestId('strength-note')).toContainText('4×10');
 
   await page.getByTestId('train-done').click();
   const card = page.getByTestId('workout-card');
@@ -133,7 +133,10 @@ test('o roteiro escrito no treino vira os exercícios do dia', async ({ page }) 
   await page.getByRole('button', { name: /^dom, 25\/10/ }).click();
   await openTrainingItems(page);
   const note = page.getByTestId('strength-note');
-  await expect(note).toContainText('1. Agachamento goblet ou livre 3x6-10');
+  // cada linha do roteiro vira um card, com o nome como a treinadora escreveu e a faixa de repetições
+  await expect(note.getByTestId('plan-ex').first()).toContainText('Agachamento goblet ou livre');
+  await expect(note.getByTestId('plan-ex').first()).toContainText('3×6-10');
+  await expect(page.getByTestId('plan-how')).toContainText('Bi-sets.');
   // a edição acontece dentro do treino e, ao concluir, o texto do treino muda
   await page.getByTestId('strength-edit').click();
   const rows = page.getByTestId('exercise-row');
@@ -146,13 +149,17 @@ test('o roteiro escrito no treino vira os exercícios do dia', async ({ page }) 
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/strength-edit.png', fullPage: true });
   await page.getByTestId('strength-edit-save').click();
   await expect(page.getByTestId('exercise-row')).toHaveCount(0);
-  await expect(note).toContainText(`3. ${alt} 3x12 · 25 kg`);
-  await expect(note).toContainText('1. Agachamento goblet ou livre 3x6-10');
+  await expect(note.getByTestId('plan-ex').nth(2)).toContainText(alt);
+  await expect(note.getByTestId('plan-ex').nth(2)).toContainText('3×12');
+  await expect(note.getByTestId('plan-ex').nth(2)).toContainText(/25\s*kg/);
+  await expect(note.getByTestId('plan-ex').first()).toContainText('Agachamento goblet ou livre');
+  await expect(note.getByTestId('plan-ex').first()).toContainText('3×6-10');
   await expect(note).not.toContainText('Mesa flexora');
   await page.reload();
   await page.getByRole('button', { name: /^dom, 25\/10/ }).click();
   await openTrainingItems(page);
-  await expect(page.getByTestId('strength-note')).toContainText(`3. ${alt} 3x12 · 25 kg`);
+  await expect(page.getByTestId('plan-ex').nth(2)).toContainText(alt);
+  await expect(page.getByTestId('plan-ex').nth(2)).toContainText(/25\s*kg/);
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/strength-after.png', fullPage: true });
 });
 
