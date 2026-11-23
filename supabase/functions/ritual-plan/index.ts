@@ -44,13 +44,13 @@ function extractJson(text: string) {
   return JSON.parse(text.slice(s, e + 1));
 }
 
-/** Claude com raciocínio estendido; se o modelo não aceitar o raciocínio, repete sem. */
+/** Claude com raciocínio curto (o esqueleto já vem decidido pelo app; a IA só preenche as sessões); se o modelo não aceitar o raciocínio, repete sem. */
 const anthropic = (key: string): Call => async (system, user, signal) => {
   const model = Deno.env.get('ANTHROPIC_MODEL') ?? 'claude-sonnet-5-5';
   const send = (think: boolean) => fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST', signal,
     headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({ model, max_tokens: 16000, ...(think ? { thinking: { type: 'enabled', budget_tokens: 3000 } } : {}), system, messages: [{ role: 'user', content: user }] })
+    body: JSON.stringify({ model, max_tokens: 10000, ...(think ? { thinking: { type: 'enabled', budget_tokens: 1500 } } : {}), system, messages: [{ role: 'user', content: user }] })
   });
   let r = await send(true);
   let b = await r.json();
@@ -59,12 +59,12 @@ const anthropic = (key: string): Call => async (system, user, signal) => {
   return (b.content ?? []).filter((c: any) => c.type === 'text').map((c: any) => c.text).join('');
 };
 
-/** Gemini com pensamento médio: o alto passava de 2 minutos com a semana inteira e batia no limite do servidor. */
+/** Gemini com pensamento baixo: o alto passava de 2 minutos com a semana inteira e o médio ainda levava de 1 a 2 minutos. */
 const gemini = (key: string): Call => async (system, user, signal) => {
   const models = Array.from(new Set([Deno.env.get('GEMINI_MODEL') ?? 'gemini-flash-latest', 'gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash']));
   let last = '';
   for (const model of models) {
-    const body = (withLevel: boolean) => JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: [{ text: user }] }], generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 32768, temperature: 0.4, ...(withLevel ? { thinkingConfig: { thinkingLevel: 'medium' } } : {}) } });
+    const body = (withLevel: boolean) => JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: [{ text: user }] }], generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 32768, temperature: 0.4, ...(withLevel ? { thinkingConfig: { thinkingLevel: 'low' } } : {}) } });
     const send = (withLevel: boolean) => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, { method: 'POST', signal, headers: { 'x-goog-api-key': key, 'content-type': 'application/json' }, body: body(withLevel) });
     let r = await send(true);
     let b = await r.json();
@@ -121,15 +121,19 @@ Deno.serve(async (req: Request) => {
       let done = false;
       try {
         return await Promise.any(order.map(async (p) => {
+          const t0 = Date.now();
+          const secs = () => ((Date.now() - t0) / 1000).toFixed(1);
           try {
             const result = extractJson(await p.call(system, user, ctl.signal));
             result._provedor = p.name;
+            console.log(`ritual-plan ${p.name}: ok em ${secs()} s${done ? ' (depois da outra IA)' : ''}`);
             done = true;
             return { result, provider: p.name };
           } catch (e) {
+            const m = ctl.signal.aborted ? (done ? 'cancelada, a outra IA já respondeu' : 'passou do tempo') : String((e as Error)?.message ?? e);
+            console.error(`ritual-plan ${p.name}: ${m.slice(0, 300)} (${secs()} s)`);
             if (done) throw e; // a outra IA já respondeu; esta foi cancelada
-            const m = ctl.signal.aborted ? 'passou do tempo' : String((e as Error)?.message ?? e);
-            console.error(`ritual-plan ${p.name}: ${m.slice(0, 300)}`); errs.push(`${p.name}: ${m}`);
+            errs.push(`${p.name}: ${m}`);
             throw e;
           }
         }));
