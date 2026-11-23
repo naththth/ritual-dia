@@ -249,7 +249,7 @@ export function NowAndTimeline({ date, hideNow }: { date: DateKey; hideNow?: boo
               <div key={i.key} style={{ display: 'contents' }}>
                 {showNow && <div className="tl-now" aria-label={`Agora, ${nowLabel}`}><b className="num">{nowLabel}</b><i /><em /></div>}
                 <div className={`tl2 ${i.done ? 'done' : ''} ${i.skipped ? 'skipped' : ''}`} data-testid={`tl-${i.key}`}>
-                  <span className="tl2-time num">{i.time ?? ''}</span>
+                  <span className="tl2-time num">{i.time ?? <span className="tl2-notime">Sem<br />hora</span>}</span>
                   {isNext ? (
                     <div className="tl-next" style={nextStyle(i)}>
                       {i.mod === 'training' && <SportScene sport={sportOf(i.title)} />}
@@ -330,14 +330,14 @@ export function TodayStats({ date }: { date: DateKey }) {
               <span className="bt-v num">{fmt(n.kcal)}</span><span className="small muted">{goal ? `de ${fmt(goal)} kcal` : 'kcal'}</span>
             </span>
           </span>
-          <span className="bt-macros"><span><b style={{ color: MACRO_COLORS.p }}>{fmt(n.p)} g</b>proteína</span><span><b style={{ color: '#9A7418' }}>{fmt(n.c)} g</b>carbo</span><span><b style={{ color: MACRO_COLORS.f }}>{fmt(n.f)} g</b>gordura</span></span>
+          <span className="bt-macros"><span><b style={{ color: MACRO_COLORS.p }}>{fmt(n.p)} g</b>proteína</span><span><b style={{ color: '#86630F' }}>{fmt(n.c)} g</b>carbo</span><span><b style={{ color: '#4A64A3' }}>{fmt(n.f)} g</b>gordura</span></span>
         </button>
       )}
       <div className="bt bt-water">
         <div className="bw-l">
           <button className="tap water-open" onClick={() => setWaterOpen(true)} aria-label={`Água: ${ml} mL. Abrir registros de água`} data-testid="water-open" style={{ textAlign: 'left' }}>
             <span style={{ display: 'block', fontSize: 14, fontWeight: 600 }}>Água</span>
-            <span className="bt-v num" style={{ display: 'block', marginTop: 8 }}>{ml >= 1000 ? (ml / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' L' : ml + ' mL'}</span>
+            <span className="bt-v num" style={{ display: 'block', marginTop: 8 }}>{ml >= 1000 ? (ml / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) : ml}{' '}<small>{ml >= 1000 ? 'L' : 'mL'}</small></span>
             <span className="bt-l">de {(goalMl / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} L</span>
           </button>
           <button className="water-plus" onClick={() => addWater(date, preset)} aria-label={`Somar ${preset} mL de água`} data-testid="water">+{preset}</button>

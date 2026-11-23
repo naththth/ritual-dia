@@ -60,7 +60,7 @@ export function TopBar({ right }: { right?: ReactNode }) {
   return (
     <div className="topbar">
       <span className="row" style={{ gap: 4 }}><MenuButton /><span className="wordmark">Ritual<i>.</i></span><SyncDot /></span>
-      <span className="row" style={{ gap: 0 }}>
+      <span className="row" style={{ gap: 6 }}>
         {right}
         <button className="icon-btn" aria-label="Ajustes" onClick={() => nav('/ajustes')}><Cog size={22} /></button>
       </span>

@@ -14,7 +14,7 @@
   --line-2: #C9B691;
 
   /* destaque principal: terracota */
-  --wine: #C0582C;
+  --wine: #AB4A24;
   --wine-2: #D9764A;
   --wine-ink: #FFF2E4;
 
@@ -1155,7 +1155,7 @@ input[type=checkbox]:checked::after { content: ''; width: 6px; height: 11px; bor
 .ib-track { position: relative; flex: 1; width: 100%; border-radius: 6px; background: var(--paper-2); overflow: hidden; }
 .ib-fill { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 6px; }
 .ib-goal { position: absolute; left: 0; right: 0; height: 2px; background: var(--ink); opacity: .55; z-index: 1; }
-.ib-l { font-size: 10.5px; font-weight: 700; color: var(--ink-3); height: 13px; }
+.ib-l { font-size: 11px; font-weight: 700; color: var(--ink-2); height: 14px; }
 .ind-note { font-size: 12.5px; color: var(--ink-2); line-height: 1.4; margin: 6px 0 0; }
 .ind-tile.t-honey { background: var(--honey); color: var(--honey-ink); }
 .ind-tile.t-teal { background: var(--blue-ink); color: #E4F0EC; }
@@ -1921,7 +1921,7 @@ body:has(.save-bar) .bottomnav2, body:has(.chat-input) .bottomnav2, body:has(.ri
 .hero2 .h2-stats b { display: block; font-family: var(--f-display); font-size: 20px; color: #fff; }
 .page-big { font-family: var(--f-display); font-weight: 700; font-size: 48px; line-height: .95; letter-spacing: -.035em; margin: 10px 0 0; }
 .page-big .lt { font-weight: 400; color: var(--ink-2); }
-.app { overflow-x: clip; }
+html, body { overflow-x: clip; }
 .bt-water .water-plus { position: static; inset: auto; transform: none; }
 .tl3 .pill-act.pa-late { background: transparent; border: 1.5px solid var(--line-2); color: var(--ink); }
 /* Mais: grade de cards com ícone no topo e título alinhado na mesma altura */
@@ -2565,3 +2565,48 @@ body:has(.save-bar) .toasts { bottom: calc(164px + var(--safe-b)); }
 .pt-chipx { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; border-radius: 999px; padding: 0 12px; min-height: 36px; }
 .pt-chipx.blue { background: var(--blue); color: var(--blue-ink); }
 .pt-chipx.rose { background: var(--rose); color: var(--rose-ink); }
+
+
+/* ===================== Respiro, alinhamento e contraste (nov/2026) ===================== */
+/* Abas: o texto da primeira aba começa na mesma linha do conteúdo (antes ficava 6px mais para dentro) */
+.seg-tabs { padding: 0 6px; }
+
+/* Linha do tempo do Hoje: respiro antes do bloco seguinte (a Leitura do dia encostava no último cartão) */
+[data-testid="timeline"] { margin-bottom: 20px; }
+/* Item sem horário: rótulo curto na coluna do horário, em vez de coluna vazia */
+.tl3 .tl2-notime { display: block; font-size: 11px; line-height: 1.15; font-weight: 650; color: var(--ink-2); text-align: right; }
+/* Título longo do item (ex.: treino) não empurra o botão: o botão fica alinhado ao centro do cartão */
+.tl3 .tl2-card .tl2-body { min-width: 0; }
+/* Leitura do dia: o botão de refazer alinha o ícone com a margem interna do cartão e não aumenta o cabeçalho */
+.brief .bh .icon-btn { margin: -8px -12px -8px 0; }
+.brief .bh { min-height: 28px; }
+
+/* Cartões de ação em fundo terracota: texto auxiliar sem transparência */
+.b-wine .meta, .b-wine p { opacity: 1; }
+.tl-next .tl2-detail { opacity: 1; }
+
+/* Topo: botões do canto nunca encostam um no outro */
+.topbar .icon-btn + .icon-btn { margin-left: 0; }
+
+/* ---------- Pauta: cabeçalho com respiro ---------- */
+.pt-screen { padding-left: 22px; padding-right: 22px; }
+.pt-screen .topbar { margin-bottom: 16px; }
+.pt-mast { margin-top: 0; }
+.pt-mast-row { padding: 12px 0 10px; gap: 16px; }
+.pt-word { margin-bottom: 2px; }
+.pt-mast-meta { padding-bottom: 12px; gap: 4px; }
+.pt-mast-meta .small { color: var(--ink); font-weight: 500; }
+.pt-mast .pt-kicker { color: #7A3216; }
+.pt-progress { padding-top: 16px; gap: 6px; }
+.pt-progress span { background: rgba(42, 26, 16, .16); }
+.pt-screen .seg-tabs { margin: 14px -22px 0; padding: 0 12px; }
+.pt-edition { margin-top: 20px; gap: 12px; }
+.pt-pair { gap: 12px; }
+.pt-fio { margin-top: 22px; padding: 22px 20px; }
+/* Dias fora do mês e rótulos auxiliares: mais legíveis sem competir com os dias do mês */
+.cal-day.out { color: var(--ink-2); opacity: .75; }
+.pf-num-box i { color: var(--ink-2); }
+.mt2-txt span { opacity: 1; }
+/* Cartão de Água: número e unidade na mesma linha (a unidade menor), sem quebrar no celular */
+.bt-water .bt-v { white-space: nowrap; }
+.bt-water .bt-v small { font-size: 14px; font-weight: 700; letter-spacing: 0; margin-left: 1px; }
