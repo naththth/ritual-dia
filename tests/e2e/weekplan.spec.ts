@@ -100,7 +100,7 @@ test('domingo à tarde a treinadora propõe a semana seguinte; aprovar põe no p
   await expect(page.getByTestId('week-why')).toContainText('Base: construir o motor aeróbico');
   await expect(page.getByTestId('week-why')).toContainText('Próxima semana leve: 30/11');
   await expect(card).toContainText('Sua semana de 09/11 a 15/11');
-  await expect(card).toContainText(/125\s*dias para pedalar 50 km/);
+  await expect(card).toContainText(/125\s*dias para pedalar 50\skm/);
   await expect(card).toContainText('Semana 2: base leve.');
   // fixas com o nome de sempre; sessões novas da treinadora
   await expect(card).toContainText('Musculação A teste');
@@ -149,7 +149,9 @@ test('pedir ajuste refaz a semana com o pedido; semana seguinte segura se quase 
   await page.goto('./#/treino');
   await expect(page.getByTestId('week-plan')).toContainText('Semana 2 de 19');
   await page.getByTestId('week-adjust').click();
+  if (process.env.SHOTS) await page.getByTestId('week-plan').screenshot({ path: '/tmp/claude-0/shots/weekplan-ajuste-vazio.png' });
   await page.getByTestId('week-ask-input').fill('quinta não consigo');
+  if (process.env.SHOTS) await page.getByTestId('week-plan').screenshot({ path: '/tmp/claude-0/shots/weekplan-ajuste-texto.png' });
   await page.getByTestId('week-ask-send').click();
   await expect(page.getByTestId('week-msg')).toContainText('com o seu pedido');
   let ctx = await page.evaluate(() => (window as any).__weekCtx);

@@ -15,7 +15,7 @@ import { MicButton, appendText } from '../ui/Dictation';
 
 const ddmm = (d: DateKey) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
 
-/** Faixa do ciclo: uma barra por semana, na cor da fase; semana leve mais baixa; a atual acesa. */
+/** Faixa do ciclo: uma barra por semana, na cor da fase; semana leve mais baixa; a atual acesa, com um ponto embaixo. */
 function CycleBar({ m, current }: { m: MacroCycle; current: number }) {
   const n = macroWeeks(m);
   return (
@@ -33,7 +33,7 @@ function Countdown({ m, from }: { m: MacroCycle; from: DateKey }) {
   return (
     <div className="wp-goals">
       {c.map((x) => (
-        <span key={x.label} className="wp-goal"><b className="num">{x.days}</b><span>{x.days === 1 ? 'dia' : 'dias'} para {x.label}</span></span>
+        <span key={x.label} className="wp-goal"><b className="num">{x.days}</b><span>{x.days === 1 ? 'dia' : 'dias'} para {x.label.replace(/ (?=km\b)/g, ' ')}</span></span>
       ))}
     </div>
   );
@@ -252,19 +252,24 @@ export function WeekPlanCard() {
             );
           })}
         </div>
-        {asking && (
+        {/* Uma ação principal por vez: pedindo ajuste, o par vira Cancelar e Refazer; fora disso, Aprovar e Pedir ajuste. */}
+        {asking ? (
           <div className="wp-ask">
             <div className="composer">
-              <textarea value={pedido} onChange={(e) => setPedido(e.target.value)} rows={2} placeholder="Ex.: quinta não consigo; quero o longo de corrida no sábado" aria-label="O que mudar na semana" data-testid="week-ask-input" />
+              <textarea value={pedido} onChange={(e) => setPedido(e.target.value)} rows={2} placeholder="Ex.: quinta não consigo; quero o longo de corrida no sábado" aria-label="O que mudar na semana" data-testid="week-ask-input" autoFocus />
               <MicButton compact label="Falar" onText={(t) => setPedido((cur) => appendText(cur, t))} />
             </div>
-            <button className="btn btn-ink btn-block" disabled={!pedido.trim() || !aiAvailable()} onClick={() => propose(pending.date, pedido.trim())} data-testid="week-ask-send"><RefreshCw size={17} />Refazer com isso</button>
+            <div className="wp-actions">
+              <button className="btn btn-line" onClick={() => { setAsking(false); setPedido(''); }} data-testid="week-ask-cancel">Cancelar</button>
+              <button className="btn btn-ink" disabled={!pedido.trim() || !aiAvailable()} onClick={() => propose(pending.date, pedido.trim())} data-testid="week-ask-send"><RefreshCw size={17} />Refazer semana</button>
+            </div>
+          </div>
+        ) : (
+          <div className="wp-actions">
+            <button className="btn btn-ink" onClick={approve} data-testid="week-approve"><Check size={18} />Aprovar semana</button>
+            <button className="btn btn-line" onClick={() => setAsking(true)} data-testid="week-adjust">Pedir ajuste</button>
           </div>
         )}
-        <div className="wp-actions">
-          <button className="btn btn-ink grow" onClick={approve} data-testid="week-approve"><Check size={18} />Aprovar semana</button>
-          <button className="btn btn-soft" onClick={() => setAsking(!asking)} data-testid="week-adjust">Pedir ajuste</button>
-        </div>
         <p className="tiny muted" style={{ margin: '10px 0 0' }}>Depois do aprovo, pedais vão para o MyWhoosh e corridas para o relógio, com alvo de FC; ioga fica no app.</p>
       </section>
     );
@@ -297,8 +302,8 @@ export function WeekPlanCard() {
           {approved && <WhyBlock m={active} tw={approved} prev={undefined} />}
           {approved?.holds.map((h) => <p key={h} className="small" style={{ margin: '0 0 6px' }}>{h}</p>)}
           <div className="wp-actions">
-            {(inCycle || approved) && <button className="btn btn-soft grow" disabled={!aiAvailable()} onClick={() => propose(redoWeek)} data-testid="week-redo"><RefreshCw size={17} />{approved ? 'Refazer a semana' : 'Montar a semana'}</button>}
-            {approved && <button className="btn btn-soft" onClick={async () => { await undoWeek(approved); toast('Aprovo desfeito: o plano voltou ao de antes.'); }} data-testid="week-undo"><Undo2 size={17} />Desfazer</button>}
+            {(inCycle || approved) && <button className="btn btn-line grow" disabled={!aiAvailable()} onClick={() => propose(redoWeek)} data-testid="week-redo"><RefreshCw size={17} />{approved ? 'Refazer a semana' : 'Montar a semana'}</button>}
+            {approved && <button className="btn btn-line" onClick={async () => { await undoWeek(approved); toast('Aprovo desfeito: o plano voltou ao de antes.'); }} data-testid="week-undo"><Undo2 size={17} />Desfazer</button>}
           </div>
         </div>
       )}
@@ -370,8 +375,8 @@ export function TestResultCard() {
         </p>
       )}
       <div className="wp-actions" style={{ marginTop: 12 }}>
-        <button className="btn btn-ink grow" disabled={!ok} onClick={save} data-testid="test-save"><Check size={18} />Salvar</button>
-        <button className="btn btn-soft" onClick={skip} data-testid="test-skip">Não fiz</button>
+        <button className="btn btn-ink" disabled={!ok} onClick={save} data-testid="test-save"><Check size={18} />Salvar</button>
+        <button className="btn btn-line" onClick={skip} data-testid="test-skip">Não fiz</button>
       </div>
     </section>
   );

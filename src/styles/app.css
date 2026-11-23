@@ -2191,11 +2191,13 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea
 .wp-k { display: block; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--blue-ink); }
 .wp-t { display: block; font-family: var(--f-display); font-size: 22px; line-height: 1.15; margin: 4px 0 12px; color: var(--ink); font-weight: 700; }
 .wp-t.sm { font-size: 18px; margin: 2px 0 10px; }
-.wp-bar { display: flex; align-items: flex-end; gap: 3px; height: 22px; margin-bottom: 12px; }
-.wp-bar i { flex: 1; height: 100%; border-radius: 4px; opacity: .3; transition: opacity .3s, transform .3s; transform-origin: bottom; }
-.wp-bar i.dl { height: 58%; }
-.wp-bar i.past { opacity: .62; }
-.wp-bar i.on { opacity: 1; transform: scaleY(1.18); box-shadow: 0 0 0 2px var(--card), 0 0 0 3.5px currentColor; }
+.wp-bar { display: flex; align-items: flex-end; gap: 3px; height: 20px; margin: 2px 0 22px; }
+.wp-bar i { position: relative; flex: 1; height: 100%; border-radius: 4px; opacity: .28; transition: opacity .3s; }
+.wp-bar i.dl { height: 55%; }
+.wp-bar i.past { opacity: .6; }
+/* Semana atual: cor cheia e um ponto embaixo, sem anel nem aumento que encostem no título ou nos cards */
+.wp-bar i.on { opacity: 1; }
+.wp-bar i.on::after { content: ''; position: absolute; left: 50%; bottom: -10px; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: var(--ink); }
 .wp-bar .ph-base { background: var(--olive-2); color: var(--olive-2); }
 .wp-bar .ph-construcao { background: var(--honey-2); color: var(--honey-2); }
 .wp-bar .ph-especifico { background: var(--wine-2); color: var(--wine-2); }
@@ -2223,7 +2225,13 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea
 .wp-s-body p { color: var(--ink); }
 @keyframes wp-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 .wp-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.wp-ask { display: grid; gap: 8px; margin-bottom: 12px; }
+/* Par de ações do card da semana: lado a lado quando cabem, cada um na sua linha quando não; texto nunca quebra */
+.wp > .wp-actions .btn, .wp-ask .wp-actions .btn { flex: 1 0 auto; padding: 0 18px; white-space: nowrap; }
+.wp .wp-actions .btn svg { flex-shrink: 0; }
+.wp .btn-line { color: var(--ink); border-color: var(--line-2); }
+.wp-ask .btn-ink:disabled { opacity: 1; background: var(--paper); color: var(--ink-3); }
+.wp-ask { display: grid; gap: 10px; }
+.wp-ask .composer textarea::placeholder { white-space: normal; }
 .wp-ask-err { background: var(--paper); border-left: 3px solid var(--wine); border-radius: var(--r-s); padding: 10px 12px; margin-bottom: 12px; color: var(--wine-ink); overflow-wrap: anywhere; }
 .wp-pedido { margin: -4px 0 12px; line-height: 1.4; overflow-wrap: anywhere; }
 .wp-compact { padding-bottom: 12px; }
