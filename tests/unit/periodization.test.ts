@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MacroCycle, Workout } from '../../src/db/types';
-import { explainWeek, isDeload, levelsOf, macroWeeks, nextLevel, phaseOf, plannedBySport, skeletonFor, weekToPropose, doneBySport } from '../../src/domain/periodization';
+import { explainWeek, isDeload, levelsOf, macroWeeks, nextLevel, phaseOf, plannedBySport, skeletonFor, weekToPropose, doneBySport, yogaSessionsFor, yogaNextStepWeek } from '../../src/domain/periodization';
 import { hrvLow, sessionsFrom } from '../../src/domain/trainingWeek';
 
 // Ciclo fictício: 19 semanas, pedal 50 km no sábado e corrida 10 km no domingo da última semana.
@@ -183,5 +183,53 @@ describe('testes do ciclo', () => {
     expect(w8.days[5][0].intent).toMatch(/rampa/);
     expect(skeletonFor(macro, 10, 7, fixed).days[5][0].test).toBeUndefined();
     expect(runZones(170)).toMatchObject({ Z1: 'até 144 bpm', Z2: '145 a 152 bpm', Z3: '153 a 161 bpm', Z4: '162 a 169 bpm', Z5: '170 bpm ou mais' });
+  });
+});
+
+// Quadro com ioga três vezes por semana (segunda, quarta e domingo), como a meta dela.
+const macro3: MacroCycle = {
+  ...macro,
+  frame: {
+    1: [{ key: 'bike', minutes: 40 }, { key: 'yoga' }],
+    2: [{ key: 'lpo', templateId: 'wtemplate:lpo' }],
+    3: [{ key: 'run_main', minutes: 55 }, { key: 'yoga' }],
+    4: [{ key: 'lpo', templateId: 'wtemplate:lpo' }],
+    5: [{ key: 'strength', templateId: 'wtemplate:a' }, { key: 'run_easy', minutes: 25 }],
+    6: [{ key: 'strength', templateId: 'wtemplate:b' }, { key: 'bike_long' }],
+    7: [{ key: 'run_long' }, { key: 'yoga' }]
+  }
+};
+const yogaDays = (sk: ReturnType<typeof skeletonFor>) => Object.entries(sk.days).filter(([, ss]) => ss.some((x) => x.key === 'yoga')).map(([d]) => Number(d));
+
+describe('rampa do ioga', () => {
+  it('entra 1 sessão nas semanas 1 e 2, 2 nas 3 e 4 e o quadro todo da 5 em diante', () => {
+    expect([1, 2, 3, 4, 5, 6, 19].map((i) => yogaSessionsFor(macro3, i))).toEqual([1, 1, 2, 2, 3, 3, 3]);
+    expect([1, 2, 3, 4, 5].map((i) => yogaDays(skeletonFor(macro3, i, 0, fixed)).length)).toEqual([1, 1, 2, 2, 3]);
+  });
+  it('a primeira sessão cai no dia da corrida longa; a segunda, no dia da corrida principal', () => {
+    expect(yogaDays(skeletonFor(macro3, 1, 0, fixed))).toEqual([7]);
+    expect(yogaDays(skeletonFor(macro3, 3, 0, fixed))).toEqual([3, 7]);
+    expect(yogaDays(skeletonFor(macro3, 5, 0, fixed))).toEqual([1, 3, 7]);
+  });
+  it('ioga de entrada é mais curto e a IA recebe a etapa na intenção', () => {
+    const w1 = skeletonFor(macro3, 1, 0, fixed).days[7].find((x) => x.key === 'yoga')!;
+    expect(w1.minutes).toBe(15);
+    expect(w1.intent).toMatch(/entrada/);
+    const w3 = skeletonFor(macro3, 3, 0, fixed).days[3].find((x) => x.key === 'yoga')!;
+    expect(w3.minutes).toBe(20);
+    expect(w3.intent).toMatch(/segunda etapa/);
+    expect(skeletonFor(macro3, 6, 0, fixed).days[1].find((x) => x.key === 'yoga')!.intent).toBe('');
+  });
+  it('o freio segura a rampa e nunca passa do quadro', () => {
+    expect(yogaSessionsFor(macro3, 5, 1)).toBe(1);
+    expect(yogaDays(skeletonFor(macro3, 5, 0, fixed, 2)).length).toBe(2);
+    expect(yogaSessionsFor(macro, 19)).toBe(2);
+  });
+  it('o card explica em que etapa está e quando entra a próxima', () => {
+    expect(yogaNextStepWeek(macro3, 1)).toBe(3);
+    expect(yogaNextStepWeek(macro3, 3)).toBe(5);
+    expect(yogaNextStepWeek(macro3, 5)).toBeUndefined();
+    expect(explainWeek(macro3, skeletonFor(macro3, 2, 0, fixed)).join(' ')).toMatch(/Ioga: 1 de 3 sessões por semana; a próxima entra na semana 3/);
+    expect(explainWeek(macro3, skeletonFor(macro3, 5, 0, fixed)).join(' ')).not.toMatch(/Ioga:/);
   });
 });

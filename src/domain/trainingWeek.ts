@@ -7,7 +7,7 @@ import { trainingLoad } from './load';
 import { metricsForAI } from './workoutMetrics';
 import { wellnessForAI } from './wellness';
 import {
-  PHASE_LABEL, SLOT_LABEL, SLOT_SPORT, countdown, runZones, doneBySport, macroWeeks, nextLevel, plannedBySport, skeletonFor, weekIndex
+  PHASE_LABEL, SLOT_LABEL, SLOT_SPORT, countdown, runZones, doneBySport, macroWeeks, nextLevel, plannedBySport, skeletonFor, weekIndex, yogaSessionsFor
 } from './periodization';
 
 export const MACRO_ID = 'macro:atual';
@@ -44,7 +44,20 @@ export async function skeletonForWeek(m: MacroCycle, monday: DateKey): Promise<{
   const wel = await byDateRange('wellness', addDays(today, -30), today);
   const done = prevUsable ? doneBySport(await byDateRange('workout', prevMonday, addDays(prevMonday, 6))) : undefined;
   const { level, holds } = nextLevel(m, index, prevUsable ? { level: prevUsable.skeleton.level, skeleton: prevUsable.baseSkeleton ?? prevUsable.skeleton } : undefined, done, { tsb: load?.tsb, hrvLow: hrvLow(wel, today) });
-  return { skeleton: skeletonFor(m, index, level, fixed), holds };
+  // Ioga: a rampa só sobe se o ioga da semana passada (o que ela aprovou, já com os ajustes) foi feito em pelo menos metade.
+  let yogaCap: number | undefined;
+  if (prevUsable) {
+    const planned = Object.values(prevUsable.skeleton.days).flat().filter((x) => x.key === 'yoga').length;
+    if (planned > 0) {
+      const ws = await byDateRange('workout', prevMonday, addDays(prevMonday, 6));
+      const doneYoga = ws.filter((w) => !w.deleted && w.modalityId === 'mod:yoga').length;
+      if (doneYoga < planned / 2 && yogaSessionsFor(m, index) > planned) {
+        yogaCap = planned;
+        holds.push(`Ioga: fez ${doneYoga} de ${planned} na semana passada; segurei em ${planned} ${planned > 1 ? 'sessões' : 'sessão'} em vez de subir.`);
+      }
+    }
+  }
+  return { skeleton: skeletonFor(m, index, level, fixed, yogaCap), holds };
 }
 
 const pace = (w: Workout) => {

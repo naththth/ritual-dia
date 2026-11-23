@@ -127,7 +127,9 @@ test('domingo à tarde a treinadora propõe a semana seguinte; aprovar põe no p
   expect(plan.training[1]).toContain('wtemplate:fa');
   expect(plan.training[2]).toEqual(['wtemplate:flpo']);
   const weekT = (await records(page, 'wtemplate')).filter((t) => t.weekOf === '2026-11-09');
-  expect(weekT.length).toBe(7); // ioga seg, corrida qua, corrida qui, pedal sex, pedal longo sáb, corrida longa dom, ioga dom
+  // Semana 2 do ciclo: a rampa traz 1 das 2 sessões de ioga do quadro, a do domingo (dia da corrida longa).
+  expect(weekT.length).toBe(6); // corrida qua, corrida qui, pedal sex, pedal longo sáb, corrida longa dom, ioga dom
+  expect(weekT.filter((t) => t.name.includes('Ioga')).length).toBe(1);
   const run = weekT.find((t) => t.name.includes('corrida principal'));
   expect(run.runSteps[0].target).toMatch(/FC/);
   expect(run.steps).toBeUndefined();

@@ -68,9 +68,45 @@ export function runZones(lthr: number): Record<string, string> {
 }
 const RUN_TEST = 'Teste de 30 min: aquece até 10 min (o que couber no tempo da sessão) e corre 30 min no mais forte que consegue manter constante, sem caminhar se der; a volta à calma é caminhando. A FC média dos últimos 20 min vira o seu limiar e define as zonas.';
 
+/**
+ * Rampa do ioga: a meta do quadro (ex.: 3 por semana) não entra inteira na primeira semana.
+ * Semanas 1 e 2: 1 sessão; semanas 3 e 4: 2; da 5 em diante: o quadro todo.
+ */
+export const YOGA_STEPS: { from: number; sessions: number }[] = [{ from: 1, sessions: 1 }, { from: 3, sessions: 2 }, { from: 5, sessions: 3 }];
+export function yogaFrameCount(m: MacroCycle): number {
+  return Object.values(m.frame).reduce((n, ss) => n + ss.filter((s) => s.key === 'yoga').length, 0);
+}
+/** Sessões de ioga da semana `index`; `cap` segura a subida quando o ioga da semana passada não foi feito. */
+export function yogaSessionsFor(m: MacroCycle, index: number, cap?: number): number {
+  const ramp = [...YOGA_STEPS].reverse().find((x) => index >= x.from)?.sessions ?? 1;
+  return Math.max(0, Math.min(ramp, yogaFrameCount(m), cap ?? 99));
+}
+/** Primeira semana em que entra mais uma sessão de ioga além das de `index` (undefined se já está no quadro todo). */
+export function yogaNextStepWeek(m: MacroCycle, index: number): number | undefined {
+  if (yogaSessionsFor(m, index) >= yogaFrameCount(m)) return undefined;
+  return YOGA_STEPS.find((x) => x.from > index && x.sessions <= yogaFrameCount(m))?.from;
+}
+/** Quais sessões de ioga do quadro ficam na semana: as que caem no dia de um endurance (melhor o longo) e, no empate, as mais tarde na semana. */
+function yogaKept(m: MacroCycle, n: number): Set<string> {
+  const rank = (d: number) => {
+    const keys = (m.frame[String(d)] ?? []).map((x) => x.key);
+    return keys.some((k) => k === 'run_long' || k === 'bike_long') ? 2 : keys.some((k) => SLOT_SPORT[k]) ? 1 : 0;
+  };
+  const all: { id: string; d: number }[] = [];
+  for (let d = 1; d <= 7; d++) (m.frame[String(d)] ?? []).forEach((x, i) => { if (x.key === 'yoga') all.push({ id: `${d}:${i}`, d }); });
+  all.sort((a, b) => rank(b.d) - rank(a.d) || b.d - a.d);
+  return new Set(all.slice(0, n).map((x) => x.id));
+}
+
 /** Intenção de cada sessão por fase. Texto que a IA recebe como ordem e que ela vê na proposta. */
-function intent(key: SlotKey, phase: Phase, deload: boolean, firstTest: boolean): string {
+function intent(key: SlotKey, phase: Phase, deload: boolean, firstTest: boolean, yogaN = 3): string {
   if (key === 'run_main' && firstTest) return RUN_TEST;
+  if (key === 'yoga') {
+    if (deload) return 'Semana leve: respiração e soltura, sem forçar amplitude.';
+    if (yogaN <= 1) return 'Ioga de entrada (a primeira de três por semana): respiração e soltura de quadril e posterior, sem forçar amplitude.';
+    if (yogaN === 2) return 'Ioga na segunda etapa (duas de três por semana): mobilidade de quadril, posterior e panturrilha depois do endurance.';
+    return '';
+  }
   if (deload) {
     if (SLOT_SPORT[key]) return 'Semana leve: tudo confortável, sem qualidade.';
   }
@@ -105,7 +141,7 @@ function intent(key: SlotKey, phase: Phase, deload: boolean, firstTest: boolean)
 }
 
 /** Minutos da sessão no nível atual da progressão. */
-function minutesFor(m: MacroCycle, s: FrameSlot, f: number, phase: Phase, deload: boolean, taperStep: number, fixed?: number): number {
+function minutesFor(m: MacroCycle, s: FrameSlot, f: number, phase: Phase, deload: boolean, taperStep: number, fixed?: number, yogaN = 3): number {
   const cap = s.minutes;
   const base = (() => {
     switch (s.key) {
@@ -114,7 +150,7 @@ function minutesFor(m: MacroCycle, s: FrameSlot, f: number, phase: Phase, deload
       case 'run_main': return lerp(30, 50, f);
       case 'run_easy': return lerp(20, 25, f);
       case 'bike': return lerp(45, 60, f);
-      case 'yoga': return 20;
+      case 'yoga': return yogaN <= 1 ? 15 : 20;
       default: return fixed ?? 45;
     }
   })();
@@ -129,7 +165,7 @@ function minutesFor(m: MacroCycle, s: FrameSlot, f: number, phase: Phase, deload
  * Esqueleto da semana `index` no nível `level` da progressão (0 = começo).
  * Fixas (musculação, LPO, aula de ioga) ficam como estão; endurance sobe com o nível; desafios entram no dia deles.
  */
-export function skeletonFor(m: MacroCycle, index: number, level: number, fixedMinutes: (templateId: string) => number | undefined = () => undefined): WeekSkeleton {
+export function skeletonFor(m: MacroCycle, index: number, level: number, fixedMinutes: (templateId: string) => number | undefined = () => undefined, yogaCap?: number): WeekSkeleton {
   const total = macroWeeks(m);
   const levels = levelsOf(m);
   const phase = phaseOf(m, index);
@@ -138,10 +174,12 @@ export function skeletonFor(m: MacroCycle, index: number, level: number, fixedMi
   const start = weekStartOf(m, index);
   const taperStep = phase === 'polimento' ? index - (total - TAPER_WEEKS) : 0;
   const days: Record<string, WeekSession[]> = {};
+  const yogaN = yogaSessionsFor(m, index, yogaCap);
+  const keepYoga = yogaKept(m, yogaN);
   for (let d = 1; d <= 7; d++) {
     const date = addDays(start, d - 1);
     const evs = m.events.filter((e) => e.date === date);
-    days[d] = (m.frame[String(d)] ?? []).map((s): WeekSession => {
+    days[d] = (m.frame[String(d)] ?? []).map((s, i) => ({ s, i })).filter(({ s, i }) => s.key !== 'yoga' || keepYoga.has(`${d}:${i}`)).map(({ s }): WeekSession => {
       const sport = SLOT_SPORT[s.key];
       const ev = sport ? evs.find((e) => e.sport === sport) : undefined;
       if (ev) {
@@ -154,7 +192,7 @@ export function skeletonFor(m: MacroCycle, index: number, level: number, fixedMi
       if (firstTest) return { key: s.key, minutes: Math.min(s.minutes ?? 45, 45), intent: intent(s.key, phase, deload, true), test: 'run_lthr' };
       // Reteste de FTP no pedal de dia útil na primeira semana da Construção e do Específico (watts recalibrados para a fase).
       if (s.key === 'bike' && !deload && ftpTestWeek(m, index)) return { key: s.key, minutes: Math.min(s.minutes ?? 45, 45), intent: FTP_TEST, test: 'ftp' };
-      return { key: s.key, minutes: minutesFor(m, s, f, phase, deload, taperStep, fixed), intent: intent(s.key, phase, deload, false), templateId: s.templateId };
+      return { key: s.key, minutes: minutesFor(m, s, f, phase, deload, taperStep, fixed, yogaN), intent: intent(s.key, phase, deload, false, yogaN), templateId: s.templateId };
     });
     // Dia de desafio não tem musculação nem LPO: o corpo vai inteiro para a prova.
     if (evs.length) days[d] = days[d].filter((x) => x.key !== 'strength' && x.key !== 'lpo');
@@ -260,6 +298,12 @@ export function explainWeek(m: MacroCycle, sk: WeekSkeleton, prev?: WeekSkeleton
     if (now == null) continue;
     const before = prev ? long(prev, key) : undefined;
     out.push(`${label}: ${now} min${before != null && before !== now ? ` (era ${before})` : ''}.`);
+  }
+  const yogaNow = Object.values(sk.days).flat().filter((x) => x.key === 'yoga').length;
+  const yogaAll = yogaFrameCount(m);
+  if (yogaAll > 1 && yogaNow < yogaAll) {
+    const nx = yogaNextStepWeek(m, sk.index);
+    out.push(`Ioga: ${yogaNow} de ${yogaAll} sessões por semana${nx ? `; a próxima entra na semana ${nx}` : ''}.`);
   }
   const nextDl = Array.from({ length: sk.total - sk.index }, (_, i) => sk.index + 1 + i).find((i) => isDeload(m, i));
   if (nextDl) out.push(`Próxima semana leve: ${weekStartOf(m, nextDl).slice(8, 10)}/${weekStartOf(m, nextDl).slice(5, 7)}.`);
