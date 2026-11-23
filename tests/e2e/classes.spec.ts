@@ -35,7 +35,9 @@ test('musculação no horário do LPO vira LPO e o comentário tem botão de sal
   await openTrainingItems(page);
   await expect(page.getByTestId('workout-card')).toContainText('156');
   await expect(page.getByTestId('reclassified')).toBeVisible();
-  // comentário: aparece "Salvar" enquanto há texto novo; depois, "Salvo"
+  // "Como foi" mostra o que ela escreveu; em Editar, aparece "Salvar" enquanto há texto novo e depois "Salvo"
+  await expect(page.getByTestId('feel-card')).toContainText('técnica boa');
+  await page.getByTestId('feel-edit').click();
   await expect(page.getByTestId('feedback-saved')).toBeVisible();
   await page.getByLabel('Como foi o treino').fill('técnica boa, arranco pesado');
   await page.getByTestId('feedback-save').click();

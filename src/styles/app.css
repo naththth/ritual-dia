@@ -2121,13 +2121,13 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea
 .act-thumb { width: 56px; height: 56px; border-radius: 18px; }
 .act-thumb svg { width: 240% !important; left: -70% !important; }
 /* Treino planejado: capa da atividade em cima, chips e o horário sobre a capa */
-.titem.planned.has-cover { padding: 0; overflow: hidden; background: var(--card); border-radius: 24px; }
+.titem.has-cover { padding: 0; overflow: hidden; background: var(--card); border-radius: 24px; }
 .titem-cover { position: relative; display: block; width: 100%; padding: 0; }
 .titem-cover .act-cover { border-radius: 0; height: 112px; }
 .titem-cover .tc-time { position: absolute; right: 12px; top: 12px; background: rgba(250,246,236,.92); color: var(--ink); border-radius: 999px; padding: 5px 12px; font-weight: 700; font-size: 13px; }
 .titem.has-cover .titem-head { padding: 12px 14px 4px; }
 .titem.has-cover .titem-ic { display: none; }
-.titem.has-cover .titem-t { font-family: var(--f-display); font-size: 19px; line-height: 1.15; }
+.titem.has-cover .titem-t { font-family: var(--f-display); font-size: 19px; line-height: 1.15; text-wrap: balance; }
 .titem-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 14px 12px; }
 .titem-chips .chip, .uh-chips .chip { height: 28px; padding: 0 11px; font-size: 12.5px; background: var(--paper-2); }
 .chip.int-leve { background: #DCEBE6 !important; color: var(--blue-ink); }
@@ -2138,14 +2138,16 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea
 /* Com capa, o círculo do item some: o corpo começa na mesma linha do título, sem o recuo de 48px */
 .titem.has-cover .titem-body, .titem.has-cover .titem-body.wide { padding-left: 0; padding-right: 0; }
 /* Ações do treino planejado: a principal na largura toda; as outras do mesmo tamanho, lado a lado quando cabem, texto numa linha */
-.tp-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.tp-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
 .tp-main { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 52px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--blue-ink); color: var(--card); font-family: var(--f-display); font-weight: 650; font-size: 17px; white-space: nowrap; transition: transform .12s ease; }
 .tp-main:active, .tp-sec:active { transform: scale(.97); }
 .tp-main:disabled { background: var(--paper-2); color: var(--ink-3); }
-.tp-more { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
+.tp-more { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 10px; }
 @media (max-width: 359px) { .tp-more { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-.tp-sec { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; min-height: 46px; padding: 0 10px; border-radius: 999px; border: 1.5px solid var(--line-2); background: transparent; color: var(--ink); font-weight: 700; font-size: 14.5px; white-space: nowrap; }
+.tp-sec { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; min-height: 48px; padding: 0 12px; border-radius: 999px; border: 1.5px solid var(--line-2); background: transparent; color: var(--ink); font-weight: 700; font-size: 14.5px; white-space: nowrap; }
 .tp-sec svg { flex-shrink: 0; color: var(--blue-ink); }
+/* Em tela estreita o par perde os ícones para o texto caber inteiro, com respiro */
+@media (max-width: 380px) { .tp-more .tp-sec svg { display: none; } }
 .tp-edit-acts { margin-top: 12px; }
 .tp-edit-acts .tp-main { width: auto; min-height: 46px; font-size: 15.5px; }
 /* Musculação planejada: números, como fazer e um card por exercício (fundo papel, porque o item já é creme) */
@@ -2153,7 +2155,7 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea
 .tp-nums { display: grid; gap: 8px; padding: 14px 0 2px; border-top: 1px solid var(--line); }
 .tp-num { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .tp-num b { font-family: var(--f-display); font-weight: 600; font-size: 26px; line-height: 1; letter-spacing: -.02em; color: var(--ink); }
-.tp-num b.tp-word { font-size: 17px; line-height: 1.15; letter-spacing: 0; overflow-wrap: break-word; }
+.tp-num b.tp-word { font-size: 20px; line-height: 26px; letter-spacing: 0; overflow-wrap: break-word; }
 .tp-num > span:last-child { font-size: 13px; font-weight: 650; color: var(--ink-2); }
 .tp-how { margin-top: 14px; background: var(--blue-ink); color: #E4F0EC; border-radius: 20px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
 .tp-how p { margin: 0; font-size: 15.5px; line-height: 1.45; white-space: pre-line; overflow-wrap: break-word; }
@@ -2246,7 +2248,7 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea
 .wp-bar .ph-especifico { background: var(--wine-2); color: var(--wine-2); }
 .wp-bar .ph-polimento { background: var(--blue-2); color: var(--blue-2); }
 .wp-goals { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 12px; }
-.wp-goal { display: flex; align-items: flex-start; gap: 8px; background: var(--paper); border-radius: var(--r-s); padding: 10px 12px; line-height: 1.25; font-size: 13px; color: var(--ink-2); }
+.wp-goal { display: flex; align-items: center; gap: 10px; background: var(--paper); border-radius: var(--r-s); padding: 10px 12px; line-height: 1.25; font-size: 13px; color: var(--ink-2); }
 .wp-goal b { font-size: 22px; line-height: 1; color: var(--blue-ink); font-family: var(--f-display); }
 .wp-msg { font-size: 15px; line-height: 1.45; margin: 0 0 12px; color: var(--ink); }
 .wp-holds { background: rgba(237, 193, 90, .22); border-radius: var(--r-s); padding: 10px 12px; margin-bottom: 12px; display: grid; gap: 6px; color: var(--honey-ink); }
@@ -2424,7 +2426,7 @@ body:has(.save-bar) .toasts { bottom: calc(164px + var(--safe-b)); }
 .plan-card { background: var(--card); border-radius: 24px; padding: 14px; margin-bottom: 10px; }
 .plan-card .pc-head { display: flex; gap: 12px; align-items: flex-start; }
 .plan-card .pc-t { font-family: var(--f-display); font-weight: 700; font-size: 17px; line-height: 1.2; }
-.plan-card .pc-steps { margin-top: 12px; background: var(--paper-2); border-radius: 16px; padding: 10px 12px; }
+.plan-card .pc-steps { margin-top: 0; }
 .plan-card .pc-acts { display: flex; gap: 8px; margin-top: 12px; }
 .plan-card .pc-state { margin-top: 10px; font-weight: 700; color: var(--ink-2); }
 .plan-card .pc-state.ok { color: var(--blue-ink); }
@@ -2653,3 +2655,36 @@ body:has(.save-bar) .toasts { bottom: calc(164px + var(--safe-b)); }
 /* Cartão de Água: número e unidade na mesma linha (a unidade menor), sem quebrar no celular */
 .bt-water .bt-v { white-space: nowrap; }
 .bt-water .bt-v small { font-size: 14px; font-weight: 700; letter-spacing: 0; margin-left: 1px; }
+
+/* ===================== Treinos sem exercícios na linguagem nova (corrida, pedal, natação, ioga, aulas) ===================== */
+.chip.chip-done { display: inline-flex; align-items: center; gap: 4px; background: var(--blue-ink) !important; color: var(--card); }
+/* Tons por zona, do frio (leve) ao quente (forte) */
+.z1 { background: var(--blue); } .z2 { background: var(--blue-2); } .z3 { background: var(--honey); } .z4 { background: var(--wine-2); } .z5 { background: var(--wine); }
+/* Números do treino feito */
+.cd-sheet { display: flex; flex-direction: column; gap: 14px; padding: 14px 0 4px; border-top: 1px solid var(--line); }
+.cd-sheet .ss-vol b small { font-family: var(--f-ui); font-size: 15px; font-weight: 700; color: var(--blue-ink); }
+.cd-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 10px; margin-top: 0; border-top: 1px solid var(--line); padding-top: 14px; align-items: start; }
+.cd-grid > div { flex-direction: column-reverse; justify-content: flex-end; gap: 4px; min-width: 0; }
+.cd-grid .mv { font-size: 22px; line-height: 1.05; white-space: nowrap; color: var(--ink); }
+.cd-grid .mv small { font-family: var(--f-ui); font-size: 12.5px; font-weight: 700; color: var(--ink-2); }
+.cd-grid .ml { font-size: 13px; font-weight: 650; color: var(--ink-2); opacity: 1; }
+@media (max-width: 370px) { .cd-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* Tempo por zona */
+.cd-zones { margin-top: 12px; background: var(--paper); border-radius: 20px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.cd-zones-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 2px; }
+.cd-zrow { display: grid; grid-template-columns: 112px minmax(0, 1fr) 56px; align-items: center; gap: 10px; }
+.cd-zl { font-size: 13.5px; font-weight: 650; color: var(--ink-2); white-space: nowrap; }
+.cd-zt { height: 12px; border-radius: 6px; background: var(--card); overflow: hidden; }
+.cd-zt i { display: block; height: 100%; border-radius: 6px; }
+.cd-zm { font-size: 14px; font-weight: 750; text-align: right; white-space: nowrap; }
+/* Blocos do treino: perfil colorido e um cartão por bloco */
+.sv { margin-top: 12px; background: var(--paper); border-radius: 20px; padding: 14px; display: flex; flex-direction: column; gap: 12px; color: var(--ink); }
+.sv-prof { display: flex; align-items: flex-end; gap: 3px; height: 64px; }
+.sv-prof i { display: block; min-width: 3px; border-radius: 6px 6px 3px 3px; }
+.sv-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.sv-row { display: grid; grid-template-columns: 10px 58px minmax(0, 1fr); align-items: center; gap: 10px; background: var(--card); border-radius: 14px; padding: 10px 12px; min-height: 48px; }
+.sv-dot { width: 10px; height: 10px; border-radius: 50%; }
+.sv-min { font-family: var(--f-display); font-weight: 600; font-size: 20px; line-height: 1; white-space: nowrap; }
+.sv-min small { font-family: var(--f-ui); font-size: 12.5px; font-weight: 700; color: var(--ink-2); }
+.sv-l { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 14.5px; font-weight: 600; line-height: 1.3; overflow-wrap: break-word; }
+.sv-t2 { font-size: 14px; font-weight: 750; color: var(--blue-ink); }

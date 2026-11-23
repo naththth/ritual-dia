@@ -1,12 +1,14 @@
 import { test, expect } from '@playwright/test';
 import { openTrainingItems } from './fixtures/training';
+import { expectButtonsFit } from './fixtures/fit';
 import path from 'node:path';
 
 test.use({ timezoneId: 'America/Sao_Paulo' });
 
 // Musculação planejada no desenho novo: números da sessão, "Como fazer", um card por exercício com foto,
 // carga por série e meta do roteiro; ações do mesmo tamanho, sem texto cortado nem quebrado.
-test('musculação planejada abre com cards por exercício, carga e ações alinhadas', async ({ page }) => {
+for (const width of [360, 393]) test(`musculação planejada abre com cards por exercício, carga e ações alinhadas (${width}px)`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 800 });
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.clock.setFixedTime(new Date('2026-11-23T08:00:00-03:00'));
@@ -64,13 +66,13 @@ test('musculação planejada abre com cards por exercício, carga e ações alin
   const mb = (await main.boundingBox())!;
   expect(mb.height).toBeLessThan(60);
   const secs = item.locator('.tp-sec');
-  await expect(secs).toHaveCount(3);
-  for (let i = 0; i < 3; i++) {
-    const b = (await secs.nth(i).boundingBox())!;
-    expect(b.height).toBeLessThan(52);
-    expect(await secs.nth(i).evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
-  }
-  if (process.env.SHOTS) await item.screenshot({ path: '/tmp/claude-0/shots/planned-strength.png' });
+  await expect(secs).toHaveCount(2);
+  await expect(secs.first()).toContainText('Mudar o plano');
+  await expectButtonsFit(item.locator('.tp-sec, .tp-main'));
+  // botões do par com respiro entre eles
+  const [a, b] = [(await secs.nth(0).boundingBox())!, (await secs.nth(1).boundingBox())!];
+  expect(b.x - (a.x + a.width)).toBeGreaterThanOrEqual(10);
+  if (process.env.SHOTS) await item.screenshot({ path: `/tmp/claude-0/shots/planned-strength-${width}.png` });
 
   const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(over).toBeLessThanOrEqual(0);
@@ -78,7 +80,7 @@ test('musculação planejada abre com cards por exercício, carga e ações alin
   // editar continua: o editor abre e Concluir volta aos cards
   await page.getByTestId('strength-edit').click();
   await expect(page.getByTestId('exercise-row')).toHaveCount(3);
-  if (process.env.SHOTS) await item.screenshot({ path: '/tmp/claude-0/shots/planned-strength-edit.png' });
+  if (process.env.SHOTS) await item.screenshot({ path: `/tmp/claude-0/shots/planned-strength-edit-${width}.png` });
   await page.getByTestId('strength-edit-save').click();
   await expect(page.getByTestId('plan-ex')).toHaveCount(3);
   expect(errors).toEqual([]);

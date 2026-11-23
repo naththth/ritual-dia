@@ -6,6 +6,7 @@ import { aiAvailable, aiDayBrief, watts } from '../domain/ai';
 import { planTask } from '../domain/actions';
 import { toast } from '../state/store';
 import { todayKey, type DateKey } from '../lib/dates';
+import { zoneTone } from './cardio-ui';
 
 /** Blocos do treino: no pedal, em watts a partir do FTP; na corrida, o alvo escrito (FC, esforço, esteira). */
 export function StepsView({ steps, bars }: { steps: WorkoutStep[]; bars?: boolean }) {
@@ -19,25 +20,24 @@ export function StepsView({ steps, bars }: { steps: WorkoutStep[]; bars?: boolea
       {steps.map((s, i) => <i key={i} style={{ flex: s.minutes / total, height: `${(s.pct / max) * 100}%`, opacity: 0.25 + 0.75 * Math.min(1, s.pct / 100) }} />)}
     </div>
   );
+  // Perfil do treino em cores por zona e um card por bloco: minutos grandes, nome e o alvo à direita.
   return (
-    <div style={{ marginTop: 10 }} data-testid="steps">
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 46 }} aria-hidden>
-        {steps.map((s, i) => (
-          <i key={i} style={{ flex: s.minutes / total, height: `${(s.pct / max) * 100}%`, background: 'currentColor', opacity: 0.25 + 0.75 * Math.min(1, s.pct / 100), borderRadius: 4, display: 'block' }} />
-        ))}
+    <section className="sv" data-testid="steps">
+      <div className="sv-prof" aria-hidden>
+        {steps.map((s, i) => <i key={i} className={zoneTone(s.pct)} style={{ flex: s.minutes / total, height: `${Math.max(14, (s.pct / max) * 100)}%` }} />)}
       </div>
-      <div style={{ marginTop: 6 }}>
+      <ol className="sv-list">
         {steps.map((s, i) => (
-          <div key={i} className="row between small" style={{ minHeight: 26, alignItems: 'baseline', gap: 10 }}>
-            <span style={{ flexShrink: 0 }}>{s.minutes} min, {s.label.toLowerCase()}</span>
-            {s.target
-              ? <span style={{ fontWeight: 700, textAlign: 'right', maxWidth: '58%' }}>{s.target}</span>
-              : <span className="num" style={{ fontWeight: 700 }}>{ftp ? `${watts(s.pct, ftp)} W` : `${s.pct}% FTP`}</span>}
-          </div>
+          <li key={i} className="sv-row">
+            <span className={`sv-dot ${zoneTone(s.pct)}`} aria-hidden />
+            <b className="sv-min num">{s.minutes}<small>{'\u00a0'}min</small></b>
+            {/* O alvo (watts, FC, esforço) vai embaixo do nome, para o nome nunca espremer no celular. */}
+            <span className="sv-l">{s.label.charAt(0).toUpperCase() + s.label.slice(1)}<span className="sv-t2 num">{s.target ?? (ftp ? `${watts(s.pct, ftp)}\u00a0W` : `${s.pct}%\u00a0FTP`)}</span></span>
+          </li>
         ))}
-        {!ftp && steps.some((s) => !s.target) && <div className="tiny">Informe seu FTP em Ajustes para ver os watts.</div>}
-      </div>
-    </div>
+      </ol>
+      {!ftp && steps.some((s) => !s.target) && <div className="tiny">Informe seu FTP em Ajustes para ver os watts.</div>}
+    </section>
   );
 }
 

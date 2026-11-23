@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { metricCells, showsPowerZones, weekDistances, shortLine } from '../domain/workoutMetrics';
+import { metricCells, weekDistances, shortLine } from '../domain/workoutMetrics';
 import { useNavigate } from 'react-router-dom';
 import { Upload, Plus, Sparkles, Trash2, ChevronRight, ChevronDown, Check as CheckIcon, Activity, Pencil, SkipForward } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -12,7 +12,6 @@ import { planFor, slotCounts, trainingDay } from '../domain/rules';
 import { addDays, isoWeekday, shortLabel, todayKey, weekStart, WEEKDAY_LETTER, WEEKDAY_SHORT, dayNum, type DateKey } from '../lib/dates';
 import { workoutFromTemplate, skipPlanned, skipTraining, deleteRecord, savePlan, undoMove } from '../domain/actions';
 import { StepsView } from './ai-ui';
-import { POWER_ZONES } from '../domain/fit';
 import { importFitFiles } from '../domain/fitImport';
 import { trainingLoad, workoutLoad, formLabel } from '../domain/load';
 import { effectiveSleep, effectiveHrv, wellnessForAI } from '../domain/wellness';
@@ -24,6 +23,7 @@ import { ExerciseEditor, LogExercises } from './strength-ui';
 import { Arc } from '../ui/art';
 import { ActivityArt, activityKind } from '../ui/activity';
 import { SessionHero, FeelCard, SessionExercises, PlanSession } from './session-ui';
+import { CardioNumbers, ZoneBars, PlanCardio } from './cardio-ui';
 import { aiAvailable, askAI, applyTrainingResult } from '../domain/ai';
 import { fmt } from '../domain/nutrition';
 import { CoachButton } from './coach';
@@ -181,7 +181,7 @@ export function TrainingTab() {
           {pending.map((t) => {
             const swapped = dayDone.find((w) => !daySlots.some((x) => x.workoutId === w.id));
             return (
-              <TItem key={t.id} kind="planned" testId="planned-item" open={openSet.has(t.id)} onToggle={() => toggle(t.id)} wide={isMuscle(t.modalityId)}
+              <TItem key={t.id} kind="planned" testId="planned-item" open={openSet.has(t.id)} onToggle={() => toggle(t.id)} wide
                 title={t.name} time={t.time}
                 cover={<ActivityArt kind={activityKind(t.name, modName(t.modalityId))} exercises={isMuscle(t.modalityId) ? programFor(t, history ?? [], date).exercises : undefined} />}
                 chips={<><span className="chip">{modName(t.modalityId)}</span><span className="chip">{t.duration} min</span><span className={`chip int-${t.intensity}`}>{t.intensity}</span></>}
@@ -196,23 +196,19 @@ export function TrainingTab() {
                 </>}>
                 {isMuscle(t.modalityId) ? (
                   <PlannedStrength t={t} history={history ?? []} date={date} onDone={(exs) => workoutFromTemplate(t, date, true, exs)}
-                    more={<>
-                      <button className="tp-sec" onClick={() => fileRef.current?.click()} aria-label="Importar o arquivo do relógio"><Upload size={16} />Importar</button>
-                      <button className="tp-sec" data-testid="train-skip" onClick={() => skipTraining(date, t)}><SkipForward size={16} />Hoje não</button>
-                    </>} />
+                    more={<button className="tp-sec" data-testid="train-skip" onClick={() => skipTraining(date, t)}><SkipForward size={16} />Hoje não</button>} />
                 ) : (
-                  <>
-                    {t.note ? <div className="small wt-note">{t.note}</div> : null}
-                    {t.muscles?.length ? <div className="small" style={{ marginTop: 6 }}>Foco: {t.muscles.join(', ').toLowerCase()}</div> : null}
-                    {(t.steps ?? t.runSteps)?.length ? <StepsView steps={(t.steps ?? t.runSteps)!} /> : null}
-                    <div className="tp-actions">
-                      <button className="tp-main" data-testid="train-done" onClick={() => workoutFromTemplate(t, date, true)}><CheckIcon size={18} strokeWidth={2.6} />Feito</button>
-                      <div className="tp-more">
-                        <button className="tp-sec" onClick={() => fileRef.current?.click()}><Upload size={16} />Importar arquivo</button>
-                        <button className="tp-sec" data-testid="train-skip" onClick={() => skipTraining(date, t)}><SkipForward size={16} />Hoje não</button>
+                  <PlanCardio t={t} ftp={settings?.ftp}
+                    steps={(t.steps ?? t.runSteps)?.length ? <StepsView steps={(t.steps ?? t.runSteps)!} /> : null}
+                    actions={
+                      <div className="tp-actions">
+                        <button className="tp-main" data-testid="train-done" onClick={() => workoutFromTemplate(t, date, true)}><CheckIcon size={18} strokeWidth={2.6} />Feito</button>
+                        <div className="tp-more">
+                          <button className="tp-sec" onClick={() => fileRef.current?.click()} aria-label="Importar o arquivo do relógio"><Upload size={16} />Importar</button>
+                          <button className="tp-sec" data-testid="train-skip" onClick={() => skipTraining(date, t)}><SkipForward size={16} />Hoje não</button>
+                        </div>
                       </div>
-                    </div>
-                  </>
+                    } />
                 )}
               </TItem>
             );
@@ -373,8 +369,6 @@ function TItem({ kind, title, meta, time, open, onToggle, preview, children, tes
 export function WorkoutCard({ w, name, ftp, strength, history = [], open, onToggle }: { w: Workout; name: string; ftp?: number; strength?: { program: StrengthExercise[]; firstGroup?: string; hint?: string }; history?: Workout[]; open: boolean; onToggle: () => void }) {
   const m = w.metrics;
   const cells = metricCells(w);
-  const zones = showsPowerZones(w) ? m?.zones : undefined;
-  const zTotal = zones ? Object.values(zones).reduce((a, b) => a + b, 0) : 0;
   const meta = [w.duration ? `${w.duration} min` : '', ...shortLine(w), w.rpe ? `esforço ${w.rpe}` : ''].filter(Boolean).join(' · ');
   useAutoCoachRead(w);
   const read = w.aiFeedback?.titulo;
@@ -397,30 +391,19 @@ export function WorkoutCard({ w, name, ftp, strength, history = [], open, onTogg
       </TItem>
     );
   }
+  // Corrida, pedal, natação, ioga e aulas: capa do esporte, números grandes, zonas, "Como foi" e a leitura da treinadora.
+  const kind = activityKind(w.name, name);
   return (
-    <TItem kind="done" testId="workout-card" open={open} onToggle={onToggle} title={name} meta={meta || undefined} time={time} preview={preview}>
-      {w.reclassifiedFrom && <p className="small" style={{ margin: '0 0 8px' }} data-testid="reclassified">{w.reclassifiedBy === 'conversa' ? `Corrigido na conversa com a treinadora: contei como ${name}.` : w.reclassifiedBy === 'regra' ? `O relógio gravou de outro jeito; pela sua regra, contei como ${name}.` : `O relógio gravou como musculação; pelo horário da aula, contei como ${name}.`}</p>}
-      {cells.length > 0 && (
-        <div className="metric-grid">
-          {cells.map(([l, v]) => <div key={l}><span className="ml">{l}</span><span className="mv num">{v}</span></div>)}
-        </div>
-      )}
-      {zones && zTotal > 0 && (
-        <div style={{ marginTop: 10 }}>
-          <div className="small" style={{ fontWeight: 700, marginBottom: 4 }}>Tempo por zona{ftp ? ` (FTP ${m?.ftpUsed ?? ftp} W)` : ''}</div>
-          {POWER_ZONES.map((z, i) => (
-            <div key={z.id} className="bar-row" style={{ gridTemplateColumns: '108px 1fr 44px', minHeight: 24 }}>
-              <span className="tiny" style={{ fontWeight: 600 }}>{z.label}</span>
-              <span className="bar-track"><span className="bar-fill" style={{ display: 'block', width: `${(zones[z.id] / zTotal) * 100}%`, color: 'var(--blue-ink)', opacity: 0.35 + i * 0.13 }} /></span>
-              <span className="tiny num" style={{ textAlign: 'right', fontWeight: 700 }}>{zones[z.id]} min</span>
-            </div>
-          ))}
-        </div>
-      )}
-      {!m && [w.intensity, w.muscles?.join(', ')].filter(Boolean).length ? <div className="small">{[w.intensity, w.muscles?.join(', ')].filter(Boolean).join(', ')}</div> : null}
+    <TItem kind="done" testId="workout-card" open={open} onToggle={onToggle} title={name} time={time} preview={preview} wide
+      cover={<ActivityArt kind={kind} exercises={w.exercises} />}
+      chips={<><span className="chip chip-done"><CheckIcon size={14} strokeWidth={3} />Feito</span>{[w.duration ? `${w.duration} min` : '', shortLine(w)[0]].filter(Boolean).map((x) => <span key={x} className="chip">{x}</span>)}</>}>
+      {w.reclassifiedFrom && <p className="small" style={{ margin: '0 0 10px' }} data-testid="reclassified">{w.reclassifiedBy === 'conversa' ? `Corrigido na conversa com a treinadora: contei como ${name}.` : w.reclassifiedBy === 'regra' ? `O relógio gravou de outro jeito; pela sua regra, contei como ${name}.` : `O relógio gravou como musculação; pelo horário da aula, contei como ${name}.`}</p>}
+      {cells.length > 0 && <CardioNumbers w={w} />}
+      <ZoneBars w={w} ftp={ftp} />
+      {!m && [w.intensity, w.muscles?.join(', ')].filter(Boolean).length ? <div className="small" style={{ marginTop: 8 }}>{[w.intensity, w.muscles?.join(', ')].filter(Boolean).join(', ')}</div> : null}
       {strength && <LogExercises w={w} program={strength.program} firstGroup={strength.firstGroup} hint={strength.hint} onSave={saveExercises} />}
-      <WorkoutFeedback w={w} />
-      <CoachRead w={w} />
+      <FeelCard w={w} editor={<WorkoutFeedback w={w} forceOpen />} />
+      <div className="ss-pad"><CoachRead w={w} /></div>
       <div className="titem-foot">
         <button className="link small titem-del" aria-label="Excluir treino" onClick={() => deleteRecord(w.id, 'Treino excluído')}><Trash2 size={15} />Excluir treino</button>
       </div>
@@ -499,7 +482,7 @@ function PlannedStrength({ t, history, date, onDone, more }: { t: WorkoutTemplat
         <div className="tp-actions">
           <button className="tp-main" data-testid="train-done" onClick={() => onDone(exercises)}><CheckIcon size={18} strokeWidth={2.6} />Feito, como programado</button>
           <div className="tp-more">
-            <button className="tp-sec" data-testid="strength-edit" onClick={() => setDraft(exercises)}><Pencil size={16} />Editar</button>
+            <button className="tp-sec" data-testid="strength-edit" onClick={() => setDraft(exercises)}><Pencil size={16} />Mudar o plano</button>
             {more}
           </div>
         </div>

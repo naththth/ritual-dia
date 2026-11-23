@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { shortLine } from '../domain/workoutMetrics';
 import { useSearchParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Check as CheckIcon, Plus, Trash2, Repeat } from 'lucide-react';
+import { Check as CheckIcon, Plus, Trash2, Repeat, SkipForward } from 'lucide-react';
 import { useApp, toast } from '../state/store';
 import { useAll, useByDate, useSettings } from '../db/hooks';
 import { PageHead, useBack } from './common';
@@ -94,10 +94,10 @@ export function TrainingScreen() {
                       </div>
                     </div>
                     {(t.steps ?? t.runSteps)?.length ? <div className="pc-steps"><StepsView steps={(t.steps ?? t.runSteps)!} /></div> : null}
-                    {done ? <div className="pc-state ok">Feito</div> : skipped ? <div className="pc-state">Não hoje</div> : (
-                      <div className="pc-acts">
-                        <button className="btn btn-ink grow" onClick={() => workoutFromTemplate(t, date, true)}>Feito</button>
-                        <button className="btn btn-soft" onClick={() => skipTraining(date, t)}>Não hoje</button>
+                    {done ? <div className="pc-state ok">Feito</div> : skipped ? <div className="pc-state">Hoje não</div> : (
+                      <div className="tp-actions pc-acts2">
+                        <button className="tp-main" onClick={() => workoutFromTemplate(t, date, true)}><CheckIcon size={18} strokeWidth={2.6} />Feito</button>
+                        <div className="tp-more"><button className="tp-sec" onClick={() => skipTraining(date, t)}><SkipForward size={16} />Hoje não</button></div>
                       </div>
                     )}
                   </div>
