@@ -745,6 +745,8 @@ export interface WeekSession {
   key: SlotKey; minutes: number; intent: string; templateId?: string; event?: MacroEvent; test?: 'run_lthr' | 'ftp';
   /** Compromisso dela que entrou pelo pedido de ajuste (ex.: competição de LPO): vira sessão com este nome. */
   commitment?: string;
+  /** Sessão que veio de outra modalidade pelo pedido dela (ex.: corrida que virou pedal). */
+  swappedFrom?: SlotKey;
 }
 /** Esqueleto calculado pelo app (não pela IA): fase, nível da progressão e alvo de cada sessão. */
 export interface WeekSkeleton {

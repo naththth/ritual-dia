@@ -117,7 +117,8 @@ export function sessionsFrom(skeleton: WeekSkeleton, r: any, tmplName: (id: stri
         out.push({ day: d, key: s.key, templateId: s.templateId, name: tmplName(s.templateId) ?? SLOT_LABEL[s.key], modalityId: MOD[s.key], duration: s.minutes, intensity: 'moderada' });
         continue;
       }
-      const a = list.find((x) => !used.has(x) && Number(x?.dia) === d && String(x?.chave) === s.key);
+      const a = list.find((x) => !used.has(x) && Number(x?.dia) === d && String(x?.chave) === s.key)
+        ?? (s.swappedFrom ? list.find((x) => !used.has(x) && Number(x?.dia) === d && String(x?.chave) === s.swappedFrom) : undefined);
       if (a) used.add(a);
       const target = s.minutes;
       const minutes = num(a?.minutos, target * 0.85, target * 1.15) ? Math.round(Number(a.minutos)) : target;
@@ -127,6 +128,10 @@ export function sessionsFrom(skeleton: WeekSkeleton, r: any, tmplName: (id: stri
         .filter((b: WorkoutStep) => b.minutes > 0 && b.minutes <= 240 && b.pct >= 30 && b.pct <= 200)
         .map((b: WorkoutStep) => ({ ...b, minutes: Math.round(b.minutes * 100) / 100, pct: Math.round(b.pct), ...(sport === 'ciclismo' ? { target: undefined } : {}) })) : undefined;
       if (!sport) steps = undefined;
+      // Blocos de outra modalidade (sessão trocada preenchida com a chave antiga) não servem.
+      if (a && s.swappedFrom && String(a?.chave) !== s.key) steps = undefined;
+      // Pedal precisa de blocos para ir ao MyWhoosh: sem eles, Z2 simples com aquecimento e volta à calma.
+      if (sport === 'ciclismo' && !steps?.length && minutes >= 20) steps = [{ label: 'Aquecimento', minutes: 8, pct: 55 }, { label: 'Z2', minutes: minutes - 13, pct: 68 }, { label: 'Volta à calma', minutes: 5, pct: 50 }];
       if (steps?.length) {
         // Os blocos precisam fechar o tempo da sessão: se não fecham, o último bloco absorve a diferença (ou tudo escala).
         const sum = steps.reduce((x, b) => x + b.minutes, 0);
@@ -136,12 +141,14 @@ export function sessionsFrom(skeleton: WeekSkeleton, r: any, tmplName: (id: stri
         }
         if (sport === 'ciclismo') steps = steps.map(({ target: _t, ...b }) => b);
       }
-      const name = String(a?.nome ?? '').trim() || (s.event ? `Desafio · ${s.event.label}` : SLOT_LABEL[s.key]);
+      const crossed = !!(a && s.swappedFrom && String(a?.chave) !== s.key);
+      const SWAP_NAME: Partial<Record<SlotKey, string>> = { bike: 'MyWhoosh · Z2 leve', run_easy: 'Corrida · leve', yoga: 'Ioga · mobilidade' };
+      const name = (crossed ? SWAP_NAME[s.key] : String(a?.nome ?? '').trim()) || (s.event ? `Desafio · ${s.event.label}` : s.swappedFrom ? SWAP_NAME[s.key] ?? SLOT_LABEL[s.key] : SLOT_LABEL[s.key]);
       out.push({
         day: d, key: s.key, name: s.event && !/desafio/i.test(name) ? `Desafio · ${name}` : name, modalityId: MOD[s.key], duration: minutes,
         intensity: INT.includes(a?.intensidade) ? a.intensidade : s.event ? 'intensa' : 'leve',
         steps: steps?.length ? steps : undefined,
-        note: [String(a?.roteiro ?? '').trim() || s.intent].filter(Boolean).join('\n')
+        note: [(crossed ? '' : String(a?.roteiro ?? '').trim()) || s.intent].filter(Boolean).join('\n')
       });
     }
   }
@@ -149,11 +156,24 @@ export function sessionsFrom(skeleton: WeekSkeleton, r: any, tmplName: (id: stri
 }
 
 const COMMIT_KEYS: SlotKey[] = ['lpo', 'strength', 'yoga', 'yoga_class'];
+/** O que pode virar outra modalidade, e no que pode virar (corrida trocada entra como corrida leve). */
+const SWAP_FROM: SlotKey[] = ['run_main', 'run_easy', 'run_long', 'bike', 'bike_long', 'yoga'];
+const SWAP_TO: SlotKey[] = ['run_easy', 'bike', 'yoga'];
+const MAX_LONGER = 1.15;
+const isRun = (k: SlotKey) => SLOT_SPORT[k] === 'corrida';
+const isEndurance = (k: SlotKey) => !!SLOT_SPORT[k];
+const totals = (days: Record<string, WeekSession[]>) => {
+  let run = 0, endurance = 0;
+  for (const ss of Object.values(days)) for (const s of ss) { if (isRun(s.key)) run += s.minutes; if (isEndurance(s.key)) endurance += s.minutes; }
+  return { run, endurance };
+};
 
 /**
  * Pedido dela que mexe na estrutura (dias, folgas, compromissos): a treinadora devolve como a semana fica,
- * sempre apontando para sessões do esqueleto original. Ela pode mudar de dia, encurtar e tirar sessões,
- * nunca criar treino de endurance novo nem alongar. Desafio do ciclo não sai do dia. Sem ajuste válido, devolve undefined.
+ * sempre apontando para sessões do esqueleto original. Ela pode mudar de dia, encurtar, tirar, trocar a modalidade
+ * (corrida, pedal e ioga entre si, com duração igual ou menor) e alongar até 15%, desde que a semana não passe
+ * do planejado em corrida nem em corrida e pedal somados. A corrida longa não alonga e o desafio do ciclo não sai do dia.
+ * O que passar dos limites volta ao original. Sem ajuste válido, devolve undefined.
  */
 export function adjustSkeleton(base: WeekSkeleton, r: any): WeekSkeleton | undefined {
   const plan: any[] | undefined = Array.isArray(r?.esqueleto_ajustado) ? r.esqueleto_ajustado : undefined;
@@ -162,6 +182,8 @@ export function adjustSkeleton(base: WeekSkeleton, r: any): WeekSkeleton | undef
   const days: Record<string, WeekSession[]> = {};
   for (let d = 1; d <= 7; d++) days[d] = [];
   const used = new Set<WeekSession>();
+  // Cada mudança guarda a sessão original, para poder ser desfeita se a semana passar do planejado.
+  const changed: { s: WeekSession; orig: WeekSession; longer: boolean; swapped: boolean }[] = [];
   if (plan) {
     for (const day of plan) {
       const d = Number(day?.dia);
@@ -171,9 +193,17 @@ export function adjustSkeleton(base: WeekSkeleton, r: any): WeekSkeleton | undef
         const orig = (base.days[from] ?? []).find((s) => s.key === String(it?.chave) && !used.has(s));
         if (!orig || orig.event) continue;
         used.add(orig);
-        const m = Number(it?.minutos);
-        const minutes = orig.templateId ? orig.minutes : Number.isFinite(m) && m >= 5 && m <= orig.minutes ? Math.round(m / 5) * 5 || 5 : orig.minutes;
-        days[d].push({ ...orig, minutes });
+        const to = String(it?.como ?? '') as SlotKey;
+        const swap = !orig.templateId && to && to !== orig.key && SWAP_FROM.includes(orig.key) && SWAP_TO.includes(to);
+        const key = swap ? to : orig.key;
+        const m = Math.round(Number(it?.minutos));
+        const cap = orig.templateId || swap || orig.key === 'run_long' ? orig.minutes : Math.floor(orig.minutes * MAX_LONGER);
+        const minutes = orig.templateId ? orig.minutes : Number.isFinite(m) && m >= 5 ? Math.min(m, cap) : orig.minutes;
+        const s: WeekSession = swap
+          ? { key, minutes, intent: `No lugar de ${SLOT_LABEL[orig.key].toLowerCase()}.`, swappedFrom: orig.key }
+          : { ...orig, minutes };
+        days[d].push(s);
+        if (swap || minutes > orig.minutes) changed.push({ s, orig, longer: minutes > orig.minutes, swapped: !!swap });
       }
     }
   } else {
@@ -181,6 +211,21 @@ export function adjustSkeleton(base: WeekSkeleton, r: any): WeekSkeleton | undef
   }
   // Desafio do ciclo fica onde está.
   for (let d = 1; d <= 7; d++) for (const s of base.days[d] ?? []) if (s.event) days[d].unshift({ ...s });
+  // Redistribuir pode, somar não: primeiro desfaz os alongamentos, depois as trocas, até caber no planejado.
+  const limit = totals(base.days);
+  const over = () => { const t = totals(days); return t.run > limit.run || t.endurance > limit.endurance; };
+  // Só desfaz troca que soma no que estourou: pedal ou ioga que virou corrida, ioga que virou corrida ou pedal.
+  // Desfazer corrida que virou pedal aumentaria a corrida, então essa fica.
+  const adds = (c: (typeof changed)[number]) => (isRun(c.s.key) && !isRun(c.orig.key)) || (isEndurance(c.s.key) && !isEndurance(c.orig.key));
+  for (const pass of ['longer', 'swapped'] as const) {
+    for (const c of changed) {
+      if (!over()) break;
+      if (!c[pass]) continue;
+      if (pass === 'longer') { c.s.minutes = c.orig.minutes; continue; }
+      if (!adds(c)) continue;
+      Object.assign(c.s, { key: c.orig.key, intent: c.orig.intent, test: c.orig.test, swappedFrom: undefined });
+    }
+  }
   for (const c of commits) {
     const d = Number(c?.dia);
     const key = String(c?.chave) as SlotKey;
