@@ -1976,6 +1976,10 @@ html, body { overflow-x: clip; }
 .care-cards:has(.cc-hero) .care-card:not(.cc-hero) .cc-go { margin: 0; }
 .cc-txt { display: flex; flex-direction: column; gap: 4px; }
 .care-cards:has(.cc-hero) .care-card:not(.cc-hero) .cc-txt { flex: 1; min-width: 0; gap: 0; }
+/* Card compacto feito: o check vira selo no canto do ícone, em vez de ficar no canto do card em cima do botão */
+.care-cards:has(.cc-hero) .care-card.done:not(.cc-hero)::after { top: calc(50% + 3px); right: auto; left: 42px; width: 20px; height: 20px; font-size: 11px; }
+.care-cards:has(.cc-hero) .care-card.done.cc-am:not(.cc-hero)::after { box-shadow: 0 0 0 2px var(--honey); }
+.care-cards:has(.cc-hero) .care-card.done.cc-pm:not(.cc-hero)::after { box-shadow: 0 0 0 2px var(--plum); }
 .tl-next .tl2-detail { color: inherit; opacity: .9; -webkit-line-clamp: 3; }
 .mt2.has-glow::after { content: ''; position: absolute; right: -50px; top: -50px; width: 190px; height: 190px; border-radius: 50%; background: var(--mt-glow); filter: blur(8px); pointer-events: none; }
 .mt2.has-glow > * { position: relative; z-index: 1; }
