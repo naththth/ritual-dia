@@ -128,14 +128,15 @@ export async function copyMealsFrom(from: DateKey, to: DateKey): Promise<number>
 }
 
 /* ---------- Planos ---------- */
-export async function savePlan(domain: PlanDomain, current: Plan | undefined, data: Partial<Plan>) {
+export async function savePlan(domain: PlanDomain, current: Plan | undefined, data: Partial<Plan>, silent = false) {
   const target = planSaveTarget(current, todayKey());
   if (target.mode === 'update') {
     await update<'plan'>(target.id, data);
   } else {
     await create('plan', { domain, validFrom: target.validFrom, ...data, id: uid('plan') } as any);
   }
-  haptic();
   if (domain === 'training') import('../sync/services').then((m) => m.pushTrainingSoon());
+  if (silent) return;
+  haptic();
   toast(target.mode === 'create' && current ? 'Plano salvo. Vale a partir de hoje; dias anteriores mantêm o plano antigo.' : 'Plano salvo');
 }

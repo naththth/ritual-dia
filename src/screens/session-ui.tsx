@@ -1,8 +1,9 @@
 // Treino de força já feito, aberto: capa com a foto do levantamento principal, números da sessão,
 // "Como foi" em destaque e um card por exercício (escada para pirâmide, número grande para séries retas).
 import { useState, type ReactNode } from 'react';
-import { ChevronDown, HeartPulse, Flame, TrendingUp, Pencil, Timer, ListChecks, Layers, TrendingDown, Minus } from 'lucide-react';
-import type { StrengthExercise, Workout } from '../db/types';
+import { ChevronDown, HeartPulse, Flame, TrendingUp, Pencil, Timer, ListChecks, Layers, TrendingDown, Minus, Check } from 'lucide-react';
+import type { SetMark, StrengthExercise, StrengthProgress, Workout } from '../db/types';
+import { marksOf, plannedSet, sameAsPlan } from '../domain/strengthLog';
 import { loadsPerSet, repsPerSet, topLoad, exerciseVolume } from '../domain/strength';
 import { exercisePhotoKey, isPyramid, comparableHistory, compareChip, planText, sessionTotals, coverExercise, sessionGroups, ddmm, planLines, planIntro, restText, type PlanLine } from '../domain/session';
 
@@ -202,7 +203,10 @@ function whyChip(why?: string): { tone: string; text: string } | undefined {
 }
 
 /** Treino de força planejado, aberto: números da sessão, como fazer, um card por exercício e as ações. */
-export function PlanSession({ note, muscles, exercises, why, actions }: { note?: string; muscles?: string[]; exercises: StrengthExercise[]; why: Record<string, string>; actions: ReactNode }) {
+export function PlanSession({ note, muscles, exercises, why, actions, progress, onMark, onSkip }: {
+  note?: string; muscles?: string[]; exercises: StrengthExercise[]; why: Record<string, string>; actions: ReactNode;
+  progress?: Pick<StrengthProgress, 'sets' | 'skipped'>; onMark: (e: StrengthExercise, i: number, m: SetMark | null) => void; onSkip: (e: StrengthExercise, skip: boolean) => void;
+}) {
   const lines = planLines(note, exercises);
   const intro = planIntro(note);
   const rest = restText(note);
@@ -222,50 +226,99 @@ export function PlanSession({ note, muscles, exercises, why, actions }: { note?:
         </section>
       )}
       <section className="ss-exs tp-exs" data-testid="strength-note">
-        {lines.map((l, i) => <PlanExerciseCard key={l.e.id} n={i + 1} l={l} why={why[l.e.id]} />)}
+        {lines.map((l, i) => <PlanExerciseCard key={l.e.id} n={i + 1} l={l} why={why[l.e.id]} marks={marksOf(progress, l.e)} skipped={!!progress?.skipped?.includes(l.e.id)} onMark={(j, m) => onMark(l.e, j, m)} onSkip={(sk) => onSkip(l.e, sk)} />)}
       </section>
       {actions}
     </div>
   );
 }
 
-function PlanExerciseCard({ n, l, why }: { n: number; l: PlanLine; why?: string }) {
+function PlanExerciseCard({ n, l, why, marks, skipped, onMark, onSkip }: {
+  n: number; l: PlanLine; why?: string; marks: (SetMark | null)[]; skipped: boolean;
+  onMark: (i: number, m: SetMark | null) => void; onSkip: (skip: boolean) => void;
+}) {
   const { e } = l;
-  const ls = loadsPerSet(e);
-  const pyr = isPyramid(e);
-  const top = topLoad(e);
+  const [edit, setEdit] = useState<number | null>(null);
   const chip = whyChip(why);
+  const done = marks.filter(Boolean).length;
+  const all = done === e.sets;
+  if (skipped) {
+    return (
+      <article className="ss-ex tp-ex is-skip" data-testid="plan-ex">
+        <div className="tp-skip-row">
+          <span className="ss-ex-n">{l.label}</span>
+          <span className="tp-skip-k">Não feito</span>
+          <button className="link small" onClick={() => onSkip(false)} data-testid="ex-unskip">Desfazer</button>
+        </div>
+      </article>
+    );
+  }
   return (
-    <article className="ss-ex tp-ex" data-testid="plan-ex">
+    <article className={`ss-ex tp-ex ${all ? 'is-done' : ''}`} data-testid="plan-ex">
       <div className="ss-ex-head">
-        <span className="tp-ph"><img src={photoUrl(e)} alt="" loading="lazy" /><i className="num" aria-hidden>{n}</i></span>
+        <span className="tp-ph"><img src={photoUrl(e)} alt="" loading="lazy" /><i className="num" aria-hidden>{all ? <Check size={14} strokeWidth={3.2} /> : n}</i></span>
         <span className="ss-ex-main">
           <b className="ss-ex-n">{l.label}</b>
           <span className="ss-line"><b className="num">{e.sets}×{l.reps}</b>{l.extra ? <span className="tp-extra">{l.extra}</span> : null}</span>
         </span>
       </div>
-      {top != null ? (
-        <div className="tp-load">
-          <div className="tp-load-row" aria-label={pyr ? `Carga por série: ${ls.map((x) => kgs(x)).join(', ')} kg` : `Carga ${kgs(top)} kg`}>
-            <span className="tp-load-k">{pyr ? 'Carga por série' : 'Carga'}</span>
-            <span className="tp-ladder">
-              {pyr ? ls.map((x, i) => <span key={i} className="tp-step"><b className={`num ${x === top ? 'top' : ''}`}>{kgs(x)}</b>{i < ls.length - 1 ? <i aria-hidden>→</i> : null}</span>)
-                : <b className="num top">{kgs(top)}</b>}
-              <span className="tp-kg">kg</span>
-            </span>
-          </div>
-          {(l.meta || chip) && (
-            <div className="tp-load-sub">
-              {l.meta && <span data-testid="plan-meta">Meta {l.meta}</span>}
-              {chip && <span className={`tp-why t-${chip.tone}`} title={why}>{chip.tone === 'up' ? <TrendingUp size={14} /> : chip.tone === 'down' ? <TrendingDown size={14} /> : <Minus size={14} />}{chip.text}</span>}
-            </div>
-          )}
+      <div className="tp-setbox">
+        <div className="tp-setbox-h">
+          <span className="tp-load-k">{done ? `${done} de ${e.sets} séries feitas` : 'Toque nas séries que fez'}{plannedSet(e, 0).kg != null ? <span className="tp-unit"> · reps × kg</span> : null}</span>
+          {(l.meta || chip) && <span className="tp-why-wrap">{l.meta && <span data-testid="plan-meta">Meta {l.meta}</span>}</span>}
         </div>
-      ) : l.meta ? (
-        <div className="tp-load">
-          <div className="tp-load-row"><span className="tp-load-k">Meta</span><span className="tp-ladder"><b className="top tp-meta-v" data-testid="plan-meta">{l.meta}</b></span></div>
+        <div className="tp-sets" style={{ gridTemplateColumns: `repeat(${Math.min(e.sets, 4)}, minmax(0, 1fr))` }}>
+          {Array.from({ length: e.sets }, (_, i) => {
+            const p = plannedSet(e, i);
+            const m = marks[i];
+            const v = m ?? p;
+            const diff = m && !sameAsPlan(m, p);
+            return (
+              <button key={i} className={`tp-set ${m ? 'on' : ''} ${diff ? 'diff' : ''} ${edit === i ? 'editing' : ''}`} data-testid="set-pill"
+                aria-pressed={!!m} aria-label={`Série ${i + 1}: ${v.reps} repetições${v.kg != null ? ` com ${kgs(v.kg)} kg` : ''}${m ? ', feita' : ''}`}
+                onClick={() => { if (!m) { onMark(i, p); setEdit(null); } else setEdit(edit === i ? null : i); }}>
+                <span className="tp-set-k">{m ? <Check size={12} strokeWidth={3.4} /> : null}{i + 1}ª</span>
+                <b className="num">{v.reps}{v.kg != null ? <><i>×</i>{kgs(v.kg)}</> : <small> reps</small>}</b>
+              </button>
+            );
+          })}
         </div>
-      ) : null}
+        {edit != null && marks[edit] && <SetEditor i={edit} m={marks[edit]!} plan={plannedSet(e, edit)} onChange={(m) => onMark(edit, m)} onClear={() => { onMark(edit, null); setEdit(null); }} onClose={() => setEdit(null)} />}
+        {chip && <span className={`tp-why t-${chip.tone}`} title={why}>{chip.tone === 'up' ? <TrendingUp size={14} /> : chip.tone === 'down' ? <TrendingDown size={14} /> : <Minus size={14} />}Carga {chip.text.charAt(0).toLowerCase() + chip.text.slice(1)}</span>}
+      </div>
+      {!done && <button className="tp-skip link small" onClick={() => onSkip(true)} data-testid="ex-skip">Não fiz este exercício</button>}
     </article>
+  );
+}
+
+/** Ajuste de uma série marcada: repetições e carga do que ela fez, gravados a cada toque. */
+function SetEditor({ i, m, plan, onChange, onClear, onClose }: { i: number; m: SetMark; plan: SetMark; onChange: (m: SetMark) => void; onClear: () => void; onClose: () => void }) {
+  const step = (m.kg ?? plan.kg ?? 0) >= 20 ? 1 : 0.5;
+  const kgV = m.kg ?? plan.kg;
+  const setKg = (v?: number) => onChange({ ...m, kg: v == null || Number.isNaN(v) ? undefined : Math.max(0, Math.round(v * 2) / 2) });
+  return (
+    <div className="tp-ed" data-testid="set-editor">
+      <div className="tp-ed-h"><b>{i + 1}ª série</b>{!sameAsPlan(m, plan) ? <span className="tiny">Plano: {plan.reps}{plan.kg != null ? ` × ${kgs(plan.kg)} kg` : ' reps'}</span> : <span className="tiny">Igual ao plano</span>}</div>
+      <div className="tp-ed-row">
+        <span className="tp-ed-l">Repetições</span>
+        <div className="stepper">
+          <button aria-label="Uma repetição a menos" onClick={() => onChange({ ...m, reps: Math.max(0, m.reps - 1) })}>−</button>
+          <input inputMode="numeric" value={m.reps} aria-label="Repetições feitas" data-testid="set-reps" onChange={(ev) => { const v = parseInt(ev.target.value, 10); if (!Number.isNaN(v)) onChange({ ...m, reps: Math.max(0, v) }); }} />
+          <button aria-label="Uma repetição a mais" onClick={() => onChange({ ...m, reps: m.reps + 1 })}>+</button>
+        </div>
+      </div>
+      <div className="tp-ed-row">
+        <span className="tp-ed-l">Carga (kg)</span>
+        <div className="stepper">
+          <button aria-label={`Menos ${kgs(step)} kg`} onClick={() => setKg((kgV ?? 0) - step)}>−</button>
+          <input inputMode="decimal" value={kgV == null ? '' : kgs(kgV)} aria-label="Carga usada em kg" data-testid="set-kg" onChange={(ev) => { const t = ev.target.value.replace(',', '.').trim(); setKg(t === '' ? undefined : Number(t)); }} />
+          <button aria-label={`Mais ${kgs(step)} kg`} onClick={() => setKg((kgV ?? 0) + step)}>+</button>
+        </div>
+      </div>
+      <div className="tp-ed-foot">
+        <button className="link small" onClick={onClear} data-testid="set-clear">Desmarcar série</button>
+        <button className="tp-sec tp-ed-ok" onClick={onClose}>Pronto</button>
+      </div>
+    </div>
   );
 }

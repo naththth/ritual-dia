@@ -20,7 +20,7 @@ Como o Claude faz ajustes no Ritual. A Nathalie pede o ajuste direto na conversa
 
 1. Entenda o pedido. Se for ambíguo a ponto de um palpite errado dar retrabalho grande, ou se mudar dados dela de forma irreversível, traga uma proposta concreta para ela aprovar antes de construir.
 
-2. Implemente com cuidado de produto: ela é exigente com clareza, estética e textos em português natural, sem clichês. Mantenha o estilo visual (tokens em `src/styles/app.css`). Em cards lado a lado, textos alinhados na mesma altura; texto em português nunca cortado no celular. Prompts da IA ficam nas funções correspondentes.
+2. Implemente com cuidado de produto: ela é exigente com clareza, estética e textos em português natural, sem clichês. Mantenha o estilo visual (tokens em `src/styles/app.css`). Em cards lado a lado, textos alinhados na mesma altura; texto em português nunca cortado no celular. Sem botão de salvar (regra dela, nov/2026): tocar ou marcar grava na hora e texto grava um instante depois de parar de digitar (use `useAutoSave` de `src/ui/autosave.ts`); o botão do rodapé vira "Pronto" e só fecha. Botão de ação fica apenas para criar algo novo, com o verbo da ação ("Adicionar tarefa"), nunca "Salvar". Prompts da IA ficam nas funções correspondentes.
 
 3. Verifique antes de publicar: `npm ci`, `npx tsc --noEmit`, `npm test`, `npm run build` e `npx playwright test` completo, sem filtro (roda contra o build, em preview). Tire print da tela mudada (`SHOTS=1`) e confira. Se o Chromium do Playwright não bater com a versão esperada, aponte `CHROME_PATH` ou crie um link simbólico em `/opt/pw-browsers/`. Escreva ou ajuste um teste quando a mudança tiver lógica, sempre com dados fictícios.
 

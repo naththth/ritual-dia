@@ -1,4 +1,5 @@
 // Ciclo menstrual: faixa no Hoje, registro do dia e a tela com calendário, histórico e previsões.
+import { useAutoSave } from '../ui/autosave';
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronRight, Droplet, Pencil, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -121,24 +122,27 @@ export function CycleSheet({ open, date: initial, onClose }: { open: boolean; da
   const [flow, setFlow] = useState<Flow | undefined>();
   const [symptoms, setSymptoms] = useState<string[]>([]);
   const [note, setNote] = useState('');
+  const [loadedFor, setLoadedFor] = useState('');
   const load = async (d: DateKey) => {
+    setLoadedFor('');
     setDate(d);
     const c = (await get<'cycle'>(cid(d))) as CycleDay | undefined;
     const live = c && !c.deleted ? c : undefined;
     setFlow(live?.flow); setSymptoms(live?.symptoms ?? []); setNote(live?.note ?? '');
+    setLoadedFor(d);
   };
   useEffect(() => { if (open) load(initial); }, [open, initial]);
-  const save = async () => {
-    if (!flow && !symptoms.length && !note.trim()) {
+  // Sem botão de salvar: cada toque grava; a observação, quando ela para de digitar. Tudo desmarcado apaga o dia.
+  const flush = useAutoSave({ flow, symptoms, note }, async (x) => {
+    if (!x.flow && !x.symptoms.length && !x.note.trim()) {
       if (await get<'cycle'>(cid(date))) await remove(cid(date));
-    } else await setCycleDay(date, { flow, symptoms, note: note.trim() || undefined });
-    toast('Ciclo salvo');
-    onClose();
-  };
+    } else await setCycleDay(date, { flow: x.flow, symptoms: x.symptoms, note: x.note.trim() || undefined });
+  }, { ready: open && loadedFor === date, scope: `${open}:${date}`, delay: 500 });
+  const save = async () => { await flush(); onClose(); };
   const toggleSym = (s: string) => setSymptoms((x) => (x.includes(s) ? x.filter((y) => y !== s) : [...x, s]));
   return (
     <Sheet open={open} onClose={onClose} title="Ciclo" sub={shortLabel(date)} testId="cycle-sheet"
-      footer={<button className="btn btn-ink" style={{ width: '100%' }} onClick={save} data-testid="cycle-save">Salvar</button>}>
+      footer={<button className="btn btn-ink" style={{ width: '100%' }} onClick={save} data-testid="cycle-save">Pronto</button>}>
       <label style={{ display: 'block' }}>
         <span className="label" style={{ marginTop: 0 }}>Dia</span>
         <input type="date" value={date} max={todayKey()} onChange={(e) => e.target.value && load(e.target.value)} aria-label="Dia do registro" />
@@ -184,7 +188,7 @@ export function PeriodSheet({ open, period, onClose }: { open: boolean; period?:
     <Sheet open={open} onClose={onClose} title={period ? 'Corrigir menstruação' : 'Registrar menstruação'} sub={period ? `Começou em ${shortLabel(period.start)}` : undefined} testId="period-sheet"
       footer={<>
         {period && <button className="btn btn-soft" onClick={del} data-testid="period-delete">Apagar</button>}
-        <button className="btn btn-ink grow" onClick={save} data-testid="period-save">Salvar</button>
+        <button className="btn btn-ink grow" onClick={save} data-testid="period-save">{period ? 'Corrigir' : 'Registrar'}</button>
       </>}>
       <div className="row wrap" style={{ gap: 12 }}>
         <label style={{ display: 'block', flex: 2, minWidth: 160 }}>

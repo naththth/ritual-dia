@@ -1,4 +1,5 @@
 // Sono, passos e recuperação: registro manual ou lido de prints do Garmin pela IA.
+import { useAutoSave } from '../ui/autosave';
 import { useEffect, useRef, useState } from 'react';
 import { Camera, Moon, Pencil, Watch } from 'lucide-react';
 import { useByDate } from '../db/hooks';
@@ -133,7 +134,8 @@ export function WellnessSheet({ open, date: initial, onClose }: { open: boolean;
   const [reading, setReading] = useState(false);
   const [note, setNote] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
-  const load = async (d: DateKey) => { setDate(d); setF(toForm((await get<'wellness'>(`wellness:${d}`)) as any)); };
+  const [loadedFor, setLoadedFor] = useState('');
+  const load = async (d: DateKey) => { setLoadedFor(''); setDate(d); setF(toForm((await get<'wellness'>(`wellness:${d}`)) as any)); setLoadedFor(d); };
   useEffect(() => { if (open) { setNote(''); load(initial); } }, [open, initial]);
   const set = (p: Partial<Form>) => setF((x) => ({ ...x, ...p }));
 
@@ -159,26 +161,28 @@ export function WellnessSheet({ open, date: initial, onClose }: { open: boolean;
         sleepStart: typeof r.dormiu === 'string' && /^\d{2}:\d{2}$/.test(r.dormiu) ? r.dormiu : x.sleepStart,
         sleepEnd: typeof r.acordou === 'string' && /^\d{2}:\d{2}$/.test(r.acordou) ? r.acordou : x.sleepEnd
       }));
-      setNote([target !== initial ? `O print é de ${shortLabel(target)}; vou salvar nesse dia.` : '', r.observacao ? String(r.observacao) : '', 'Confira os números antes de salvar.'].filter(Boolean).join(' '));
+      setNote([target !== initial ? `O print é de ${shortLabel(target)}; vou salvar nesse dia.` : '', r.observacao ? String(r.observacao) : '', 'Confira os números; o que estiver aqui já ficou registrado.'].filter(Boolean).join(' '));
     } catch (e: any) { toast(e.message, undefined, 'error'); }
     finally { setReading(false); if (fileRef.current) fileRef.current.value = ''; }
   };
 
-  const save = async () => {
+  // Sem botão de salvar: o que ela digita (ou o que o print trouxe) grava um instante depois; "Pronto" fecha.
+  const write = async (x: Form) => {
     const cur = (await get<'wellness'>(`wellness:${date}`)) as Partial<Wellness> | undefined;
     const data = {
       ...(cur ?? {}),
       date, source: cur?.source ?? 'manual',
-      sleepFlag: f.flag || undefined, sleepManualH: f.flag === 'incompleto' ? parseHours(f.manual) : undefined,
-      sleepH: parseHours(f.sleepH), sleepScore: num(f.sleepScore), hrv: num(f.hrv), restingHR: num(f.restingHR),
-      bodyBattery: num(f.bodyBattery), steps: num(f.steps), stress: num(f.stress),
-      sleepStart: f.sleepStart || undefined, sleepEnd: f.sleepEnd || undefined
+      sleepFlag: x.flag || undefined, sleepManualH: x.flag === 'incompleto' ? parseHours(x.manual) : undefined,
+      sleepH: parseHours(x.sleepH), sleepScore: num(x.sleepScore), hrv: num(x.hrv), restingHR: num(x.restingHR),
+      bodyBattery: num(x.bodyBattery), steps: num(x.steps), stress: num(x.stress),
+      sleepStart: x.sleepStart || undefined, sleepEnd: x.sleepEnd || undefined
     };
-    if (f.sleepH && data.sleepH == null) { toast('Sono: escreva como 7h30 ou 7,5.', undefined, 'error'); return; }
+    if (x.sleepH && data.sleepH == null) return; // ainda digitando ("7h"); grava quando der para ler
     await upsert('wellness', `wellness:${date}`, data);
-    toast(`Sono e passos de ${shortLabel(date)} salvos`);
-    onClose();
   };
+  const flush = useAutoSave(f, write, { ready: open && loadedFor === date, scope: `${open}:${date}`, delay: 700 });
+  const sleepBad = !!f.sleepH && parseHours(f.sleepH) == null;
+  const save = async () => { await flush(); onClose(); };
 
   const field = (k: keyof Form, label: string, ph: string, mode: 'numeric' | 'decimal' | 'text' = 'numeric') => (
     <label className="nutr-cell"><span>{label}</span><input inputMode={mode} value={f[k]} placeholder={ph} onChange={(e) => set({ [k]: e.target.value } as any)} aria-label={label} /></label>
@@ -186,7 +190,7 @@ export function WellnessSheet({ open, date: initial, onClose }: { open: boolean;
 
   return (
     <Sheet open={open} onClose={onClose} title="Sono e recuperação" sub={shortLabel(date)} testId="wellness-sheet"
-      footer={<button className="btn btn-ink" onClick={save} data-testid="wellness-save">Salvar</button>}>
+      footer={<>{sleepBad && <span className="small" style={{ color: 'var(--alert)', alignSelf: 'center' }}>Sono: escreva como 7h30 ou 7,5</span>}<button className="btn btn-ink" onClick={save} data-testid="wellness-save">Pronto</button></>}>
       <button className="btn btn-wine btn-block" disabled={reading || !aiAvailable()} onClick={() => fileRef.current?.click()} data-testid="wellness-print">
         <Camera size={18} />{reading ? 'Lendo os prints…' : 'Ler prints do Garmin'}
       </button>

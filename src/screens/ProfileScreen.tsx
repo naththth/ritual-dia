@@ -275,7 +275,7 @@ export function ProfileScreen() {
 
       <HealthSection health={health} onChange={(h) => set({ health: h })} open0={sec === 'saude'} />
 
-      <button className="btn btn-ink btn-block" onClick={() => save()} data-testid="profile-save">Salvar perfil</button>
+      <p className="tiny muted" style={{ textAlign: 'center', margin: '4px 0 0' }} data-testid="profile-autosave">Tudo aqui grava sozinho enquanto você preenche.</p>
 
       <section className="block b-paper pf" style={{ marginTop: 16 }} data-testid="targets-ai">
         <h2>Metas de calorias e macros</h2>

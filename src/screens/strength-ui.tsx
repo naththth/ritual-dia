@@ -1,5 +1,5 @@
 // Editor de exercícios da musculação: lista suspensa com 3 variações, séries, repetições e carga.
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { NumberInput } from '../ui/ui';
 import { Plus, Trash2 } from 'lucide-react';
 import type { StrengthExercise } from '../db/types';
@@ -107,14 +107,16 @@ export function ExerciseSummary({ value }: { value: StrengthExercise[] }) {
 /** Lançar ou corrigir o que foi feito num treino de musculação já registrado (Garmin ou à mão). */
 export function LogExercises({ w, program, onSave, firstGroup, hint, hideSummary }: { w: { exercises?: StrengthExercise[] }; program: StrengthExercise[]; onSave: (v: StrengthExercise[]) => void; firstGroup?: string; hint?: string; hideSummary?: boolean }) {
   const [draft, setDraft] = useState<StrengthExercise[] | null>(null);
+  // Sem botão de salvar: cada mudança já grava no treino; "Desfazer mudanças" volta ao que era quando abriu.
+  const orig = useRef<StrengthExercise[] | undefined>(undefined);
   if (draft) {
     return (
       <div data-testid="exercise-log" style={{ marginTop: 10 }}>
         {hint && !w.exercises?.length && draft.length > 0 && <p className="tiny muted" style={{ margin: '0 0 6px' }}>{hint}</p>}
-        <ExerciseEditor value={draft} onChange={setDraft} compare={!firstGroup} firstGroup={firstGroup} />
-        <div className="row" style={{ gap: 8, marginTop: 10 }}>
-          <button className="pill-act pa-ghost" onClick={() => setDraft(null)}>Cancelar</button>
-          <button className="pill-act pa-blue" data-testid="exercise-log-save" onClick={() => { onSave(draft); setDraft(null); }}>Salvar exercícios</button>
+        <ExerciseEditor value={draft} onChange={(v) => { setDraft(v); onSave(v); }} compare={!firstGroup} firstGroup={firstGroup} />
+        <div className="tp-more" style={{ marginTop: 12 }}>
+          <button className="tp-sec" onClick={() => { onSave(orig.current ?? []); setDraft(null); }}>Desfazer mudanças</button>
+          <button className="tp-main" style={{ minHeight: 48, fontSize: 15.5 }} data-testid="exercise-log-save" onClick={() => { onSave(draft); setDraft(null); }}>Pronto</button>
         </div>
       </div>
     );
@@ -123,7 +125,7 @@ export function LogExercises({ w, program, onSave, firstGroup, hint, hideSummary
   return (
     <div style={{ marginTop: 10 }}>
       {has && !hideSummary && <><span className="small" style={{ fontWeight: 700 }}>Exercícios</span><ExerciseSummary value={w.exercises!} /></>}
-      <button className={hideSummary ? 'pill-act pa-ghost' : 'link'} style={{ marginTop: hideSummary ? 0 : 6 }} data-testid="exercise-log-open" onClick={() => setDraft(has ? w.exercises! : firstGroup ? program : withPlanned(program))}>
+      <button className={hideSummary ? 'pill-act pa-ghost' : 'link'} style={{ marginTop: hideSummary ? 0 : 6 }} data-testid="exercise-log-open" onClick={() => { orig.current = w.exercises; setDraft(has ? w.exercises! : firstGroup ? program : withPlanned(program)); }}>
         {has ? 'Editar exercícios' : firstGroup === 'LPO' ? 'Lançar levantamentos, séries e carga' : 'Lançar exercícios, séries e carga'}
       </button>
     </div>

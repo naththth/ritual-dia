@@ -1,5 +1,5 @@
 // Montar uma refeição: o que está no prato em cima, o que adicionar embaixo, salvar sempre à mão no rodapé.
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePhotoPicker } from '../ui/PhotoPicker';
 import { useSearchParams } from 'react-router-dom';
 import { Plus, Search, Star, Copy, Check as CheckIcon, X, Trash2, ChevronRight, Pencil, Camera, FileText } from 'lucide-react';
@@ -10,8 +10,8 @@ import { useApp, toast } from '../state/store';
 import { useAll, useByDate, useSettings } from '../db/hooks';
 import { PageHead, useBack } from './common';
 import { Sheet, useConfirm, Empty, whenHistoryIdle } from '../ui/ui';
-import { copyMealsFrom, deleteRecord, mealId, saveMeal } from '../domain/actions';
-import { byDateRange, create } from '../db/db';
+import { copyMealsFrom, deleteRecord, mealId } from '../domain/actions';
+import { byDateRange, create, upsert, remove } from '../db/db';
 import type { Food, MealItem, MealTemplate } from '../db/types';
 import { addDays, shortLabel } from '../lib/dates';
 import { FoodForm, FoodSuggest, foodFromTaco, foodFromOff } from './library/FoodForm';
@@ -53,11 +53,26 @@ export function FoodScreen() {
   const [favName, setFavName] = useState<string | null>(null);
   const [confirmEl, ask] = useConfirm();
   const key = `${date}:${type}:${meal?.updatedAt ?? 'none'}`;
+  /** Para qual dia e refeição os itens foram carregados (evita gravar os de uma refeição na outra ao trocar). */
+  const [itemsFor, setItemsFor] = useState('');
+  const snapItems = useRef('');
   useEffect(() => {
     if (!meals || loaded === key) return;
     setLoaded(key);
     setItems(meal?.items ?? []);
+    setItemsFor(`${date}:${type}`);
+    snapItems.current = JSON.stringify(meal?.items ?? []);
   }, [key, meals]);
+  // Sem botão de salvar: adicionar, ajustar ou tirar um alimento já grava a refeição; tirar o último apaga a refeição.
+  useEffect(() => {
+    if (itemsFor !== `${date}:${type}`) return;
+    const now = JSON.stringify(items);
+    if (now === snapItems.current) return;
+    snapItems.current = now;
+    const id = mealId(date, type);
+    if (items.length) void upsert('meal', id, { date, mealType: type, items });
+    else if (meal) void remove(id);
+  }, [items, itemsFor]);
 
   const plannedTplId = plannedFood(planFor(plans ?? [], 'food', date), date, dayExtras)[type];
   const plannedTpl = tmpls?.find((t) => t.id === plannedTplId);
@@ -116,11 +131,6 @@ export function FoodScreen() {
   const typeLabel = settings?.mealTypes.find((m) => m.id === type)?.label ?? type;
   const kcalOf = (f: Food, it: MealItem) => itemNutr(f, it)?.kcal;
 
-  const save = async () => {
-    if (!items.length) { toast('Adicione ao menos um alimento.', undefined, 'error'); return; }
-    await saveMeal(date, type, items);
-    back();
-  };
   const copyPrev = async () => {
     const ok = await ask({ title: `Copiar refeições de ${shortLabel(addDays(date, -1))}?`, text: 'Só entram as refeições que ainda não foram registradas hoje. Nada é substituído.', ok: 'Copiar' });
     if (!ok) return;
@@ -270,7 +280,7 @@ export function FoodScreen() {
       {/* Rodapé fixo */}
       <div className="save-bar">
         {meal && <button className="btn btn-soft" style={{ flex: '0 0 auto' }} aria-label="Apagar refeição" onClick={async () => { await deleteRecord(mealId(date, type), 'Refeição apagada'); setItems([]); }}><Trash2 size={18} /></button>}
-        <button className="btn btn-ink grow" onClick={save} data-testid="meal-save">Salvar {typeLabel.toLowerCase()}{showN && mealTot && items.length && mealTot.n.kcal > 0 ? ` · ${fmt(mealTot.n.kcal)} kcal` : ''}</button>
+        <button className="btn btn-ink grow" onClick={back} data-testid="meal-save">Pronto{showN && mealTot && items.length && mealTot.n.kcal > 0 ? ` · ${fmt(mealTot.n.kcal)} kcal` : ''}</button>
       </div>
 
       {sheet && <FoodSheet food={sheet.food} item={sheet.item} mealLabel={typeLabel} onClose={() => setSheet(null)}

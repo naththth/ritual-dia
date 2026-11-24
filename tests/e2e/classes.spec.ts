@@ -35,19 +35,19 @@ test('musculação no horário do LPO vira LPO e o comentário tem botão de sal
   await openTrainingItems(page);
   await expect(page.getByTestId('workout-card')).toContainText('156');
   await expect(page.getByTestId('reclassified')).toBeVisible();
-  // "Como foi" mostra o que ela escreveu; em Editar, aparece "Salvar" enquanto há texto novo e depois "Salvo"
+  // "Como foi" mostra o que ela escreveu; em Editar, o texto grava sozinho e aparece "Salvo"
   await expect(page.getByTestId('feel-card')).toContainText('técnica boa');
   await page.getByTestId('feel-edit').click();
   await expect(page.getByTestId('feedback-saved')).toBeVisible();
   await page.getByLabel('Como foi o treino').fill('técnica boa, arranco pesado');
-  await page.getByTestId('feedback-save').click();
+  // grava sozinho, sem botão: o "Salvo" aparece depois que ela para de digitar
   await expect(page.getByTestId('feedback-saved')).toBeVisible();
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/lpo.png', fullPage: true });
 
   // LPO tem barra e carga: o lançamento já abre com o que ela escreveu no comentário
   const card = page.getByTestId('workout-card');
   await page.getByLabel('Como foi o treino').fill('Top demais, fiz arremesso com 41kgs e puxada com 51kgs ao final');
-  await page.getByTestId('feedback-save').click();
+  await expect(page.getByTestId('feedback-saved')).toBeVisible();
   await card.getByTestId('exercise-log-open').click();
   await expect(card.getByTestId('exercise-row')).toHaveCount(2);
   await expect(card.getByTestId('exercise-select').first()).toHaveValue('Arremesso');

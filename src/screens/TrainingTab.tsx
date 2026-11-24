@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 import { Fold } from '../ui/ui';
 import { TopBar , DayStrip } from './common';
 import { AreaNav } from './areas';
-import { useAll, useByRange, useSettings } from '../db/hooks';
+import { useAll, useByRange, useSettings, useRecord } from '../db/hooks';
 import { useApp, toast } from '../state/store';
 import { planFor, slotCounts, trainingDay } from '../domain/rules';
 import { addDays, isoWeekday, shortLabel, todayKey, weekStart, WEEKDAY_LETTER, WEEKDAY_SHORT, dayNum, type DateKey } from '../lib/dates';
@@ -15,9 +15,10 @@ import { StepsView } from './ai-ui';
 import { importFitFiles } from '../domain/fitImport';
 import { trainingLoad, workoutLoad, formLabel } from '../domain/load';
 import { effectiveSleep, effectiveHrv, wellnessForAI } from '../domain/wellness';
-import { db, update } from '../db/db';
+import { db, update, upsert, remove } from '../db/db';
 import { MicButton, appendText } from '../ui/Dictation';
-import type { StrengthExercise, Workout, WorkoutTemplate } from '../db/types';
+import type { SetMark, StrengthExercise, Workout, WorkoutTemplate } from '../db/types';
+import { progressId, withMark, progressCount, realizedExercises, marksOf, plannedSet } from '../domain/strengthLog';
 import { programFor, lpoProgram, lpoFromText, LPO_GROUP, defaultExercises, reconcileWithNote, noteWithExercises, parseNoteLine, topLoad, loadsPerSet, exerciseVolume, repsPerSet } from '../domain/strength';
 import { ExerciseEditor, LogExercises } from './strength-ui';
 import { Arc } from '../ui/art';
@@ -374,7 +375,7 @@ export function WorkoutCard({ w, name, ftp, strength, history = [], open, onTogg
   const read = w.aiFeedback?.titulo;
   const time = w.startTime ? new Date(w.startTime).toTimeString().slice(0, 5) : undefined;
   const preview = read && !open ? <button className="titem-read" onClick={onToggle} data-testid="wfb-preview"><Sparkles size={13} />{read}</button> : null;
-  const saveExercises = (exercises: StrengthExercise[]) => update<'workout'>(w.id, { exercises }).then(() => toast('Exercícios salvos no treino'));
+  const saveExercises = (exercises: StrengthExercise[]) => update<'workout'>(w.id, { exercises: exercises.length ? exercises : undefined });
   // Força com exercícios lançados: capa, números, "Como foi" e um card por exercício, na largura toda.
   if (strength && w.exercises?.length) {
     return (
@@ -419,7 +420,9 @@ function WorkoutFeedback({ w, forceOpen }: { w: Workout; forceOpen?: boolean }) 
   const prevFeeling = useRef(w.feeling ?? '');
   useEffect(() => { const f = w.feeling ?? ''; if (text.trim() === prevFeeling.current.trim()) setText(f); prevFeeling.current = f; }, [w.feeling]);
   const saved = (w.feeling ?? '') === text.trim();
-  const saveText = async (t: string, announce = false) => { await update<'workout'>(w.id, { feeling: t.trim() || undefined }); if (announce) toast('Anotado no treino'); };
+  const saveText = async (t: string) => { await update<'workout'>(w.id, { feeling: t.trim() || undefined }); };
+  // Grava sozinho um instante depois que ela para de digitar (e ao sair do campo), sem botão de salvar.
+  useEffect(() => { if (saved) return; const id = setTimeout(() => saveText(text), 700); return () => clearTimeout(id); }, [text]);
   if (!forceOpen && !open && !w.rpe && !w.feeling) return <button className="link" style={{ marginTop: 8 }} onClick={() => setOpen(true)} data-testid="feedback-open">Como foi? Registrar esforço e sensação</button>;
   return (
     <div className="feedback" data-testid="feedback">
@@ -430,7 +433,7 @@ function WorkoutFeedback({ w, forceOpen }: { w: Workout; forceOpen?: boolean }) 
       <div className="row between" style={{ gap: 8, marginTop: 8, alignItems: 'center' }}>
         <MicButton label="Falar" onText={(t) => { const next = appendText(text, t); setText(next); saveText(next); }} />
         {saved ? (text.trim() ? <span className="small saved-ok" data-testid="feedback-saved"><CheckIcon size={15} strokeWidth={3} /> Salvo</span> : null)
-          : <button className="pill-act pa-blue" onClick={() => saveText(text, true)} data-testid="feedback-save">Salvar</button>}
+          : <span className="small muted" data-testid="feedback-saving">Gravando…</span>}
       </div>
     </div>
   );
@@ -445,7 +448,32 @@ function PlannedStrength({ t, history, date, onDone, more }: { t: WorkoutTemplat
     if (fix?.length) update<'wtemplate'>(t.id, { exercises: fix });
   }, [t.id, t.note, t.exercises]);
   const [draft, setDraft] = useState<StrengthExercise[] | null>(null);
+  const orig = useRef<{ exercises?: StrengthExercise[]; note?: string } | null>(null);
   const { exercises, why } = programFor(t, history, date);
+  // O que ela marcou série a série (gravado a cada toque, sem mexer no plano).
+  const pid = progressId(date, t.id);
+  const prog = useRecord<'wprog'>(pid);
+  const mark = (e: StrengthExercise, i: number, m: SetMark | null) => upsert('wprog', pid, { date, templateId: t.id, sets: withMark(prog ?? undefined, e, i, m) });
+  const skipEx = (e: StrengthExercise, sk: boolean) => {
+    const cur = prog?.skipped ?? [];
+    upsert('wprog', pid, { date, templateId: t.id, sets: prog?.sets ?? {}, skipped: sk ? [...new Set([...cur, e.id])] : cur.filter((x) => x !== e.id) });
+  };
+  const count = progressCount(exercises, prog ?? undefined);
+  const started = count.done > 0 || !!prog?.skipped?.length;
+  const finish = async () => {
+    const real = realizedExercises(exercises, prog ?? undefined);
+    if (real.length) onDone(real); else await skipTraining(date, t);
+    await remove(pid);
+  };
+  const markRest = () => {
+    let sets = { ...(prog?.sets ?? {}) };
+    for (const e of exercises) {
+      if (prog?.skipped?.includes(e.id)) continue;
+      const cur = marksOf(prog ?? undefined, e);
+      sets = { ...sets, [e.id]: cur.map((m, i) => m ?? plannedSet(e, i)) };
+    }
+    upsert('wprog', pid, { date, templateId: t.id, sets, skipped: prog?.skipped });
+  };
   if (!exercises.length && !draft) {
     return (
       <>
@@ -458,35 +486,47 @@ function PlannedStrength({ t, history, date, onDone, more }: { t: WorkoutTemplat
     );
   }
   if (draft) {
-    // O texto de apoio (descanso, RIR) continua à vista; o roteiro numerado vira o editor.
+    // Mudar o plano: cada mudança já vale (sem botão de salvar); "Desfazer mudanças" volta ao plano de quando abriu.
     const intro = (t.note ?? '').split('\n').filter((l) => !parseNoteLine(l)).join('\n').trim();
+    const apply = (exs: StrengthExercise[]) => { setDraft(exs); if (exs.length) update<'wtemplate'>(t.id, { exercises: exs, note: noteWithExercises(t.note, exs) }); };
     return (
       <div data-testid="planned-strength-edit">
         {intro ? <div className="small wt-note">{intro}</div> : null}
-        <div style={{ marginTop: 10 }}><ExerciseEditor value={draft} why={why} onChange={setDraft} /></div>
+        <div style={{ marginTop: 10 }}><ExerciseEditor value={draft} why={why} onChange={apply} /></div>
         <div className="tp-more tp-edit-acts">
-          <button className="tp-sec" onClick={() => setDraft(null)}>Cancelar</button>
-          <button className="tp-main" data-testid="strength-edit-save" disabled={!draft.length}
-            onClick={() => {
-              const exs = draft;
-              setDraft(null);
-              update<'wtemplate'>(t.id, { exercises: exs, note: noteWithExercises(t.note, exs) }).then(() => toast('Treino atualizado'));
-            }}>Concluir edição</button>
+          <button className="tp-sec" data-testid="strength-edit-undo" disabled={!orig.current} onClick={() => {
+            const o = orig.current; setDraft(null);
+            if (o) update<'wtemplate'>(t.id, { exercises: o.exercises, note: o.note });
+          }}>Desfazer mudanças</button>
+          <button className="tp-main" data-testid="strength-edit-save" onClick={() => setDraft(null)}>Pronto</button>
         </div>
       </div>
     );
   }
   return (
-    <PlanSession note={t.note} muscles={t.muscles} exercises={exercises} why={why}
-      actions={
+    <PlanSession note={t.note} muscles={t.muscles} exercises={exercises} why={why} progress={prog ?? undefined} onMark={mark} onSkip={skipEx}
+      actions={started ? (
+        <div className="tp-actions">
+          <div className="tp-prog" data-testid="strength-progress">
+            <span><b className="num">{count.done}</b> de {count.total} séries feitas</span>
+            <i aria-hidden><i style={{ width: `${count.total ? (count.done / count.total) * 100 : 0}%` }} /></i>
+          </div>
+          <button className="tp-main" data-testid="strength-finish" onClick={finish}><CheckIcon size={18} strokeWidth={2.6} />Concluir treino</button>
+          <div className="tp-more">
+            <button className="tp-sec" data-testid="strength-mark-rest" disabled={count.done >= count.total} onClick={markRest}>Marcar o resto</button>
+            <button className="tp-sec" data-testid="strength-edit" onClick={() => { orig.current = { exercises: t.exercises, note: t.note }; setDraft(exercises); }}>Mudar o plano</button>
+          </div>
+          {count.done < count.total && <p className="tp-hint">Ao concluir, as séries sem marca ficam como não feitas.</p>}
+        </div>
+      ) : (
         <div className="tp-actions">
           <button className="tp-main" data-testid="train-done" onClick={() => onDone(exercises)}><CheckIcon size={18} strokeWidth={2.6} />Feito, como programado</button>
           <div className="tp-more">
-            <button className="tp-sec" data-testid="strength-edit" onClick={() => setDraft(exercises)}><Pencil size={16} />Mudar o plano</button>
+            <button className="tp-sec" data-testid="strength-edit" onClick={() => { orig.current = { exercises: t.exercises, note: t.note }; setDraft(exercises); }}><Pencil size={16} />Mudar o plano</button>
             {more}
           </div>
         </div>
-      } />
+      )} />
   );
 }
 

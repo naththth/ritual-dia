@@ -1,5 +1,6 @@
 // Área Mente: check-ins de humor, o que ela toma, café, sono em etapas, painel de 30 dias, avisos e relatório para a consulta.
 // A tela abre direto, sem PIN; o Hoje mostra só o necessário (avisos, café, tomadas na linha do tempo).
+import { useAutoSave } from '../ui/autosave';
 import { useEffect, useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -341,11 +342,9 @@ export function CheckinScreen() {
   const wellness = useByDate('wellness', date);
   useEffect(() => { void get<'mood'>(`mood:${date}:${period}`).then((m) => { setSt(m ?? { tags: [] }); setLoaded(true); }); }, [date, period]);
   const set = (p: Partial<MoodCheckin>) => setSt((x) => ({ ...x, ...p }));
-  const save = async () => {
-    await saveCheckin(date, period, { mood: st.mood, energy: st.energy, irritability: st.irritability, anxiety: st.anxiety, racing: st.racing, wake: st.wake, tags: st.tags ?? [], note: st.note?.trim() || undefined });
-    toast(period === 'am' ? 'Manhã registrada' : 'Dia fechado');
-    nav(-1);
-  };
+  // Sem botão de salvar: cada toque grava; a linha de texto grava quando ela para de digitar.
+  const flush = useAutoSave(st, (x) => saveCheckin(date, period, { mood: x.mood, energy: x.energy, irritability: x.irritability, anxiety: x.anxiety, racing: x.racing, wake: x.wake, tags: x.tags ?? [], note: x.note?.trim() || undefined }), { ready: loaded, scope: `${date}:${period}`, delay: 500 });
+  const save = async () => { await flush(); nav(-1); };
   const w = wellness?.[0];
   if (!loaded) return null;
   return (
@@ -395,7 +394,7 @@ export function CheckinScreen() {
         <div className="chips">{CONTEXT_TAGS.map((t) => <Chip key={t} on={st.tags?.includes(t)} onClick={() => set({ tags: st.tags?.includes(t) ? st.tags.filter((x) => x !== t) : [...(st.tags ?? []), t] })}>{t}</Chip>)}</div>
         <span className="label">Uma linha, se quiser</span>
         <textarea rows={2} value={st.note ?? ''} onChange={(e) => set({ note: e.target.value })} placeholder="A especialista da Mente lê; as outras, não" data-testid="checkin-note" />
-        <button className="btn btn-ink btn-block" style={{ marginTop: 18 }} onClick={save} data-testid="checkin-save">Salvar</button>
+        <button className="btn btn-ink btn-block" style={{ marginTop: 18 }} onClick={save} data-testid="checkin-save">Pronto</button>
       </>
     </div>
   );

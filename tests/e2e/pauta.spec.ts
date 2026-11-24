@@ -86,7 +86,7 @@ test('Pauta: recolhida no Hoje, abre pela seta, notícia completa, arquivo, salv
   await page.getByTestId('lente-mundo').getByRole('tab', { name: 'Não' }).click();
   await page.getByTestId('lente-nova').fill('Varejo e consumo');
   await page.getByRole('button', { name: 'Criar' }).click();
-  await page.getByTestId('pauta-salvar-ajustes').click();
+  // sem botão de salvar: as mudanças gravam sozinhas
   await expect(page.getByTestId('pauta-salvo')).toContainText('Salvo às');
   await shot(page, 'pauta-ajustes');
   const prefs = await page.evaluate(async () => {

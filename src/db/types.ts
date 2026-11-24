@@ -17,7 +17,7 @@ export type Kind =
   | 'modality' | 'wtemplate' | 'workout'
   | 'plan' | 'skip' | 'extra' | 'brief' | 'devreq'
   | 'wellness' | 'journal' | 'note' | 'book' | 'readlog' | 'review' | 'healthdoc' | 'cycle'
-  | 'intake' | 'intakelog' | 'mood' | 'caffeine' | 'medchange' | 'chatstore' | 'ritual' | 'post' | 'win' | 'opp' | 'devitem' | 'careerbase' | 'devpick' | 'macro' | 'tweek' | 'pauta' | 'newsprefs';
+  | 'intake' | 'intakelog' | 'mood' | 'caffeine' | 'medchange' | 'chatstore' | 'ritual' | 'post' | 'win' | 'opp' | 'devitem' | 'careerbase' | 'devpick' | 'macro' | 'tweek' | 'pauta' | 'newsprefs' | 'wprog';
 
 export type Priority = 'alta' | 'media' | 'baixa';
 export const PRIORITIES: Priority[] = ['alta', 'media', 'baixa'];
@@ -334,6 +334,19 @@ export interface StrengthExercise {
   loadAt?: DateKey;
   /** No treino feito: o que estava programado, para comparar. */
   planned?: { name: string; sets: number; reps: number; loadKg?: number; setLoads?: number[]; setReps?: number[] };
+}
+/** Série marcada no treino de força: o que ela fez de fato (repetições e carga). */
+export interface SetMark { reps: number; kg?: number }
+/** Musculação em andamento, antes de concluir: o que ela marcou série a série, sem mexer no plano.
+ *  id = wprog:DATA:TEMPLATE. Grava a cada toque; ao concluir vira o treino feito e este registro sai. */
+export interface StrengthProgress extends Base {
+  kind: 'wprog';
+  date: DateKey;
+  templateId: string;
+  /** Por exercício (id do exercício do plano): uma posição por série; null = ainda não marcada. */
+  sets: Record<string, (SetMark | null)[]>;
+  /** Exercícios que ela não fez. */
+  skipped?: string[];
 }
 /** Bloco do treino. No pedal, pct é % do FTP; na corrida, pct só dá a altura do desenho e target diz o alvo (FC, esforço, ritmo de esteira). */
 export interface WorkoutStep { label: string; minutes: number; pct: number; target?: string }
@@ -660,7 +673,7 @@ export type KindMap = {
   modality: Modality; wtemplate: WorkoutTemplate; workout: Workout;
   plan: Plan; skip: Skip; extra: PlanExtra; brief: DayBrief; devreq: DevRequest;
   wellness: Wellness; journal: Journal; note: Note; book: Book; readlog: ReadLog; review: Review; healthdoc: HealthDoc; cycle: CycleDay;
-  intake: Intake; intakelog: IntakeLog; mood: MoodCheckin; caffeine: Caffeine; medchange: MedChange; chatstore: ChatStore; ritual: RitualDay; post: Post; careerbase: CareerBase; win: Win; opp: Opp; devitem: DevItem; devpick: DevPick; macro: MacroCycle; tweek: TrainingWeek; pauta: Pauta; newsprefs: NewsPrefs;
+  intake: Intake; intakelog: IntakeLog; mood: MoodCheckin; caffeine: Caffeine; medchange: MedChange; chatstore: ChatStore; ritual: RitualDay; post: Post; careerbase: CareerBase; win: Win; opp: Opp; devitem: DevItem; devpick: DevPick; macro: MacroCycle; tweek: TrainingWeek; pauta: Pauta; newsprefs: NewsPrefs; wprog: StrengthProgress;
 };
 
 /** Perfil e objetivos. Tudo opcional: a IA usa o que houver e diz o que falta. */

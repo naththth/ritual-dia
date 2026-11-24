@@ -635,7 +635,7 @@ test('preferências para a IA na rotina de cuidados', async ({ page }) => {
   await page.goto('./#/plano/skin');
   const box = page.getByTestId('ai-prefs-skin');
   await box.getByRole('textbox').fill('Quero usar ácidos várias vezes na semana');
-  await box.getByTestId('ai-prefs-save').click();
+  // grava sozinho quando ela para de digitar
   await expect(box.getByTestId('ai-prefs-saved')).toBeVisible();
   await page.reload();
   await expect(page.getByTestId('ai-prefs-skin').getByRole('textbox')).toHaveValue('Quero usar ácidos várias vezes na semana');

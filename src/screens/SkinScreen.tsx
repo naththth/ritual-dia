@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Plus, Search, ScanFace, Camera, X, RotateCcw, ListOrdered } from 'lucide-react';
 import { useApp } from '../state/store';
@@ -6,14 +6,14 @@ import { useAll, useByDate } from '../db/hooks';
 import { PageHead , useBack } from './common';
 import { SpecialistButton } from './specchat';
 import { Chip, Seg, Sheet, Empty, Fold } from '../ui/ui';
-import { GROUPS, SKIN_CONDITIONS, SKIN_SIGNALS, INTENSITY_LABEL, BODY_SIGNALS, HAIR_SIGNALS, PERIOD_LABEL } from '../domain/defaults';
+import { GROUPS, SKIN_CONDITIONS, SKIN_SIGNALS, INTENSITY_LABEL, BODY_SIGNALS, HAIR_SIGNALS } from '../domain/defaults';
 import { activesTogether, planFor, plannedSkin, plannedTraining } from '../domain/rules';
 import { nightAdjust } from '../domain/skinAdapt';
 import { effectiveSleep } from '../domain/wellness';
 import { cycleInfo } from '../domain/cycle';
 import { useCycle } from './cycle';
 import { saveSkin, skinId, deleteRecord, skipPlanned } from '../domain/actions';
-import { update } from '../db/db';
+import { update, upsert } from '../db/db';
 import { AREAS, OWNED, STEPS, applicationOrder, layerLabel, layerOf, productStep, shortUse, type Area, type Step } from '../domain/skinSteps';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import { SpecialistLink } from './specchat';
@@ -54,15 +54,24 @@ export function SkinScreen() {
   const [picker, setPicker] = useState<{ step: Step; area: Area } | null>(null);
   const [loadedKey, setLoadedKey] = useState('');
 
+  // Carrega o registro ao abrir o dia/período (ou quando chega de outro aparelho). Gravações feitas aqui não recarregam
+  // o formulário por cima do que ela está tocando ou digitando.
   const key = `${date}:${period}:${log?.updatedAt ?? 'none'}`;
+  const ownWrite = useRef(0);
+  const snap = useRef('');
+  /** Para qual dia e período o formulário foi carregado: evita gravar o de um período no outro ao trocar. */
+  const [formDp, setFormDp] = useState('');
   useEffect(() => {
     if (!logs || key === loadedKey) return;
     setLoadedKey(key);
+    if (log && log.updatedAt === ownWrite.current) return;
+    setFormDp(`${date}:${period}`);
     setRecovery(!!log?.recovery);
     setCondition(log?.condition);
     setSignals(log?.signals ?? {});
     setUsed(log?.productIds ?? []);
     setNote(log?.note ?? '');
+    snap.current = JSON.stringify([!!log?.recovery, log?.condition ?? null, log?.signals ?? {}, log?.productIds ?? [], log?.note ?? '']);
   }, [key, logs]);
 
   const [dropped, setDropped] = useState<string[]>([]);
@@ -136,6 +145,23 @@ export function SkinScreen() {
     });
     back();
   };
+  // Sem botão de salvar: cada toque (produto, sinal, condição) grava na hora; a observação, um instante depois de parar
+  // de digitar. Ao sair da tela, o que faltava gravar grava antes.
+  const flush = useRef<() => Promise<void>>(async () => undefined);
+  flush.current = async () => {
+    if (!loadedKey || formDp !== `${date}:${period}`) return;
+    const now = JSON.stringify([recovery, condition ?? null, signals, used, note]);
+    if (now === snap.current) return;
+    snap.current = now;
+    const rec = await upsert('skin', skinId(date, period), { date, period, condition, signals, productIds: used, plannedIds: planned, recovery, note: note || undefined, skipped: false });
+    ownWrite.current = rec.updatedAt;
+  };
+  useEffect(() => {
+    const prevNote = snap.current ? JSON.parse(snap.current)[4] : '';
+    const id = setTimeout(() => void flush.current(), note !== prevNote ? 600 : 0);
+    return () => clearTimeout(id);
+  }, [recovery, condition, signals, used, note, formDp]);
+  useEffect(() => () => { void flush.current(); }, []);
 
   return (
     <div className="screen no-nav with-save-bar" data-testid="skin-screen">
@@ -292,7 +318,7 @@ export function SkinScreen() {
         ) : (
           <button className="btn btn-soft" onClick={() => save(true)}>Pular</button>
         )}
-        <button className="btn btn-ink grow" onClick={() => save(false)} data-testid="skin-save">Salvar {PERIOD_LABEL[period]}{shown.length ? ` · ${used.length} de ${shown.length}` : ''}</button>
+        <button className="btn btn-ink grow" onClick={async () => { await flush.current(); back(); }} data-testid="skin-save">Pronto{shown.length ? ` · ${used.length} de ${shown.length}` : ''}</button>
       </div>
 
       <ProductPicker open={!!picker} onClose={() => setPicker(null)} selected={used} onToggle={(id) => (picker ? pick(id, picker) : toggle(id))} area={picker?.area} step={picker?.step} />

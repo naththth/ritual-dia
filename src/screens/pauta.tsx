@@ -1,4 +1,5 @@
 // Pauta: o card recolhível no Hoje, a seção do menu (edição do dia, arquivo e salvas), a notícia aberta e os ajustes.
+import { useAutoSave } from '../ui/autosave';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowRight, ArrowUpRight, Bookmark, BookmarkCheck, Check, ChevronDown, ChevronRight, ListPlus, Minus, Newspaper, Plus, RefreshCw, Share2, SlidersHorizontal, Target, X } from 'lucide-react';
@@ -400,6 +401,8 @@ export function PautaSettingsScreen() {
   const [savedAt, setSavedAt] = useState<string>();
   const [nova, setNova] = useState('');
   useEffect(() => { if (rec !== undefined && !d) { const { id, kind, createdAt, updatedAt, deleted, dirty, ...rest } = (prefsOf(rec) as any); void id; void kind; void createdAt; void updatedAt; void deleted; void dirty; setD(rest); } }, [rec]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Sem botão de salvar: cada mudança grava (o texto, quando ela para de digitar) e vale a partir da próxima edição.
+  useAutoSave(d, async (v) => { if (!v) return; await savePrefs(v); const n = new Date(); setSavedAt(`${pad2(n.getHours())}:${pad2(n.getMinutes())}`); }, { ready: !!d, delay: 700 });
   if (!d) return null;
   const up = (patch: Partial<Draft>) => { setD({ ...d, ...patch }); setSavedAt(undefined); };
   const setLens = (id: string, nivel: PautaLente['nivel']) => up({ lentes: d.lentes.map((l) => (l.id === id ? { ...l, nivel } : l)) });
@@ -407,7 +410,6 @@ export function PautaSettingsScreen() {
     const nome = nova.trim(); if (!nome) return;
     up({ lentes: [...d.lentes, { id: `l${Date.now().toString(36)}`, nome, nivel: 'asvezes', capa: 'vida' }] }); setNova('');
   };
-  const save = async () => { await savePrefs(d); const n = new Date(); setSavedAt(`${pad2(n.getHours())}:${pad2(n.getMinutes())}`); };
   const redo = async () => { try { await requestPauta(true); toast('Refazendo a Pauta de hoje.'); } catch (e: any) { toast(e?.message ?? 'Não deu agora.'); } };
   return (
     <div className="screen" data-testid="pauta-settings">
@@ -462,7 +464,6 @@ export function PautaSettingsScreen() {
       </section>
 
       <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <button className="btn btn-wine btn-block" onClick={() => void save()} data-testid="pauta-salvar-ajustes">Salvar ajustes</button>
         {savedAt && <span className="small" style={{ color: 'var(--ok)', textAlign: 'center', fontWeight: 600 }} data-testid="pauta-salvo">Salvo às {savedAt} · vale a partir da próxima edição</span>}
         {savedAt && logged && <button className="link small" style={{ alignSelf: 'center' }} onClick={() => void redo()}>Refazer a de hoje com estes ajustes</button>}
       </div>

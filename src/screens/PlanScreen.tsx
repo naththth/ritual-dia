@@ -1,5 +1,6 @@
 import { ActivityArt, activityKind } from '../ui/activity';
 import { useEffect, useState } from 'react';
+import { useAutoSave } from '../ui/autosave';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageHead , useBack } from './common';
 import { useAll, useSettings } from '../db/hooks';
@@ -12,7 +13,6 @@ import { ProductPick } from './SkinScreen';
 import { watts } from '../domain/ai';
 import { Check } from 'lucide-react';
 import { update } from '../db/db';
-import { toast } from '../state/store';
 import { GROUP_RANK } from '../domain/defaults';
 import { applicationOrder, layerLabel, layerOf } from '../domain/skinSteps';
 import { auditSkinPlan } from '../domain/skinAudit';
@@ -60,6 +60,8 @@ export function SkinPlan({ embedded = false }: { embedded?: boolean } = {}) {
   const [dirty, setDirty] = useState(false);
   useEffect(() => { if (plans && !dirty) setD(structuredClone(current?.skin ?? emptySkin())); }, [plans, current?.id, current?.updatedAt]);
   const setDD = (v: NonNullable<Plan['skin']>) => { setDirty(true); setD(v); };
+  // Sem botão de salvar: cada mudança no plano já vale (a partir de hoje; dias anteriores mantêm o plano antigo).
+  const flush = useAutoSave(d, (v) => { if (v && dirty) return savePlan('skin', current, { skin: { ...v, body: undefined, hair: undefined } }, true); }, { ready: !!d && !!plans, scope: 'skin' });
   if (!d || !products) return null;
   const inUse = products.filter((p) => p.status === 'em_uso');
   const faceInUse = inUse.filter((p) => (p.area ?? 'rosto') === 'rosto');
@@ -138,7 +140,7 @@ export function SkinPlan({ embedded = false }: { embedded?: boolean } = {}) {
           ))}
         </>
       )}
-      <button className="btn btn-ink btn-block" style={{ marginTop: 20 }} data-testid="plan-save" onClick={async () => { await savePlan('skin', current, { skin: { ...d, body: undefined, hair: undefined } }); if (embedded) { setDirty(false); toast('Plano salvo'); } else back(); }}>Salvar plano</button>
+      {!embedded && <button className="btn btn-ink btn-block" style={{ marginTop: 20 }} data-testid="plan-save" onClick={async () => { await flush(); back(); }}>Pronto</button>}
 
       <Sheet open={baseOpen} onClose={() => setBaseOpen(false)} title={`Todos os dias · ${tab === 'am' ? 'manhã' : 'noite'}`} footer={<button className="btn btn-ink" onClick={() => setBaseOpen(false)}>Pronto</button>}>
         {pp && <AreaToggleList products={inUse} selected={pp.base} onToggle={(id) => setDD({ ...d, [tab]: { ...pp, base: pp.base.includes(id) ? pp.base.filter((x) => x !== id) : [...pp.base, id] } })} />}
@@ -224,6 +226,7 @@ export function TrainingPlan({ embedded = false }: { embedded?: boolean } = {}) 
   const [dirty, setDirty] = useState(false);
   const [resumo] = useState('');
   useEffect(() => { if (plans && !dirty) setD(structuredClone(current?.training ?? {})); }, [plans, current?.id, current?.updatedAt]);
+  const flush = useAutoSave(d, (v) => { if (v && dirty) return savePlan('training', current, { training: v }, true); }, { ready: !!d && !!plans, scope: 'training' });
   if (!d || !tmpls) return null;
   const active = tmpls.filter((t) => !t.archived);
   const ai = (
@@ -259,7 +262,7 @@ export function TrainingPlan({ embedded = false }: { embedded?: boolean } = {}) 
           ))}
         </div>
       ))}
-      <button className="btn btn-ink btn-block" style={{ marginTop: 20 }} data-testid="plan-save" onClick={async () => { await savePlan('training', current, { training: d }); if (embedded) { setDirty(false); toast('Plano salvo'); } else back(); }}>Salvar plano</button>
+      {!embedded && <button className="btn btn-ink btn-block" style={{ marginTop: 20 }} data-testid="plan-save" onClick={async () => { await flush(); back(); }}>Pronto</button>}
     </>
   );
 }
@@ -276,6 +279,7 @@ export function FoodPlan({ embedded = false }: { embedded?: boolean } = {}) {
   const [dirty, setDirty] = useState(false);
   const [resumo] = useState('');
   useEffect(() => { if (plans && !dirty) setD(structuredClone(current?.food ?? {})); }, [plans, current?.id, current?.updatedAt]);
+  const flush = useAutoSave(d, (v) => { if (v && dirty) return savePlan('food', current, { food: v }, true); }, { ready: !!d && !!plans, scope: 'food' });
   if (!d || !tmpls || !settings) return null;
   const active = tmpls.filter((t) => !t.archived);
   const aiBox = (
@@ -301,7 +305,7 @@ export function FoodPlan({ embedded = false }: { embedded?: boolean } = {}) {
           </button>
         );
       })}
-      <button className="btn btn-ink btn-block" style={{ marginTop: 20 }} data-testid="plan-save" onClick={async () => { await savePlan('food', current, { food: d }); if (embedded) { setDirty(false); toast('Plano salvo'); } else back(); }}>Salvar plano</button>
+      {!embedded && <button className="btn btn-ink btn-block" style={{ marginTop: 20 }} data-testid="plan-save" onClick={async () => { await flush(); back(); }}>Pronto</button>}
       <Sheet open={open !== null} onClose={() => setOpen(null)} title={open ? WEEKDAY_LONG[open] : ''}
         footer={<><button className="btn btn-soft" onClick={() => { if (open) { const src = d[open] ?? {}; const nd = { ...d }; DAYS.forEach((x) => (nd[x] = { ...src })); setDirty(true); setD(nd); } setOpen(null); }}>Usar em todos os dias</button><button className="btn btn-ink" onClick={() => setOpen(null)}>Pronto</button></>}>
         {open && settings.mealTypes.map((m) => (
@@ -331,19 +335,20 @@ function AIPrefs({ domain }: { domain: 'skin' | 'training' | 'food' }) {
   const [text, setText] = useState<string | null>(null);
   const value = text ?? saved;
   const isSaved = value.trim() === saved.trim();
-  const save = async (announce: boolean) => {
+  const save = async () => {
     await update<'settings'>('settings', { aiPrefs: { ...(settings?.aiPrefs ?? {}), [domain]: value.trim() || undefined } } as any);
-    if (announce) toast('Preferências salvas. A IA vai considerar na próxima montagem.');
   };
+  // Grava sozinho quando ela para de digitar.
+  useEffect(() => { if (isSaved || !settings) return; const id = setTimeout(save, 700); return () => clearTimeout(id); }, [value]);
   if (!settings) return null;
   return (
     <section className="block b-paper ai-prefs" data-testid={`ai-prefs-${domain}`}>
       <span className="label" style={{ marginTop: 0 }}>{PREF_HINT[domain].title}</span>
-      <textarea value={value} onChange={(e) => setText(e.target.value)} onBlur={() => !isSaved && save(false)} placeholder={PREF_HINT[domain].ph} rows={3} aria-label={PREF_HINT[domain].title} />
+      <textarea value={value} onChange={(e) => setText(e.target.value)} onBlur={() => !isSaved && save()} placeholder={PREF_HINT[domain].ph} rows={3} aria-label={PREF_HINT[domain].title} />
       <div className="row between" style={{ marginTop: 8, alignItems: 'center', gap: 8 }}>
         <span className="tiny muted" style={{ flex: 1 }}>A IA segue o que você escrever. Se alguma combinação puder machucar, ela ajusta e explica o porquê.</span>
         {isSaved ? (value.trim() ? <span className="small saved-ok" data-testid="ai-prefs-saved"><Check size={15} strokeWidth={3} /> Salvo</span> : null)
-          : <button className="pill-act pa-ghost" onClick={() => save(true)} data-testid="ai-prefs-save">Salvar</button>}
+          : <span className="small muted" data-testid="ai-prefs-saving">Gravando…</span>}
       </div>
     </section>
   );
