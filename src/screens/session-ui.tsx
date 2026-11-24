@@ -196,8 +196,8 @@ function ExerciseCard({ e, history, date }: { e: StrengthExercise; history: Work
 /** Por que a carga é essa, em poucas palavras (vem da sugestão de carga pelo último treino). */
 function whyChip(why?: string): { tone: string; text: string } | undefined {
   if (!why) return undefined;
-  if (/^subiu/.test(why)) return { tone: 'up', text: 'Subiu: você cumpriu o último' };
-  if (/^mantida/.test(why)) return { tone: 'same', text: 'Mantida: o último foi puxado' };
+  if (/^subiu/.test(why)) return { tone: 'up', text: 'Subiu: cumpriu o último' };
+  if (/^mantida/.test(why)) return { tone: 'same', text: 'Mantida: último foi puxado' };
   if (/abaixo/.test(why)) return { tone: 'down', text: 'Baixou: faltaram repetições' };
   return undefined;
 }
@@ -265,7 +265,7 @@ function PlanExerciseCard({ n, l, why, marks, skipped, onMark, onSkip }: {
           e os campos para escrever o que fez quando foi diferente. Tudo grava sozinho. */}
       <div className="tp-setbox">
         <div className="tp-setbox-h">
-          <span className="tp-load-k">{done ? `${done} de ${e.sets} séries feitas` : '✓ se fez como planejado, ou escreva o que fez'}</span>
+          <span className="tp-load-k">{done ? `${done} de ${e.sets} séries feitas` : 'Toque no ✓ ou escreva o que fez'}</span>
           {l.meta && <span className="tp-why-wrap" data-testid="plan-meta">Meta {l.meta}</span>}
         </div>
         <ol className="tp-rows">

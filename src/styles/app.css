@@ -2756,3 +2756,16 @@ body:has(.save-bar) .toasts { bottom: calc(164px + var(--safe-b)); }
 .tp-row.diff .tp-check { background: var(--wine); }
 .tp-ex .tp-skip { margin-top: 2px; }
 .tp-row.on .tp-f input::placeholder { color: var(--blue-ink); opacity: 1; font-weight: 600; }
+/* Exercício planejado com menos camadas (nov/2026): as séries ficam direto no card do exercício, sem caixa branca
+   dentro de caixa; menos borda e menos recuo, e o texto quebra em vez de passar da borda. */
+.tp-ex { padding: 14px 14px 6px; gap: 12px; }
+.tp-ex .tp-setbox { background: none; padding: 0; border-radius: 0; gap: 4px; }
+.tp-ex .tp-setbox-h { padding: 0 2px; }
+.tp-ex .tp-setbox .tp-load-k { white-space: normal; overflow-wrap: break-word; line-height: 1.35; }
+.tp-ex .tp-row { border-top-color: var(--line-2); padding: 12px 2px; }
+.tp-ex .tp-row:first-child { border-top: 0; padding-top: 6px; }
+.tp-ex .tp-f input { background: var(--card); border-width: 1px; }
+.tp-ex .tp-row.on .tp-f input { border-width: 1.5px; }
+.tp-ex .tp-check { width: 44px; height: 44px; }
+.tp-ex .tp-setbox .tp-why { padding: 4px 2px 0; }
+.tp-ex .tp-skip { margin: 0 0 0 2px; min-height: 40px; font-size: 14px; }

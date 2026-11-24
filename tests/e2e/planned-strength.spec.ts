@@ -55,7 +55,7 @@ for (const width of [360, 393]) test(`musculação planejada abre com cards por 
   await expect(rows.nth(2)).toContainText('Plano 10 × 37 kg');
   await expect(rows.nth(0).getByTestId('set-kg')).toHaveAttribute('placeholder', '16');
   await expect(cards.first()).toContainText('Meta 30-35 kg total');
-  await expect(cards.first()).toContainText('Carga subiu: você cumpriu o último');
+  await expect(cards.first()).toContainText('Carga subiu: cumpriu o último');
   await expect(cards.nth(2)).toContainText('cada lado');
   await expect(cards.first().locator('img')).toHaveAttribute('src', /ex\/supino\.jpg$/);
 
@@ -148,6 +148,17 @@ test('marca série a série, ajusta a carga, conclui e o treino feito compara co
     const plan = (await r.locator('.tp-row-plan').boundingBox())!;
     const chk = (await r.locator('.tp-check').boundingBox())!;
     expect(plan.x + plan.width).toBeLessThanOrEqual(chk.x);
+  }
+  // nenhum texto do card do exercício passa da borda (o aviso do topo quebra linha em vez de vazar)
+  for (const ex of await cards.all()) {
+    const over = await ex.evaluate((card) => {
+      const right = card.getBoundingClientRect().right;
+      const range = document.createRange();
+      let worst = 0;
+      card.querySelectorAll('span, b, button, label, li').forEach((el) => { range.selectNodeContents(el); worst = Math.max(worst, range.getBoundingClientRect().right - right); });
+      return worst;
+    });
+    expect(over).toBeLessThanOrEqual(0);
   }
   if (process.env.SHOTS) await page.getByTestId('planned-item').screenshot({ path: '/tmp/claude-0/shots/strength-marcando.png' });
   await expectButtonsFit(page.getByTestId('planned-item').locator('.tp-sec, .tp-main'));
