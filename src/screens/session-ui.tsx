@@ -1,6 +1,6 @@
 // Treino de força já feito, aberto: capa com a foto do levantamento principal, números da sessão,
 // "Como foi" em destaque e um card por exercício (escada para pirâmide, número grande para séries retas).
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, HeartPulse, Flame, TrendingUp, Pencil, Timer, ListChecks, Layers, TrendingDown, Minus, Check } from 'lucide-react';
 import type { SetMark, StrengthExercise, StrengthProgress, Workout } from '../db/types';
 import { marksOf, plannedSet, sameAsPlan } from '../domain/strengthLog';
@@ -238,7 +238,6 @@ function PlanExerciseCard({ n, l, why, marks, skipped, onMark, onSkip }: {
   onMark: (i: number, m: SetMark | null) => void; onSkip: (skip: boolean) => void;
 }) {
   const { e } = l;
-  const [edit, setEdit] = useState<number | null>(null);
   const chip = whyChip(why);
   const done = marks.filter(Boolean).length;
   const all = done === e.sets;
@@ -262,28 +261,16 @@ function PlanExerciseCard({ n, l, why, marks, skipped, onMark, onSkip }: {
           <span className="ss-line"><b className="num">{e.sets}×{l.reps}</b>{l.extra ? <span className="tp-extra">{l.extra}</span> : null}</span>
         </span>
       </div>
+      {/* Planejado em cima, realizado embaixo: uma linha por série, com o ✓ para "fiz como planejado"
+          e os campos para escrever o que fez quando foi diferente. Tudo grava sozinho. */}
       <div className="tp-setbox">
         <div className="tp-setbox-h">
-          <span className="tp-load-k">{done ? `${done} de ${e.sets} séries feitas` : 'Toque nas séries que fez'}{plannedSet(e, 0).kg != null ? <span className="tp-unit"> · reps × kg</span> : null}</span>
-          {(l.meta || chip) && <span className="tp-why-wrap">{l.meta && <span data-testid="plan-meta">Meta {l.meta}</span>}</span>}
+          <span className="tp-load-k">{done ? `${done} de ${e.sets} séries feitas` : '✓ se fez como planejado, ou escreva o que fez'}</span>
+          {l.meta && <span className="tp-why-wrap" data-testid="plan-meta">Meta {l.meta}</span>}
         </div>
-        <div className="tp-sets" style={{ gridTemplateColumns: `repeat(${Math.min(e.sets, 4)}, minmax(0, 1fr))` }}>
-          {Array.from({ length: e.sets }, (_, i) => {
-            const p = plannedSet(e, i);
-            const m = marks[i];
-            const v = m ?? p;
-            const diff = m && !sameAsPlan(m, p);
-            return (
-              <button key={i} className={`tp-set ${m ? 'on' : ''} ${diff ? 'diff' : ''} ${edit === i ? 'editing' : ''}`} data-testid="set-pill"
-                aria-pressed={!!m} aria-label={`Série ${i + 1}: ${v.reps} repetições${v.kg != null ? ` com ${kgs(v.kg)} kg` : ''}${m ? ', feita' : ''}`}
-                onClick={() => { if (!m) { onMark(i, p); setEdit(null); } else setEdit(edit === i ? null : i); }}>
-                <span className="tp-set-k">{m ? <Check size={12} strokeWidth={3.4} /> : null}{i + 1}ª</span>
-                <b className="num">{v.reps}{v.kg != null ? <><i>×</i>{kgs(v.kg)}</> : <small> reps</small>}</b>
-              </button>
-            );
-          })}
-        </div>
-        {edit != null && marks[edit] && <SetEditor i={edit} m={marks[edit]!} plan={plannedSet(e, edit)} onChange={(m) => onMark(edit, m)} onClear={() => { onMark(edit, null); setEdit(null); }} onClose={() => setEdit(null)} />}
+        <ol className="tp-rows">
+          {Array.from({ length: e.sets }, (_, i) => <SetRow key={i} i={i} plan={plannedSet(e, i)} mark={marks[i]} onMark={(m) => onMark(i, m)} />)}
+        </ol>
         {chip && <span className={`tp-why t-${chip.tone}`} title={why}>{chip.tone === 'up' ? <TrendingUp size={14} /> : chip.tone === 'down' ? <TrendingDown size={14} /> : <Minus size={14} />}Carga {chip.text.charAt(0).toLowerCase() + chip.text.slice(1)}</span>}
       </div>
       {!done && <button className="tp-skip link small" onClick={() => onSkip(true)} data-testid="ex-skip">Não fiz este exercício</button>}
@@ -291,34 +278,45 @@ function PlanExerciseCard({ n, l, why, marks, skipped, onMark, onSkip }: {
   );
 }
 
-/** Ajuste de uma série marcada: repetições e carga do que ela fez, gravados a cada toque. */
-function SetEditor({ i, m, plan, onChange, onClear, onClose }: { i: number; m: SetMark; plan: SetMark; onChange: (m: SetMark) => void; onClear: () => void; onClose: () => void }) {
-  const step = (m.kg ?? plan.kg ?? 0) >= 20 ? 1 : 0.5;
-  const kgV = m.kg ?? plan.kg;
-  const setKg = (v?: number) => onChange({ ...m, kg: v == null || Number.isNaN(v) ? undefined : Math.max(0, Math.round(v * 2) / 2) });
+/** Uma série: o plano à esquerda, o ✓ à direita e, embaixo, repetições e carga feitas.
+ *  Os campos já mostram o plano em cinza; escrever um número marca a série como feita com esse valor. */
+function SetRow({ i, plan, mark, onMark }: { i: number; plan: SetMark; mark: SetMark | null; onMark: (m: SetMark | null) => void }) {
+  const fmtKg = (v?: number) => (v == null ? '' : kgs(v));
+  // Campo vazio = igual ao plano (o plano aparece em cinza; depois do ✓, em petróleo). Só o que for diferente fica escrito,
+  // então para corrigir ela digita direto, sem apagar nada antes.
+  const shownReps = (m: SetMark | null) => (m && m.reps !== plan.reps ? String(m.reps) : '');
+  const shownKg = (m: SetMark | null) => (m && (m.kg ?? null) !== (plan.kg ?? null) ? fmtKg(m.kg) : '');
+  const [reps, setReps] = useState(shownReps(mark));
+  const [kg, setKg] = useState(shownKg(mark));
+  const focus = useRef(false);
+  const sync = () => { setReps(shownReps(mark)); setKg(shownKg(mark)); };
+  // O que veio de fora (✓, outro aparelho) aparece nos campos, a menos que ela esteja digitando neles.
+  useEffect(() => { if (!focus.current) sync(); }, [mark?.reps, mark?.kg, !!mark]);
+  const commit = (r: string, k: string) => {
+    const rv = r.trim() === '' ? undefined : parseInt(r, 10);
+    const kv = k.trim() === '' ? undefined : Number(k.replace(',', '.'));
+    if ((rv != null && Number.isNaN(rv)) || (kv != null && Number.isNaN(kv))) return;
+    if (rv == null && kv == null && !mark) return;
+    onMark({ reps: rv ?? plan.reps, kg: kv ?? plan.kg });
+  };
+  const diff = !!mark && !sameAsPlan(mark, plan);
   return (
-    <div className="tp-ed" data-testid="set-editor">
-      <div className="tp-ed-h"><b>{i + 1}ª série</b>{!sameAsPlan(m, plan) ? <span className="tiny">Plano: {plan.reps}{plan.kg != null ? ` × ${kgs(plan.kg)} kg` : ' reps'}</span> : <span className="tiny">Igual ao plano</span>}</div>
-      <div className="tp-ed-row">
-        <span className="tp-ed-l">Repetições</span>
-        <div className="stepper">
-          <button aria-label="Uma repetição a menos" onClick={() => onChange({ ...m, reps: Math.max(0, m.reps - 1) })}>−</button>
-          <input inputMode="numeric" value={m.reps} aria-label="Repetições feitas" data-testid="set-reps" onChange={(ev) => { const v = parseInt(ev.target.value, 10); if (!Number.isNaN(v)) onChange({ ...m, reps: Math.max(0, v) }); }} />
-          <button aria-label="Uma repetição a mais" onClick={() => onChange({ ...m, reps: m.reps + 1 })}>+</button>
+    <li className={`tp-row ${mark ? 'on' : ''} ${diff ? 'diff' : ''}`} data-testid="set-row">
+      <div className="tp-row-main">
+        <span className="tp-row-plan"><span className="tp-row-n num">{i + 1}ª</span> Plano <b className="num">{plan.reps}{plan.kg != null ? ` × ${kgs(plan.kg)} kg` : ' reps'}</b></span>
+        <div className="tp-row-fields">
+          <label className="tp-f"><input inputMode="numeric" value={reps} placeholder={String(plan.reps)} aria-label={`Repetições feitas na ${i + 1}ª série`} data-testid="set-reps"
+            onFocus={() => { focus.current = true; }} onBlur={() => { focus.current = false; }}
+            onChange={(ev) => { const v = ev.target.value.replace(/[^\d]/g, ''); setReps(v); commit(v, kg); }} /><span>{plan.kg != null || mark?.kg != null ? '×' : 'reps'}</span></label>
+          {plan.kg != null || mark?.kg != null ? (
+            <label className="tp-f"><input inputMode="decimal" value={kg} placeholder={fmtKg(plan.kg)} aria-label={`Carga usada na ${i + 1}ª série, em kg`} data-testid="set-kg"
+              onFocus={() => { focus.current = true; }} onBlur={() => { focus.current = false; }}
+              onChange={(ev) => { const v = ev.target.value.replace(/[^\d,.]/g, ''); setKg(v); commit(reps, v); }} /><span>kg</span></label>
+          ) : null}
         </div>
       </div>
-      <div className="tp-ed-row">
-        <span className="tp-ed-l">Carga (kg)</span>
-        <div className="stepper">
-          <button aria-label={`Menos ${kgs(step)} kg`} onClick={() => setKg((kgV ?? 0) - step)}>−</button>
-          <input inputMode="decimal" value={kgV == null ? '' : kgs(kgV)} aria-label="Carga usada em kg" data-testid="set-kg" onChange={(ev) => { const t = ev.target.value.replace(',', '.').trim(); setKg(t === '' ? undefined : Number(t)); }} />
-          <button aria-label={`Mais ${kgs(step)} kg`} onClick={() => setKg((kgV ?? 0) + step)}>+</button>
-        </div>
-      </div>
-      <div className="tp-ed-foot">
-        <button className="link small" onClick={onClear} data-testid="set-clear">Desmarcar série</button>
-        <button className="tp-sec tp-ed-ok" onClick={onClose}>Pronto</button>
-      </div>
-    </div>
+      <button className="tp-check" aria-pressed={!!mark} aria-label={mark ? `Desmarcar a ${i + 1}ª série` : `${i + 1}ª série feita como planejado`} data-testid="set-check"
+        onClick={() => onMark(mark ? null : plan)}><Check size={20} strokeWidth={3} /></button>
+    </li>
   );
 }

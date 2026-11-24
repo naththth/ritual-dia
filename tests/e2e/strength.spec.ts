@@ -68,7 +68,7 @@ test('musculação programada com carga, variações e lançamento do que foi fe
   expect(await sel.locator('option').allTextContents()).not.toEqual(before);
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/strength-plan.png', fullPage: true });
   await page.getByTestId('strength-edit-save').click();
-  await expect(page.getByTestId('strength-note')).toContainText('10×30,5');
+  await expect(page.getByTestId('strength-note')).toContainText('Plano 10 × 30,5 kg');
   await expect(page.getByTestId('strength-note')).toContainText('4×10');
 
   await page.getByTestId('train-done').click();
@@ -151,7 +151,7 @@ test('o roteiro escrito no treino vira os exercícios do dia', async ({ page }) 
   await expect(page.getByTestId('exercise-row')).toHaveCount(0);
   await expect(note.getByTestId('plan-ex').nth(2)).toContainText(alt);
   await expect(note.getByTestId('plan-ex').nth(2)).toContainText('3×12');
-  await expect(note.getByTestId('plan-ex').nth(2)).toContainText('12×25');
+  await expect(note.getByTestId('plan-ex').nth(2)).toContainText('Plano 12 × 25 kg');
   await expect(note.getByTestId('plan-ex').first()).toContainText('Agachamento goblet ou livre');
   await expect(note.getByTestId('plan-ex').first()).toContainText('3×6-10');
   await expect(note).not.toContainText('Mesa flexora');
@@ -159,7 +159,7 @@ test('o roteiro escrito no treino vira os exercícios do dia', async ({ page }) 
   await page.getByRole('button', { name: /^dom, 25\/10/ }).click();
   await openTrainingItems(page);
   await expect(page.getByTestId('plan-ex').nth(2)).toContainText(alt);
-  await expect(page.getByTestId('plan-ex').nth(2)).toContainText('12×25');
+  await expect(page.getByTestId('plan-ex').nth(2)).toContainText('Plano 12 × 25 kg');
   if (process.env.SHOTS) await page.screenshot({ path: '/tmp/claude-0/shots/strength-after.png', fullPage: true });
 });
 

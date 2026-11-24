@@ -48,12 +48,12 @@ for (const width of [360, 393]) test(`musculação planejada abre com cards por 
   await expect(cards).toHaveCount(3);
   await expect(cards.first()).toContainText('Supino reto com barra ou máquina');
   await expect(cards.first()).toContainText('3×8-10');
-  await expect(cards.first()).toContainText('Toque nas séries que fez');
-  // séries do plano, uma por botão: a pirâmide da sugestão (16 → 26,5 → 37 kg)
-  const pills = cards.first().getByTestId('set-pill');
-  await expect(pills).toHaveCount(3);
-  await expect(pills.nth(0)).toContainText('16');
-  await expect(pills.nth(2)).toContainText('37');
+  // uma linha por série: o plano (a pirâmide da sugestão, 16 → 26,5 → 37 kg) e os campos do que fez
+  const rows = cards.first().getByTestId('set-row');
+  await expect(rows).toHaveCount(3);
+  await expect(rows.nth(0)).toContainText('Plano 10 × 16 kg');
+  await expect(rows.nth(2)).toContainText('Plano 10 × 37 kg');
+  await expect(rows.nth(0).getByTestId('set-kg')).toHaveAttribute('placeholder', '16');
   await expect(cards.first()).toContainText('Meta 30-35 kg total');
   await expect(cards.first()).toContainText('Carga subiu: você cumpriu o último');
   await expect(cards.nth(2)).toContainText('cada lado');
@@ -123,27 +123,34 @@ test('marca série a série, ajusta a carga, conclui e o treino feito compara co
   await page.goto('./#/treino');
   await openTrainingItems(page);
   const cards = page.getByTestId('plan-ex');
-  const supino = cards.nth(0).getByTestId('set-pill');
-  // carga mantida (o último foi puxado): 10 × 20 nas três séries
-  await expect(supino.nth(0)).toContainText('10×20');
-  await supino.nth(0).click();
-  await supino.nth(1).click();
-  await expect(supino.nth(0)).toHaveAttribute('aria-pressed', 'true');
+  const rows = cards.nth(0).getByTestId('set-row');
+  // carga mantida (o último foi puxado): plano de 10 × 20 nas três séries
+  await expect(rows.nth(0)).toContainText('Plano 10 × 20 kg');
+  // ✓ marca como planejado; na 2ª ela escreve o que fez: 8 repetições com 22 kg
+  await rows.nth(0).getByTestId('set-check').click();
+  await expect(rows.nth(0).getByTestId('set-check')).toHaveAttribute('aria-pressed', 'true');
+  // campo vazio = igual ao plano (o plano aparece no campo, agora na cor de feito)
+  await expect(rows.nth(0).getByTestId('set-reps')).toHaveValue('');
+  await expect(rows.nth(0)).toHaveClass(/on/);
+  await rows.nth(1).getByTestId('set-reps').fill('8');
+  await rows.nth(1).getByTestId('set-kg').fill('22');
+  await rows.nth(1).getByTestId('set-kg').blur();
+  await expect(rows.nth(1)).toHaveClass(/diff/);
   await expect(cards.nth(0)).toContainText('2 de 3 séries feitas');
   await expect(page.getByTestId('strength-progress')).toContainText('2 de 6 séries feitas');
-  // a 2ª foi diferente: toca de novo para ajustar, 8 repetições com 22 kg
-  await supino.nth(1).click();
-  const ed = page.getByTestId('set-editor');
-  await ed.getByRole('button', { name: 'Uma repetição a menos' }).click();
-  await ed.getByRole('button', { name: 'Uma repetição a menos' }).click();
-  await ed.getByRole('button', { name: /^Mais 1 kg/ }).click();
-  await ed.getByRole('button', { name: /^Mais 1 kg/ }).click();
-  await expect(ed).toContainText('Plano: 10 × 20 kg');
-  await expect(supino.nth(1)).toContainText('8×22');
-  await expect(supino.nth(1)).toHaveClass(/diff/);
+  // nada encavala: o número da série, o plano, os campos e o ✓ ficam dentro da linha
+  for (const r of await rows.all()) {
+    const box = (await r.boundingBox())!;
+    for (const el of await r.locator('.tp-row-n, .tp-row-plan, .tp-f, .tp-check').all()) {
+      const b = (await el.boundingBox())!;
+      expect(b.x + b.width).toBeLessThanOrEqual(box.x + box.width + 1);
+    }
+    const plan = (await r.locator('.tp-row-plan').boundingBox())!;
+    const chk = (await r.locator('.tp-check').boundingBox())!;
+    expect(plan.x + plan.width).toBeLessThanOrEqual(chk.x);
+  }
   if (process.env.SHOTS) await page.getByTestId('planned-item').screenshot({ path: '/tmp/claude-0/shots/strength-marcando.png' });
   await expectButtonsFit(page.getByTestId('planned-item').locator('.tp-sec, .tp-main'));
-  await ed.getByRole('button', { name: 'Pronto' }).click();
   // a remada não foi feita hoje
   await cards.nth(1).getByTestId('ex-skip').click();
   await expect(cards.nth(1)).toContainText('Não feito');
@@ -152,7 +159,8 @@ test('marca série a série, ajusta a carga, conclui e o treino feito compara co
   // grava a cada toque: recarregar não perde nada
   await page.reload();
   await openTrainingItems(page);
-  await expect(page.getByTestId('plan-ex').nth(0).getByTestId('set-pill').nth(1)).toContainText('8×22');
+  await expect(page.getByTestId('plan-ex').nth(0).getByTestId('set-row').nth(1).getByTestId('set-kg')).toHaveValue('22');
+  await expect(page.getByTestId('plan-ex').nth(0).getByTestId('set-row').nth(1).getByTestId('set-reps')).toHaveValue('8');
   await expect(page.getByTestId('plan-ex').nth(1)).toContainText('Não feito');
 
   // o plano continua o mesmo
